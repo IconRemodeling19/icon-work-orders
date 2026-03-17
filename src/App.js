@@ -25,6 +25,7 @@ const EditIcon = () => <svg width="18" height="18" fill="none" stroke="currentCo
 const MapIcon = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>;
 const CheckIcon = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>;
 const SettingsIcon = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
+const SearchIcon = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>;
 
 function getMapsUrl(address) {
   const encoded = encodeURIComponent(address);
@@ -32,39 +33,94 @@ function getMapsUrl(address) {
   return isIOS ? `maps://maps.apple.com/?q=${encoded}` : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
 }
 
-function useGooglePlaces(inputRef, onSelect) {
-  const autocompleteRef = useRef(null);
+// ── Address Input with Places API (New) ──
+function AddressInput({ value, onChange, style }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [sessionToken, setSessionToken] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const debounceRef = useRef(null);
+  const wrapperRef = useRef(null);
 
   useEffect(() => {
     if (window.google && window.google.maps && window.google.maps.places) { setLoaded(true); return; }
     const existing = document.querySelector(`script[src*="maps.googleapis.com/maps/api/js"]`);
     if (existing) { existing.addEventListener("load", () => setLoaded(true)); return; }
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places&loading=async`;
     script.async = true; script.defer = true;
     script.onload = () => setLoaded(true);
     document.head.appendChild(script);
   }, []);
 
   useEffect(() => {
-    if (!loaded || !inputRef.current || autocompleteRef.current) return;
-    try {
-      const ac = new window.google.maps.places.Autocomplete(inputRef.current, { types: ["address"], componentRestrictions: { country: "us" } });
-      ac.addListener("place_changed", () => {
-        const place = ac.getPlace();
-        if (place && place.formatted_address) onSelect(place.formatted_address);
-      });
-      autocompleteRef.current = ac;
-    } catch (e) { console.error("Google Places error:", e); }
-  }, [loaded, inputRef, onSelect]);
-}
+    if (loaded && window.google && window.google.maps && window.google.maps.places) {
+      try { setSessionToken(new window.google.maps.places.AutocompleteSessionToken()); } catch(e) {}
+    }
+  }, [loaded]);
 
-function AddressInput({ value, onChange, style }) {
-  const inputRef = useRef(null);
-  const handleSelect = useCallback((address) => { onChange({ target: { value: address } }); }, [onChange]);
-  useGooglePlaces(inputRef, handleSelect);
-  return <input ref={inputRef} type="text" value={value} onChange={onChange} placeholder="Start typing an address..." style={style} />;
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowSuggestions(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const fetchSuggestions = useCallback((input) => {
+    if (!loaded || !input || input.length < 3) { setSuggestions([]); return; }
+    if (!window.google || !window.google.maps || !window.google.maps.places) return;
+
+    try {
+      const service = new window.google.maps.places.AutocompleteService();
+      service.getPlacePredictions(
+        { input, types: ["address"], componentRestrictions: { country: "us" }, sessionToken },
+        (predictions, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+            setSuggestions(predictions.map(p => ({ description: p.description, placeId: p.place_id })));
+            setShowSuggestions(true);
+          } else {
+            setSuggestions([]);
+          }
+        }
+      );
+    } catch(e) {
+      console.error("Places error:", e);
+    }
+  }, [loaded, sessionToken]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    onChange(e);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 300);
+  };
+
+  const handleSelect = (desc) => {
+    onChange({ target: { value: desc } });
+    setShowSuggestions(false);
+    setSuggestions([]);
+    try { setSessionToken(new window.google.maps.places.AutocompleteSessionToken()); } catch(e) {}
+  };
+
+  return (
+    <div ref={wrapperRef} style={{ position: "relative" }}>
+      <input type="text" value={value} onChange={handleChange} onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+        placeholder="Start typing an address..." style={style} />
+      {showSuggestions && suggestions.length > 0 && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1.5px solid #E4E4E7", borderRadius: "0 0 10px 10px", boxShadow: "0 4px 16px rgba(0,0,0,0.1)", zIndex: 100, maxHeight: "200px", overflowY: "auto" }}>
+          {suggestions.map((s, i) => (
+            <div key={i} onClick={() => handleSelect(s.description)}
+              style={{ padding: "12px 16px", cursor: "pointer", fontSize: "14px", borderBottom: i < suggestions.length - 1 ? "1px solid #F0F0F2" : "none", display: "flex", alignItems: "center", gap: "8px" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "#F7F7F8"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}>
+              <SearchIcon />{s.description}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function App() {
