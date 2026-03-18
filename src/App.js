@@ -212,53 +212,63 @@ export default function App(){
   );
 
   // ── CREW VIEW ──
-  if(mode==="crew")return(
+  if(mode==="crew"){
+    const[selectedCrewOrder,setSelectedCrewOrder]=useState(null);
+    const allActiveCrewOrders=activeCrew;
+    
+    if(selectedCrewOrder!==null){
+      const order=allActiveCrewOrders[selectedCrewOrder];
+      if(!order)return null;
+      return(
+        <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans', sans-serif"}}>
+          <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
+          <div style={{padding:"16px 20px",borderBottom:`1.5px solid ${t.border}`,display:"flex",alignItems:"center",gap:"12px"}} className="no-print">
+            <button onClick={()=>setSelectedCrewOrder(null)} style={{...ghostBtn,padding:"8px"}}><BackIcon/></button><Logo size={36}/>
+            <div><div style={{fontSize:"16px",fontWeight:700,color:t.text}}>Work Order</div><div style={{fontSize:"12px",color:t.textMuted}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div></div>
+          </div>
+          <div style={{padding:"20px"}}>
+            <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"14px",padding:"20px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"}}>
+                <div style={{borderLeft:`3px solid ${t.accent}`,paddingLeft:"14px"}}>
+                  {order.members?.length>0&&<div style={{fontSize:"15px",fontWeight:700,color:t.text,marginBottom:"4px"}}>{order.members.join(", ")}</div>}
+                  <a href={getMapsUrl(order.jobAddress)} target="_blank" rel="noopener noreferrer" style={{fontSize:"16px",fontWeight:600,color:t.text,textDecoration:"none",display:"flex",alignItems:"center",gap:"8px"}}>{order.jobAddress} <MapIcon/></a>
+                </div>
+                <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"8px"}} className="no-print"><PrintIcon/></button>
+              </div>
+              {order.customerName&&<div style={{fontSize:"14px",color:t.text,display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}}><UserIcon/> {order.customerName}</div>}
+              {order.customerPhone&&<div style={{fontSize:"14px",color:t.textMuted,display:"flex",alignItems:"center",gap:"6px",marginBottom:"12px"}}><PhoneIcon/> {order.customerPhone}</div>}
+              <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+                <div><div style={labelStyle}>Job Description</div><div style={{color:t.text,fontSize:"14px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(order.jobDescription)}</div></div>
+                <div><div style={labelStyle}>Materials Required</div><div style={{color:t.text,fontSize:"14px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(order.materials)}</div></div>
+                {order.specialNotes&&<div style={{background:"#FAFAFA",border:`1px solid ${t.border}`,borderRadius:"10px",padding:"14px"}}><div style={labelStyle}>Special Notes</div><div style={{color:t.text,fontSize:"14px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(order.specialNotes)}</div></div>}
+                {order.attachments?.length>0&&<div><div style={labelStyle}>Attachments</div><div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{order.attachments.map((a,i)=><a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"14px",color:t.accent,textDecoration:"none",display:"flex",alignItems:"center",gap:"6px",padding:"8px 12px",background:t.tag,borderRadius:"8px"}}><PaperclipIcon/> {a.name}</a>)}</div></div>}
+              </div>
+            </div>
+          </div>
+        </div>);
+    }
+    
+    return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans', sans-serif"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
       <div style={{padding:"16px 20px",borderBottom:`1.5px solid ${t.border}`,display:"flex",alignItems:"center",gap:"12px"}} className="no-print">
-        <button onClick={()=>{setMode(null);setSelectedCrew(null);}} style={{...ghostBtn,padding:"8px"}}><BackIcon/></button><Logo size={36}/>
+        <button onClick={()=>{setMode(null);}} style={{...ghostBtn,padding:"8px"}}><BackIcon/></button><Logo size={36}/>
         <div><div style={{fontSize:"16px",fontWeight:700,color:t.text}}>Crew View</div><div style={{fontSize:"12px",color:t.textMuted}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div></div>
       </div>
       <div style={{padding:"20px"}}>
-        {!selectedCrew?(<>
-          <h2 style={{fontFamily:"'Playfair Display', serif",fontSize:"22px",color:t.text,margin:"0 0 16px"}}>Select Your Crew</h2>
-          <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-            {crewNames.map(crew=>{const c=activeCrew.filter(o=>o.crewName===crew).length;return(
-              <button key={crew} onClick={()=>setSelectedCrew(crew)} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 20px",borderRadius:"12px",justifyContent:"space-between",color:t.text,fontSize:"16px"}}>
-                <span style={{fontWeight:600}}>{crew}</span>
-                {c>0?<span style={{fontSize:"12px",background:t.accent,color:"#fff",padding:"4px 10px",borderRadius:"20px",fontWeight:700}}>{c}</span>:<span style={{fontSize:"12px",color:t.textMuted}}>No orders</span>}
-              </button>);})}
-          </div>
-        </>):(
-          <>
-            <button onClick={()=>setSelectedCrew(null)} style={{...ghostBtn,padding:"0",marginBottom:"16px",fontSize:"13px"}} className="no-print"><BackIcon/> All Crews</button>
-            <h2 style={{fontFamily:"'Playfair Display', serif",fontSize:"22px",color:t.text,margin:"0 0 16px"}}>{selectedCrew}</h2>
-            {crewOrders.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:t.textMuted}}>No active work orders</div>
-            :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
-              {crewOrders.map((order,idx)=>(
-                <div key={idx} style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"14px",padding:"20px"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"}}>
-                    <div style={{borderLeft:`3px solid ${t.accent}`,paddingLeft:"14px"}}>
-                      {order.members?.length>0&&<div style={{fontSize:"15px",fontWeight:700,color:t.text,marginBottom:"4px"}}>{order.members.join(", ")}</div>}
-                      <a href={getMapsUrl(order.jobAddress)} target="_blank" rel="noopener noreferrer" style={{fontSize:"16px",fontWeight:600,color:t.text,textDecoration:"none",display:"flex",alignItems:"center",gap:"8px"}}>{order.jobAddress} <MapIcon/></a>
-                    </div>
-                    <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"8px"}} className="no-print"><PrintIcon/></button>
-                  </div>
-                  {order.customerName&&<div style={{fontSize:"14px",color:t.text,display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}}><UserIcon/> {order.customerName}</div>}
-                  {order.customerPhone&&<div style={{fontSize:"14px",color:t.textMuted,display:"flex",alignItems:"center",gap:"6px",marginBottom:"12px"}}><PhoneIcon/> {order.customerPhone}</div>}
-                  <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
-                    <div><div style={labelStyle}>Job Description</div><div style={{color:t.text,fontSize:"14px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(order.jobDescription)}</div></div>
-                    <div><div style={labelStyle}>Materials Required</div><div style={{color:t.text,fontSize:"14px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(order.materials)}</div></div>
-                    {order.specialNotes&&<div style={{background:"#FAFAFA",border:`1px solid ${t.border}`,borderRadius:"10px",padding:"14px"}}><div style={labelStyle}>Special Notes</div><div style={{color:t.text,fontSize:"14px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(order.specialNotes)}</div></div>}
-                    {order.attachments?.length>0&&<div><div style={labelStyle}>Attachments</div><div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{order.attachments.map((a,i)=><a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"14px",color:t.accent,textDecoration:"none",display:"flex",alignItems:"center",gap:"6px",padding:"8px 12px",background:t.tag,borderRadius:"8px"}}><PaperclipIcon/> {a.name}</a>)}</div></div>}
-                  </div>
-                </div>))}
-            </div>}
-          </>
-        )}
+        <h2 style={{fontFamily:"'Playfair Display', serif",fontSize:"22px",color:t.text,margin:"0 0 16px"}}>Today's Work Orders</h2>
+        {allActiveCrewOrders.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:t.textMuted}}>No active work orders</div>
+        :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+          {allActiveCrewOrders.map((order,idx)=>(
+            <button key={idx} onClick={()=>setSelectedCrewOrder(idx)} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 20px",borderRadius:"12px",flexDirection:"column",alignItems:"flex-start",gap:"6px",color:t.text,fontSize:"16px",width:"100%",textAlign:"left"}}>
+              <div style={{fontSize:"16px",fontWeight:700,color:t.text}}>{order.members?.length>0?order.members.join(", "):order.crewName}</div>
+              <div style={{fontSize:"13px",color:t.textMuted}}>{order.jobAddress}</div>
+              {order.attachments?.length>0&&<div style={{fontSize:"11px",color:t.textMuted,display:"flex",alignItems:"center",gap:"4px"}}><PaperclipIcon/> {order.attachments.length} attachment{order.attachments.length>1?"s":""}</div>}
+            </button>))}
+        </div>}
       </div>
-    </div>
-  );
+    </div>);
+  }
 
   // ── FIELD OPS ──
   if(mode==="fieldops")return(
