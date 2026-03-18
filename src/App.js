@@ -7,7 +7,6 @@ const ALL_MEMBERS = ["Luis","Azael","Oswaldo","Andres","Vicente","Gabriel","Geov
 const DEFAULT_CREWS = {"Crew 1":[...ALL_MEMBERS],"Crew 2":[...ALL_MEMBERS],"Crew 3":[...ALL_MEMBERS],"Crew 4":[...ALL_MEMBERS],"Crew 5":[...ALL_MEMBERS]};
 const FIELD_OPS_MEMBERS = ["Joe","Bryan"];
 const DEFAULT_PIN = "1234";
-const DEFAULT_PHONES = {"Luis":"","Azael":"","Oswaldo":"","Andres":"","Vicente":"","Gabriel":"","Geovanny":"","Joe":"","Bryan":""};
 
 const emptyCrewOrder = {crewName:"",members:[],jobAddress:"",jobDescription:"",materials:"",specialNotes:"",customerName:"",customerPhone:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
 const emptyFieldOrder = {staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
@@ -106,7 +105,6 @@ export default function App(){
   const[orders,ordersL]=useFB("orders",[]);
   const[fieldOrders,fieldL]=useFB("fieldOrders",[]);
   const[crews,crewsL]=useFB("crews",DEFAULT_CREWS);
-  const[memberPhones]=useFB("settings/memberPhones",DEFAULT_PHONES);
   const[managerPin]=useFB("settings/managerPin",DEFAULT_PIN);
   const[fieldNotes,fieldNotesL]=useFB("fieldNotes",[]);
   const[lastSeen,setLastSeen]=useState(()=>{try{return JSON.parse(localStorage.getItem("wo-seen"))||{};}catch{return{};}});
@@ -129,7 +127,9 @@ export default function App(){
   const[editingFieldOrder,setEditingFieldOrder]=useState(null);
   const[showFieldForm,setShowFieldForm]=useState(false);
   const[selectedCrewOrder,setSelectedCrewOrder]=useState(null);
-  const[showPhoneSettings,setShowPhoneSettings]=useState(false);
+  const[noteText,setNoteText]=useState("");
+  const[noteAtts,setNoteAtts]=useState([]);
+  const[selectedJob,setSelectedJob]=useState("");
   const fileRef=useRef(null);
   const fieldFileRef=useRef(null);
   const noteFileRef=useRef(null);
@@ -137,7 +137,7 @@ export default function App(){
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setShowPhoneSettings(false);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 
   // Track seen per section
@@ -207,7 +207,6 @@ export default function App(){
   };
 
   const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");setShowPinSettings(false);showToast("PIN updated");}else showToast("PIN must be at least 4 digits");};
-  const savePhones=(phones)=>{saveToFB("settings/memberPhones",phones);showToast("Phone numbers saved");};
 
   const todayStr=new Date().toISOString().split("T")[0];
   const activeCrew=getActive(orders);const activeField=getActive(fieldOrders);
@@ -248,7 +247,6 @@ export default function App(){
 
   // ── FIELD NOTES/PHOTOS ──
   if(mode==="fieldnotes"){
-    const[noteText,setNoteText]=useState("");const[noteAtts,setNoteAtts]=useState([]);const[selectedJob,setSelectedJob]=useState("");
     const allJobs=[...activeCrew.map(o=>({label:`${(o.members||[]).join(", ")} - ${o.jobAddress}`,customer:o.customerName,address:o.jobAddress,date:o.date})),...activeField.map(o=>({label:`${(o.staffMember||[]).join(", ")} - Field Ops`,customer:"",address:"",date:o.date}))];
 
     const submitNote=async()=>{
@@ -498,28 +496,6 @@ export default function App(){
     </div>
   );
 
-  // ── PHONE SETTINGS ──
-  if(showPhoneSettings){
-    const[phones,setPhones]=useState({...memberPhones});
-    const allNames=[...ALL_MEMBERS,...FIELD_OPS_MEMBERS];
-    return(
-    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/><Toast/>
-      <Header title="Crew Phone Numbers" onBack={()=>setShowPhoneSettings(false)} onHome={goHome}/>
-      <div style={{padding:"20px"}}>
-        <p style={{color:t.textMuted,fontSize:"14px",marginBottom:"20px"}}>Add phone numbers for each crew member. These will be used for text notifications in the future.</p>
-        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-          {allNames.map(name=>(
-            <div key={name} style={{display:"flex",gap:"10px",alignItems:"center"}}>
-              <span style={{fontSize:"14px",fontWeight:600,color:t.text,minWidth:"90px"}}>{name}</span>
-              <input type="tel" value={phones[name]||""} onChange={e=>setPhones({...phones,[name]:e.target.value})} placeholder="(555) 555-5555" style={{...inputStyle,flex:1}}/>
-            </div>))}
-        </div>
-        <button onClick={()=>{savePhones(phones);setShowPhoneSettings(false);}} style={{...primaryBtn,width:"100%",marginTop:"20px"}}>Save Phone Numbers</button>
-      </div>
-    </div>);
-  }
-
   // ── MANAGER ──
   return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
@@ -528,7 +504,6 @@ export default function App(){
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
         <button onClick={()=>setShowArchive(true)} style={{...ghostBtn,padding:"8px"}} title="Archive"><ArchiveIcon/></button>
         <button onClick={()=>setShowPinSettings(true)} style={{...ghostBtn,padding:"8px"}} title="PIN"><LockIcon/></button>
-        <button onClick={()=>setShowPhoneSettings(true)} style={{...ghostBtn,padding:"8px"}} title="Phone Numbers"><PhoneIcon/></button>
         <button onClick={()=>setManageCrews(true)} style={{...ghostBtn,padding:"8px"}} title="Crews"><SettingsIcon/></button>
         {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> New</button>}
       </Header>
