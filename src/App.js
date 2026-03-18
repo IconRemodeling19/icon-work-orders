@@ -107,6 +107,7 @@ export default function App(){
   const[crews,crewsL]=useFB("crews",DEFAULT_CREWS);
   const[managerPin]=useFB("settings/managerPin",DEFAULT_PIN);
   const[fieldNotes,fieldNotesL]=useFB("fieldNotes",[]);
+  const[standaloneFiles,standaloneFilesL]=useFB("standaloneFiles",[]);
   const[lastSeen,setLastSeen]=useState(()=>{try{return JSON.parse(localStorage.getItem("wo-seen"))||{};}catch{return{};}});
   const[selectedCrew,setSelectedCrew]=useState(null);
   const[editingOrder,setEditingOrder]=useState(null);
@@ -135,7 +136,9 @@ export default function App(){
   const noteFileRef=useRef(null);
   const cameraRef=useRef(null);
 
-  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL;
+  const filesUploadRef=useRef(null);
+
+  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
   const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
@@ -317,6 +320,7 @@ export default function App(){
     (orders||[]).forEach((o,oi)=>(o.attachments||[]).forEach((a,ai)=>allAtts.push({...a,source:o.crewName||"Crew",members:(o.members||[]).join(", "),date:o.date,orderType:"crew",orderIdx:oi,attIdx:ai})));
     (fieldOrders||[]).forEach((o,oi)=>(o.attachments||[]).forEach((a,ai)=>allAtts.push({...a,source:"Field Ops",members:(o.staffMember||[]).join(", "),date:o.date,orderType:"field",orderIdx:oi,attIdx:ai})));
     (fieldNotes||[]).forEach((n,ni)=>(n.attachments||[]).forEach((a,ai)=>allAtts.push({...a,source:"Field Note",members:n.jobRef||"",date:n.submittedAt?n.submittedAt.split("T")[0]:"",orderType:"note",orderIdx:ni,attIdx:ai})));
+    (standaloneFiles||[]).forEach((a,ai)=>allAtts.push({...a,source:"Direct Upload",members:"",date:a.uploadedAt?a.uploadedAt.split("T")[0]:"",orderType:"standalone",attIdx:ai}));
     allAtts.sort((a,b)=>(b.uploadedAt||b.date||"").localeCompare(a.uploadedAt||a.date||""));
 
     const handleRenameFile=(att)=>{
@@ -324,15 +328,35 @@ export default function App(){
       if(att.orderType==="crew"){const u=[...orders];const o={...u[att.orderIdx]};const a=[...(o.attachments||[])];a[att.attIdx]={...a[att.attIdx],name:nn.trim()};o.attachments=a;u[att.orderIdx]=o;saveToFB("orders",u);}
       else if(att.orderType==="field"){const u=[...fieldOrders];const o={...u[att.orderIdx]};const a=[...(o.attachments||[])];a[att.attIdx]={...a[att.attIdx],name:nn.trim()};o.attachments=a;u[att.orderIdx]=o;saveToFB("fieldOrders",u);}
       else if(att.orderType==="note"){const u=[...(fieldNotes||[])];const o={...u[att.orderIdx]};const a=[...(o.attachments||[])];a[att.attIdx]={...a[att.attIdx],name:nn.trim()};o.attachments=a;u[att.orderIdx]=o;saveToFB("fieldNotes",u);}
+      else if(att.orderType==="standalone"){const u=[...(standaloneFiles||[])];u[att.attIdx]={...u[att.attIdx],name:nn.trim()};saveToFB("standaloneFiles",u);}
       showToast("Renamed");
+    };
+
+    const handleDeleteFile=(att)=>{
+      if(!window.confirm("Delete this file?"))return;
+      if(att.orderType==="standalone"){const u=(standaloneFiles||[]).filter((_,i)=>i!==att.attIdx);saveToFB("standaloneFiles",u);showToast("Deleted");}
+      else if(att.orderType==="crew"){const u=[...orders];const o={...u[att.orderIdx]};o.attachments=(o.attachments||[]).filter((_,i)=>i!==att.attIdx);u[att.orderIdx]=o;saveToFB("orders",u);showToast("Deleted");}
+      else if(att.orderType==="field"){const u=[...fieldOrders];const o={...u[att.orderIdx]};o.attachments=(o.attachments||[]).filter((_,i)=>i!==att.attIdx);u[att.orderIdx]=o;saveToFB("fieldOrders",u);showToast("Deleted");}
+      else if(att.orderType==="note"){const u=[...(fieldNotes||[])];const o={...u[att.orderIdx]};o.attachments=(o.attachments||[]).filter((_,i)=>i!==att.attIdx);u[att.orderIdx]=o;saveToFB("fieldNotes",u);showToast("Deleted");}
+    };
+
+    const handleDirectUpload=async(e)=>{
+      const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
+      const newFiles=[...(standaloneFiles||[])];
+      for(const f of files){const dn=window.prompt("Name this file:",f.name)||f.name;
+        try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`files/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);newFiles.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Upload failed");}}
+      saveToFB("standaloneFiles",newFiles);setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
     };
 
     return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
-      <Header title="All Files" subtitle={`${allAtts.length} files`} onBack={goHome} onHome={goHome}/>
+      <Header title="All Files" subtitle={`${allAtts.length} files`} onBack={goHome} onHome={goHome}>
+        <input ref={filesUploadRef} type="file" multiple onChange={handleDirectUpload} style={{display:"none"}}/>
+        <button onClick={()=>filesUploadRef.current?.click()} disabled={uploading} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> {uploading?"Uploading...":"Upload"}</button>
+      </Header>
       <div style={{padding:"20px"}}>
-        {allAtts.length===0?<div style={{textAlign:"center",padding:"48px",color:t.textMuted}}>No attachments yet.</div>
+        {allAtts.length===0?<div style={{textAlign:"center",padding:"48px",color:t.textMuted}}>No files yet. Tap "Upload" to add files, or they'll appear here when attached to work orders.</div>
         :<div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
           {allAtts.map((att,i)=>(
             <div key={i} style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -340,7 +364,10 @@ export default function App(){
                 <a href={att.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"14px",fontWeight:600,color:t.accent,textDecoration:"none",display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}}><PaperclipIcon/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a>
                 <div style={{fontSize:"11px",color:t.textMuted}}>{att.source}{att.members?" \u2022 "+att.members:""} \u2022 {att.date}</div>
               </div>
-              <button onClick={()=>handleRenameFile(att)} style={{...ghostBtn,padding:"6px",flexShrink:0}}><EditIcon/></button>
+              <div style={{display:"flex",gap:"2px",flexShrink:0}}>
+                <button onClick={()=>handleRenameFile(att)} style={{...ghostBtn,padding:"6px"}}><EditIcon/></button>
+                <button onClick={()=>handleDeleteFile(att)} style={{...ghostBtn,padding:"6px",color:t.danger}}><TrashIcon/></button>
+              </div>
             </div>))}
         </div>}
       </div>
