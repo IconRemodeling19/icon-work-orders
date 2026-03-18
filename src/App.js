@@ -42,6 +42,7 @@ const LockIcon=()=><svg width="20" height="20" fill="none" stroke="currentColor"
 const BellIcon=()=><svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>;
 const UserIcon=()=><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
 const PhoneIcon=()=><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>;
+const FolderIcon=()=><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>;
 
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
 
@@ -128,12 +129,25 @@ export default function App(){
   const allOrders=[...orders,...fieldOrders];
   const hasUpdates=allOrders.some(o=>o.lastModified&&o.lastModified>lastSeen);
 
-  // File upload handler
+  // File upload handler - now with title prompt
   const handleUpload=async(e,fd,setFd)=>{
     const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
     const atts=[...(fd.attachments||[])];
-    for(const f of files){try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`attachments/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);atts.push({name:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Upload failed");}}
+    for(const f of files){
+      const displayName=window.prompt("Name this attachment:",f.name)||f.name;
+      try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`attachments/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);atts.push({name:displayName,originalName:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Upload failed");}
+    }
     setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
+  };
+
+  // Rename attachment helper
+  const renameAttachment=(atts,idx,setFn)=>{
+    const current=atts[idx];
+    const newName=window.prompt("Rename attachment:",current.name);
+    if(newName&&newName.trim()){
+      const updated=[...atts];updated[idx]={...current,name:newName.trim()};
+      setFn(updated);
+    }
   };
 
   // Crew order handlers
@@ -165,11 +179,13 @@ export default function App(){
   const crewNames=Object.keys(crews);
 
   const handlePrint=(order)=>{
-    const w=window.open("","_blank","width=800,height=600");
     const members=(order.members||order.staffMember||[]).join(", ");
-    w.document.write(`<html><head><title>Work Order</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a;}h1{font-size:22px;margin-bottom:4px;}h2{font-size:16px;color:#666;margin-bottom:20px;}.section{margin-bottom:16px;}.label{font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}.value{font-size:14px;line-height:1.6;white-space:pre-wrap;}.att{color:#1a1a1a;font-size:12px;}</style></head><body>`);
-    w.document.write(`<img src="${window.location.origin}/logo.jpg" style="width:80px;margin-bottom:12px;"/>`);
-    w.document.write(`<h1>${order.crewName||"Field Operations"}</h1>`);
+    const title=`Work_Order_${members||order.crewName||"Field_Ops"}_${order.date}`.replace(/[^a-zA-Z0-9_-]/g,"_");
+    const w=window.open("","_blank","width=800,height=600");
+    w.document.write(`<html><head><title>${title}</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a;}h1{font-size:22px;margin-bottom:4px;}h2{font-size:16px;color:#666;margin-bottom:20px;}.section{margin-bottom:16px;}.label{font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}.value{font-size:14px;line-height:1.6;white-space:pre-wrap;}.att{color:#1a1a1a;font-size:12px;}@media print{@page{margin:0.5in;}}</style></head><body>`);
+    w.document.write(`<img src="${window.location.origin}/logo.jpg" style="width:80px;margin-bottom:12px;" crossorigin="anonymous"/>`);
+    w.document.write(`<h1>Icon Remodeling Group Inc.</h1>`);
+    w.document.write(`<h2 style="color:#1a1a1a;font-size:18px;margin-bottom:4px;">${order.crewName||"Field Operations"}</h2>`);
     if(members)w.document.write(`<h2>${members}</h2>`);
     w.document.write(`<div class="section"><div class="label">Date</div><div class="value">${order.date}</div></div>`);
     if(order.customerName)w.document.write(`<div class="section"><div class="label">Customer</div><div class="value">${order.customerName}${order.customerPhone?" \u2022 "+order.customerPhone:""}</div></div>`);
@@ -207,10 +223,56 @@ export default function App(){
         <button onClick={()=>setMode("fieldops")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"22px 20px",borderRadius:"14px",flexDirection:"column",gap:"6px",color:t.text}}>
           <span style={{fontSize:"17px",fontWeight:700}}>Field Operations</span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>Joe & Bryan work orders</span>
         </button>
+        <button onClick={()=>setMode("files")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"22px 20px",borderRadius:"14px",flexDirection:"column",gap:"6px",color:t.text}}>
+          <span style={{display:"flex",alignItems:"center",gap:"6px"}}><FolderIcon/><span style={{fontSize:"17px",fontWeight:700}}>Files</span></span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>All attachments & documents</span>
+        </button>
       </div>
       {pinDialog==="manager"&&<PinDialog title="Enter Manager PIN" onSuccess={()=>{setPinDialog(null);setManagerAuth(true);setMode("manager");}} onCancel={()=>setPinDialog(null)}/>}
     </div>
   );
+
+  // ── FILES VIEW ──
+  if(mode==="files"){
+    const allAtts=[];
+    (orders||[]).forEach((o,oi)=>(o.attachments||[]).forEach((a,ai)=>allAtts.push({...a,source:o.crewName||"Crew",members:(o.members||[]).join(", "),date:o.date,orderType:"crew",orderIdx:oi,attIdx:ai})));
+    (fieldOrders||[]).forEach((o,oi)=>(o.attachments||[]).forEach((a,ai)=>allAtts.push({...a,source:"Field Ops",members:(o.staffMember||[]).join(", "),date:o.date,orderType:"field",orderIdx:oi,attIdx:ai})));
+    allAtts.sort((a,b)=>(b.uploadedAt||b.date||"").localeCompare(a.uploadedAt||a.date||""));
+
+    const handleRenameFile=(att)=>{
+      const newName=window.prompt("Rename attachment:",att.name);
+      if(!newName||!newName.trim())return;
+      if(att.orderType==="crew"){
+        const updated=[...orders];const o={...updated[att.orderIdx]};const atts=[...(o.attachments||[])];atts[att.attIdx]={...atts[att.attIdx],name:newName.trim()};o.attachments=atts;updated[att.orderIdx]=o;
+        saveToFB("orders",updated);
+      }else{
+        const updated=[...fieldOrders];const o={...updated[att.orderIdx]};const atts=[...(o.attachments||[])];atts[att.attIdx]={...atts[att.attIdx],name:newName.trim()};o.attachments=atts;updated[att.orderIdx]=o;
+        saveToFB("fieldOrders",updated);
+      }
+      showToast("Renamed");
+    };
+
+    return(
+    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans', sans-serif"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
+      <div style={{padding:"16px 20px",borderBottom:`1.5px solid ${t.border}`,display:"flex",alignItems:"center",gap:"12px"}}>
+        <button onClick={()=>setMode(null)} style={{...ghostBtn,padding:"8px"}}><BackIcon/></button><FolderIcon/>
+        <div style={{fontSize:"16px",fontWeight:700,color:t.text}}>All Files</div>
+      </div>
+      <div style={{padding:"20px"}}>
+        {allAtts.length===0?<div style={{textAlign:"center",padding:"48px",color:t.textMuted}}>No attachments yet. Files added to work orders will appear here.</div>
+        :<div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+          {allAtts.map((att,i)=>(
+            <div key={i} style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <a href={att.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"14px",fontWeight:600,color:t.accent,textDecoration:"none",display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}}><PaperclipIcon/> <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a>
+                <div style={{fontSize:"11px",color:t.textMuted}}>{att.source}{att.members?" \u2022 "+att.members:""} \u2022 {att.date}</div>
+              </div>
+              <button onClick={()=>handleRenameFile(att)} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent,flexShrink:0}}><EditIcon/></button>
+            </div>))}
+        </div>}
+      </div>
+    </div>);
+  }
 
   // ── CREW VIEW ──
   if(mode==="crew"){
