@@ -134,7 +134,7 @@ export default function App(){
   const[noteAtts,setNoteAtts]=useState([]);
   const[selectedJob,setSelectedJob]=useState("");
   const[selectedLockbox,setSelectedLockbox]=useState(null);
-  const[lockboxForm,setLockboxForm]=useState({jobLocation:"",keyBoxLocation:"",keyBoxCode:""});
+  const[lockboxForm,setLockboxForm]=useState({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:""});
   const[editingLockbox,setEditingLockbox]=useState(null);
   const[showLockboxForm,setShowLockboxForm]=useState(false);
   const fileRef=useRef(null);
@@ -270,9 +270,10 @@ export default function App(){
       <div style={{padding:"20px"}}>
         {selected?(
           <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"14px",padding:"24px"}}>
-            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:t.text,margin:"0 0 20px"}}>{selected.jobLocation}</h2>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:t.text,margin:"0 0 20px"}}>{selected.jobName||selected.jobLocation}</h2>
             <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
-              <div><div style={labelStyle}>Job Location</div><div style={{fontSize:"16px",color:t.text,fontWeight:600}}>{selected.jobLocation}</div></div>
+              {selected.jobName&&<div><div style={labelStyle}>Job Name</div><div style={{fontSize:"16px",color:t.text,fontWeight:600}}>{selected.jobName}</div></div>}
+              <div><div style={labelStyle}>Job Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.jobLocation}</div></div>
               <div><div style={labelStyle}>Key Box Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.keyBoxLocation||"\u2014"}</div></div>
               <div style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}><div style={labelStyle}>Key Box Code</div><div style={{fontSize:"28px",fontWeight:700,color:t.accent,letterSpacing:"4px"}}>{selected.keyBoxCode||"\u2014"}</div></div>
             </div>
@@ -283,7 +284,7 @@ export default function App(){
             :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
               {codes.map((code,idx)=>(
                 <button key={idx} onClick={()=>setSelectedLockbox(idx)} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 20px",borderRadius:"12px",justifyContent:"space-between",color:t.text,width:"100%",textAlign:"left"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}><KeyIcon/><span style={{fontSize:"16px",fontWeight:600}}>{code.jobLocation}</span></div>
+                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}><KeyIcon/><span style={{fontSize:"16px",fontWeight:600}}>{code.jobName||code.jobLocation}</span></div>
                 </button>))}
             </div>}
           </>
@@ -300,7 +301,7 @@ export default function App(){
       if(!lockboxForm.jobLocation.trim()){showToast("Job location required");return;}
       const now=new Date().toISOString();const d={...lockboxForm,lastModified:now};let u;
       if(editingLockbox!==null){u=codes.map((c,i)=>i===editingLockbox?d:c);}else{u=[...codes,d];}
-      saveToFB("lockboxCodes",u);setShowLockboxForm(false);setEditingLockbox(null);setLockboxForm({jobLocation:"",keyBoxLocation:"",keyBoxCode:""});showToast(editingLockbox!==null?"Updated":"Lock box code saved");
+      saveToFB("lockboxCodes",u);setShowLockboxForm(false);setEditingLockbox(null);setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:""});showToast(editingLockbox!==null?"Updated":"Lock box code saved");
     };
 
     const deleteLockbox=(idx)=>{
@@ -312,14 +313,15 @@ export default function App(){
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
       <Header title="Manage Lock Box Codes" subtitle={`${codes.length} location${codes.length!==1?"s":""}`} onBack={()=>{setShowLockboxForm(false);setEditingLockbox(null);setMode("manager");}} onHome={goHome}>
-        {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobLocation:"",keyBoxLocation:"",keyBoxCode:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> Add</button>}
+        {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> Add</button>}
       </Header>
       <div style={{padding:"20px"}}>
         {showLockboxForm?(
           <div style={{animation:"fadeIn 0.2s ease"}}><style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}`}</style>
             <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:t.text,margin:"0 0 20px"}}>{editingLockbox!==null?"Edit Lock Box Code":"New Lock Box Code"}</h2>
             <div style={{display:"flex",flexDirection:"column",gap:"18px"}}>
-              <div><label style={labelStyle}>Job Location</label><input type="text" value={lockboxForm.jobLocation} onChange={e=>setLockboxForm({...lockboxForm,jobLocation:e.target.value})} placeholder="e.g. 123 Main St, White Plains" style={inputStyle}/></div>
+              <div><label style={labelStyle}>Job Name</label><input type="text" value={lockboxForm.jobName||""} onChange={e=>setLockboxForm({...lockboxForm,jobName:e.target.value})} placeholder="e.g. Marchetti Kitchen Renovation" style={inputStyle}/></div>
+              <div><label style={labelStyle}>Job Location</label><AddressInput value={lockboxForm.jobLocation} onChange={e=>setLockboxForm({...lockboxForm,jobLocation:e.target.value})} style={inputStyle}/><div style={{fontSize:"11px",color:t.textMuted,marginTop:"4px"}}>Start typing and select from suggestions</div></div>
               <div><label style={labelStyle}>Key Box Location</label><input type="text" value={lockboxForm.keyBoxLocation} onChange={e=>setLockboxForm({...lockboxForm,keyBoxLocation:e.target.value})} placeholder="e.g. Front door handle, back gate" style={inputStyle}/></div>
               <div><label style={labelStyle}>Key Box Code</label><input type="text" value={lockboxForm.keyBoxCode} onChange={e=>setLockboxForm({...lockboxForm,keyBoxCode:e.target.value})} placeholder="e.g. 4589" style={inputStyle}/></div>
               <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowLockboxForm(false);setEditingLockbox(null);}} style={{...baseBtn,flex:1,background:t.card,border:`1.5px solid ${t.border}`,color:t.textMuted,padding:"14px"}}>Cancel</button><button onClick={saveLockbox} style={{...primaryBtn,flex:2}}>{editingLockbox!==null?"Update":"Save"}</button></div>
@@ -331,9 +333,9 @@ export default function App(){
             :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
               {codes.map((code,idx)=>(
                 <div key={idx} style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"12px",padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{code.jobLocation}</div><div style={{fontSize:"13px",color:t.textMuted}}>{code.keyBoxLocation} \u2022 Code: {code.keyBoxCode}</div></div>
+                  <div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{code.jobName||code.jobLocation}</div><div style={{fontSize:"13px",color:t.textMuted}}>{code.jobLocation} \u2022 Code: {code.keyBoxCode}</div></div>
                   <div style={{display:"flex",gap:"4px"}}>
-                    <button onClick={()=>{setLockboxForm({jobLocation:code.jobLocation,keyBoxLocation:code.keyBoxLocation,keyBoxCode:code.keyBoxCode});setEditingLockbox(idx);setShowLockboxForm(true);}} style={{...ghostBtn,padding:"6px"}}><EditIcon/></button>
+                    <button onClick={()=>{setLockboxForm({jobName:code.jobName||"",jobLocation:code.jobLocation,keyBoxLocation:code.keyBoxLocation,keyBoxCode:code.keyBoxCode});setEditingLockbox(idx);setShowLockboxForm(true);}} style={{...ghostBtn,padding:"6px"}}><EditIcon/></button>
                     <button onClick={()=>deleteLockbox(idx)} style={{...ghostBtn,padding:"6px",color:t.danger}}><TrashIcon/></button>
                   </div>
                 </div>))}
