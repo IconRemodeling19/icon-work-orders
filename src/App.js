@@ -44,6 +44,7 @@ const PhoneIcon=()=>ic(<path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.6
 const FolderIcon=()=>ic(<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>);
 const CameraIcon=()=>ic(<><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></>);
 const NoteIcon=()=>ic(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>);
+const KeyIcon=()=>ic(<><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></>);
 
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
 
@@ -108,6 +109,7 @@ export default function App(){
   const[managerPin]=useFB("settings/managerPin",DEFAULT_PIN);
   const[fieldNotes,fieldNotesL]=useFB("fieldNotes",[]);
   const[standaloneFiles,standaloneFilesL]=useFB("standaloneFiles",[]);
+  const[lockboxCodes,lockboxL]=useFB("lockboxCodes",[]);
   const[lastSeen,setLastSeen]=useState(()=>{try{return JSON.parse(localStorage.getItem("wo-seen"))||{};}catch{return{};}});
   const[selectedCrew,setSelectedCrew]=useState(null);
   const[editingOrder,setEditingOrder]=useState(null);
@@ -131,6 +133,10 @@ export default function App(){
   const[noteText,setNoteText]=useState("");
   const[noteAtts,setNoteAtts]=useState([]);
   const[selectedJob,setSelectedJob]=useState("");
+  const[selectedLockbox,setSelectedLockbox]=useState(null);
+  const[lockboxForm,setLockboxForm]=useState({jobLocation:"",keyBoxLocation:"",keyBoxCode:""});
+  const[editingLockbox,setEditingLockbox]=useState(null);
+  const[showLockboxForm,setShowLockboxForm]=useState(false);
   const fileRef=useRef(null);
   const fieldFileRef=useRef(null);
   const noteFileRef=useRef(null);
@@ -138,9 +144,9 @@ export default function App(){
 
   const filesUploadRef=useRef(null);
 
-  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL;
+  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 
   // Track seen per section
@@ -153,6 +159,7 @@ export default function App(){
   const fieldUpdates=hasUpdate("fieldops",fieldOrders);
   const notesUpdates=hasUpdate("fieldnotes",fieldNotes);
   const filesUpdates=hasUpdate("files",[...orders,...fieldOrders].filter(o=>(o.attachments||[]).length>0));
+  const lockboxUpdates=hasUpdate("lockbox",lockboxCodes);
   const managerUpdates=crewUpdates;
 
   // File upload
@@ -243,10 +250,99 @@ export default function App(){
         <button onClick={()=>setMode("files")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
           <span style={{display:"flex",alignItems:"center",gap:"6px"}}><FolderIcon/><span style={{fontSize:"17px",fontWeight:700}}>Files</span></span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>All attachments & documents</span>{filesUpdates&&<Dot/>}
         </button>
+        <button onClick={()=>setMode("lockbox")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
+          <span style={{display:"flex",alignItems:"center",gap:"6px"}}><KeyIcon/><span style={{fontSize:"17px",fontWeight:700}}>Lock Box Codes</span></span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>Job site access codes</span>{lockboxUpdates&&<Dot/>}
+        </button>
       </div>
       {pinDialog==="manager"&&<PinDialog title="Enter Manager PIN" onSuccess={()=>{setPinDialog(null);setManagerAuth(true);setMode("manager");}} onCancel={()=>setPinDialog(null)}/>}
     </div>
   );
+
+  // ── LOCK BOX CODES (Read-only for field crew) ──
+  if(mode==="lockbox"){
+    const codes=lockboxCodes||[];
+    const selected=selectedLockbox!==null?codes[selectedLockbox]:null;
+
+    return(
+    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
+      <Header title={selected?"Lock Box Details":"Lock Box Codes"} subtitle={`${codes.length} location${codes.length!==1?"s":""}`} onBack={()=>{if(selected){setSelectedLockbox(null);}else{goHome();}}} onHome={goHome}/>
+      <div style={{padding:"20px"}}>
+        {selected?(
+          <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"14px",padding:"24px"}}>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:t.text,margin:"0 0 20px"}}>{selected.jobLocation}</h2>
+            <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+              <div><div style={labelStyle}>Job Location</div><div style={{fontSize:"16px",color:t.text,fontWeight:600}}>{selected.jobLocation}</div></div>
+              <div><div style={labelStyle}>Key Box Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.keyBoxLocation||"\u2014"}</div></div>
+              <div style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}><div style={labelStyle}>Key Box Code</div><div style={{fontSize:"28px",fontWeight:700,color:t.accent,letterSpacing:"4px"}}>{selected.keyBoxCode||"\u2014"}</div></div>
+            </div>
+          </div>
+        ):(
+          <>
+            {codes.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:t.textMuted}}>No lock box codes yet. Ask your manager to add codes.</div>
+            :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+              {codes.map((code,idx)=>(
+                <button key={idx} onClick={()=>setSelectedLockbox(idx)} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 20px",borderRadius:"12px",justifyContent:"space-between",color:t.text,width:"100%",textAlign:"left"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}><KeyIcon/><span style={{fontSize:"16px",fontWeight:600}}>{code.jobLocation}</span></div>
+                </button>))}
+            </div>}
+          </>
+        )}
+      </div>
+    </div>);
+  }
+
+  // ── MANAGE LOCK BOX CODES (Manager only) ──
+  if(mode==="manageLockbox"){
+    const codes=lockboxCodes||[];
+
+    const saveLockbox=()=>{
+      if(!lockboxForm.jobLocation.trim()){showToast("Job location required");return;}
+      const now=new Date().toISOString();const d={...lockboxForm,lastModified:now};let u;
+      if(editingLockbox!==null){u=codes.map((c,i)=>i===editingLockbox?d:c);}else{u=[...codes,d];}
+      saveToFB("lockboxCodes",u);setShowLockboxForm(false);setEditingLockbox(null);setLockboxForm({jobLocation:"",keyBoxLocation:"",keyBoxCode:""});showToast(editingLockbox!==null?"Updated":"Lock box code saved");
+    };
+
+    const deleteLockbox=(idx)=>{
+      if(!window.confirm("Delete this lock box code?"))return;
+      saveToFB("lockboxCodes",codes.filter((_,i)=>i!==idx));showToast("Deleted");
+    };
+
+    return(
+    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
+      <Header title="Manage Lock Box Codes" subtitle={`${codes.length} location${codes.length!==1?"s":""}`} onBack={()=>{setShowLockboxForm(false);setEditingLockbox(null);setMode("manager");}} onHome={goHome}>
+        {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobLocation:"",keyBoxLocation:"",keyBoxCode:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> Add</button>}
+      </Header>
+      <div style={{padding:"20px"}}>
+        {showLockboxForm?(
+          <div style={{animation:"fadeIn 0.2s ease"}}><style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}`}</style>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:t.text,margin:"0 0 20px"}}>{editingLockbox!==null?"Edit Lock Box Code":"New Lock Box Code"}</h2>
+            <div style={{display:"flex",flexDirection:"column",gap:"18px"}}>
+              <div><label style={labelStyle}>Job Location</label><input type="text" value={lockboxForm.jobLocation} onChange={e=>setLockboxForm({...lockboxForm,jobLocation:e.target.value})} placeholder="e.g. 123 Main St, White Plains" style={inputStyle}/></div>
+              <div><label style={labelStyle}>Key Box Location</label><input type="text" value={lockboxForm.keyBoxLocation} onChange={e=>setLockboxForm({...lockboxForm,keyBoxLocation:e.target.value})} placeholder="e.g. Front door handle, back gate" style={inputStyle}/></div>
+              <div><label style={labelStyle}>Key Box Code</label><input type="text" value={lockboxForm.keyBoxCode} onChange={e=>setLockboxForm({...lockboxForm,keyBoxCode:e.target.value})} placeholder="e.g. 4589" style={inputStyle}/></div>
+              <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowLockboxForm(false);setEditingLockbox(null);}} style={{...baseBtn,flex:1,background:t.card,border:`1.5px solid ${t.border}`,color:t.textMuted,padding:"14px"}}>Cancel</button><button onClick={saveLockbox} style={{...primaryBtn,flex:2}}>{editingLockbox!==null?"Update":"Save"}</button></div>
+            </div>
+          </div>
+        ):(
+          <>
+            {codes.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:t.textMuted}}>No lock box codes yet. Tap "Add" to create one.</div>
+            :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+              {codes.map((code,idx)=>(
+                <div key={idx} style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"12px",padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{code.jobLocation}</div><div style={{fontSize:"13px",color:t.textMuted}}>{code.keyBoxLocation} \u2022 Code: {code.keyBoxCode}</div></div>
+                  <div style={{display:"flex",gap:"4px"}}>
+                    <button onClick={()=>{setLockboxForm({jobLocation:code.jobLocation,keyBoxLocation:code.keyBoxLocation,keyBoxCode:code.keyBoxCode});setEditingLockbox(idx);setShowLockboxForm(true);}} style={{...ghostBtn,padding:"6px"}}><EditIcon/></button>
+                    <button onClick={()=>deleteLockbox(idx)} style={{...ghostBtn,padding:"6px",color:t.danger}}><TrashIcon/></button>
+                  </div>
+                </div>))}
+            </div>}
+          </>
+        )}
+      </div>
+    </div>);
+  }
 
   // ── FIELD NOTES/PHOTOS ──
   if(mode==="fieldnotes"){
@@ -531,6 +627,7 @@ export default function App(){
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
         <button onClick={()=>setShowArchive(true)} style={{...ghostBtn,padding:"8px"}} title="Archive"><ArchiveIcon/></button>
         <button onClick={()=>setShowPinSettings(true)} style={{...ghostBtn,padding:"8px"}} title="PIN"><LockIcon/></button>
+        <button onClick={()=>setMode("manageLockbox")} style={{...ghostBtn,padding:"8px"}} title="Lock Box Codes"><KeyIcon/></button>
         <button onClick={()=>setManageCrews(true)} style={{...ghostBtn,padding:"8px"}} title="Crews"><SettingsIcon/></button>
         {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> New</button>}
       </Header>
