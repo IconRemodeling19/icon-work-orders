@@ -88,15 +88,17 @@ function PinDialog({onSuccess,onCancel,title}){
 // Header component with home button
 function Header({title,subtitle,onBack,onHome,children}){
   return(
-    <div style={{padding:"16px 20px",borderBottom:`1.5px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}} className="no-print">
-      <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-        {onBack&&<button onClick={onBack} style={{...ghostBtn,padding:"8px"}}><BackIcon/></button>}
-        <Logo size={36}/>
-        <div><div style={{fontSize:"16px",fontWeight:700,color:t.text}}>{title}</div>{subtitle&&<div style={{fontSize:"12px",color:t.textMuted}}>{subtitle}</div>}</div>
-      </div>
-      <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-        {children}
-        {onHome&&<button onClick={onHome} style={{...ghostBtn,padding:"8px"}} title="Home"><HomeIcon/></button>}
+    <div className="no-print">
+      <div style={{padding:"12px 16px",borderBottom:`1.5px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:0,flex:"0 1 auto"}}>
+          {onBack&&<button onClick={onBack} style={{...ghostBtn,padding:"6px",flexShrink:0}}><BackIcon/></button>}
+          <Logo size={32}/>
+          <div style={{minWidth:0}}><div style={{fontSize:"15px",fontWeight:700,color:t.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</div>{subtitle&&<div style={{fontSize:"11px",color:t.textMuted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subtitle}</div>}</div>
+        </div>
+        <div style={{display:"flex",gap:"4px",alignItems:"center",flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          {children}
+          {onHome&&<button onClick={onHome} style={{...ghostBtn,padding:"6px"}} title="Home"><HomeIcon/></button>}
+        </div>
       </div>
     </div>);
 }
@@ -627,11 +629,11 @@ export default function App(){
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
       {deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:"16px",padding:"28px",maxWidth:"320px",width:"100%",textAlign:"center"}}><div style={{fontSize:"17px",fontWeight:700,marginBottom:"8px"}}>Delete Work Order?</div><div style={{fontSize:"14px",color:t.textMuted,marginBottom:"24px"}}>This can't be undone.</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.card,color:t.textMuted,padding:"12px"}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px"}}>Delete</button></div></div></div>}
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
-        <button onClick={()=>setShowArchive(true)} style={{...ghostBtn,padding:"8px"}} title="Archive"><ArchiveIcon/></button>
-        <button onClick={()=>setShowPinSettings(true)} style={{...ghostBtn,padding:"8px"}} title="PIN"><LockIcon/></button>
-        <button onClick={()=>setMode("manageLockbox")} style={{...ghostBtn,padding:"8px"}} title="Lock Box Codes"><KeyIcon/></button>
-        <button onClick={()=>setManageCrews(true)} style={{...ghostBtn,padding:"8px"}} title="Crews"><SettingsIcon/></button>
-        {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> New</button>}
+        <button onClick={()=>setShowArchive(true)} style={{...ghostBtn,padding:"6px"}} title="Archive"><ArchiveIcon/></button>
+        <button onClick={()=>setShowPinSettings(true)} style={{...ghostBtn,padding:"6px"}} title="PIN"><LockIcon/></button>
+        <button onClick={()=>setMode("manageLockbox")} style={{...ghostBtn,padding:"6px"}} title="Lock Box Codes"><KeyIcon/></button>
+        <button onClick={()=>setManageCrews(true)} style={{...ghostBtn,padding:"6px"}} title="Crews"><SettingsIcon/></button>
+        {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"8px 12px",fontSize:"13px"}}><PlusIcon/> New</button>}
       </Header>
       <div style={{padding:"20px"}}>
         {showForm?(
