@@ -112,6 +112,7 @@ export default function App(){
   const[fieldNotes,fieldNotesL]=useFB("fieldNotes",[]);
   const[standaloneFiles,standaloneFilesL]=useFB("standaloneFiles",[]);
   const[lockboxCodes,lockboxL]=useFB("lockboxCodes",[]);
+  const[activeJobs,activeJobsL]=useFB("activeJobs",[]);
   const[lastSeen,setLastSeen]=useState(()=>{try{return JSON.parse(localStorage.getItem("wo-seen"))||{};}catch{return{};}});
   const[selectedCrew,setSelectedCrew]=useState(null);
   const[editingOrder,setEditingOrder]=useState(null);
@@ -139,6 +140,10 @@ export default function App(){
   const[lockboxForm,setLockboxForm]=useState({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:""});
   const[editingLockbox,setEditingLockbox]=useState(null);
   const[showLockboxForm,setShowLockboxForm]=useState(false);
+  const[editingActiveJob,setEditingActiveJob]=useState(null);
+  const[activeJobsEditing,setActiveJobsEditing]=useState(false);
+  const[newJobName,setNewJobName]=useState("");
+  const[newJobAddress,setNewJobAddress]=useState("");
   const fileRef=useRef(null);
   const fieldFileRef=useRef(null);
   const noteFileRef=useRef(null);
@@ -146,9 +151,9 @@ export default function App(){
 
   const filesUploadRef=useRef(null);
 
-  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL;
+  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 
   // Track seen per section
@@ -231,32 +236,105 @@ export default function App(){
   const Toast=()=>toast?<div style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",background:t.accent,color:"#fff",padding:"12px 24px",borderRadius:"10px",fontSize:"14px",fontWeight:600,zIndex:1001,boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>{toast}</div>:null;
   const Dot=()=><span style={{position:"absolute",top:"12px",right:"12px",width:"10px",height:"10px",background:t.danger,borderRadius:"50%"}}/>;
 
+  // Active Jobs helpers
+  const saveActiveJob=(name,address)=>{
+    if(!name.trim()){showToast("Job name required");return;}
+    const now=new Date().toISOString();
+    const jobs=[...(activeJobs||[])];
+    if(editingActiveJob!==null){jobs[editingActiveJob]={name:name.trim().toUpperCase(),address:address.trim(),lastModified:now};}
+    else{jobs.push({name:name.trim().toUpperCase(),address:address.trim(),lastModified:now});}
+    saveToFB("activeJobs",jobs);setNewJobName("");setNewJobAddress("");setEditingActiveJob(null);showToast(editingActiveJob!==null?"Updated":"Job added");
+  };
+  const deleteActiveJob=(idx)=>{
+    if(!window.confirm("Remove this job?"))return;
+    saveToFB("activeJobs",(activeJobs||[]).filter((_,i)=>i!==idx));showToast("Removed");
+  };
+
+  // Three dots menu icon
+  const DotsIcon=()=>ic(<><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></>,16);
+
   // ── HOME ──
   if(mode===null)return(
-    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px"}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/>
-      <div style={{textAlign:"center",marginBottom:"32px"}}><Logo size={80}/><h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"28px",color:t.text,margin:"16px 0 0"}}>Work Orders</h1><p style={{color:t.textMuted,fontSize:"14px",marginTop:"6px"}}>Create and view daily crew assignments</p></div>
-      <div style={{display:"flex",flexDirection:"column",gap:"10px",width:"100%",maxWidth:"320px"}}>
-        <button onClick={()=>setPinDialog("manager")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
-          <span style={{display:"flex",alignItems:"center",gap:"6px"}}><LockIcon/><span style={{fontSize:"17px",fontWeight:700}}>Manager</span></span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>Create & manage work orders</span>{managerUpdates&&<Dot/>}
+    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif",padding:"24px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
+      <div style={{textAlign:"center",marginBottom:"24px"}}><Logo size={80}/><h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"28px",color:t.text,margin:"16px 0 0"}}>Work Orders</h1><p style={{color:t.textMuted,fontSize:"14px",marginTop:"6px"}}>Create and view daily crew assignments</p></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",width:"100%",maxWidth:"400px",marginBottom:"32px"}}>
+        <button onClick={()=>setPinDialog("manager")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
+          <span style={{display:"flex",alignItems:"center",gap:"4px"}}><LockIcon/><span style={{fontSize:"15px",fontWeight:700}}>Manager</span></span><span style={{fontSize:"11px",color:t.textMuted,fontWeight:400}}>Create & manage work orders</span>{managerUpdates&&<Dot/>}
         </button>
-        <button onClick={()=>setMode("crew")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
-          <span style={{fontSize:"17px",fontWeight:700}}>Crew</span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>View today's assignments</span>{crewUpdates&&<Dot/>}
+        <button onClick={()=>setMode("crew")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
+          <span style={{fontSize:"15px",fontWeight:700}}>Crew</span><span style={{fontSize:"11px",color:t.textMuted,fontWeight:400}}>View today's assignments</span>{crewUpdates&&<Dot/>}
         </button>
-        <button onClick={()=>setMode("fieldops")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
-          <span style={{fontSize:"17px",fontWeight:700}}>Field Operations</span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>Joe & Bryan work orders</span>{fieldUpdates&&<Dot/>}
+        <button onClick={()=>setMode("fieldops")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
+          <span style={{fontSize:"15px",fontWeight:700}}>Field Operations</span><span style={{fontSize:"11px",color:t.textMuted,fontWeight:400}}>Joe & Bryan work orders</span>{fieldUpdates&&<Dot/>}
         </button>
-        <button onClick={()=>setMode("fieldnotes")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
-          <span style={{display:"flex",alignItems:"center",gap:"6px"}}><NoteIcon/><span style={{fontSize:"17px",fontWeight:700}}>Job Field Notes/Photos</span></span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>Crew notes, photos & reports</span>{notesUpdates&&<Dot/>}
+        <button onClick={()=>setMode("fieldnotes")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
+          <span style={{display:"flex",alignItems:"center",gap:"4px"}}><NoteIcon/><span style={{fontSize:"15px",fontWeight:700}}>Job Field Notes/Photos</span></span><span style={{fontSize:"11px",color:t.textMuted,fontWeight:400}}>Crew notes, photos & reports</span>{notesUpdates&&<Dot/>}
         </button>
-        <button onClick={()=>setMode("files")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
-          <span style={{display:"flex",alignItems:"center",gap:"6px"}}><FolderIcon/><span style={{fontSize:"17px",fontWeight:700}}>Files</span></span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>All attachments & documents</span>{filesUpdates&&<Dot/>}
+        <button onClick={()=>setMode("files")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
+          <span style={{display:"flex",alignItems:"center",gap:"4px"}}><FolderIcon/><span style={{fontSize:"15px",fontWeight:700}}>Files</span></span><span style={{fontSize:"11px",color:t.textMuted,fontWeight:400}}>All attachments & documents</span>{filesUpdates&&<Dot/>}
         </button>
-        <button onClick={()=>setMode("lockbox")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"20px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
-          <span style={{display:"flex",alignItems:"center",gap:"6px"}}><KeyIcon/><span style={{fontSize:"17px",fontWeight:700}}>Lock Box Codes</span></span><span style={{fontSize:"13px",color:t.textMuted,fontWeight:400}}>Job site access codes</span>{lockboxUpdates&&<Dot/>}
+        <button onClick={()=>setMode("lockbox")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
+          <span style={{display:"flex",alignItems:"center",gap:"4px"}}><KeyIcon/><span style={{fontSize:"15px",fontWeight:700}}>Lock Box Codes</span></span><span style={{fontSize:"11px",color:t.textMuted,fontWeight:400}}>Job site access codes</span>{lockboxUpdates&&<Dot/>}
         </button>
       </div>
+
+      {/* ── ACTIVE JOBS ── */}
+      <div style={{width:"100%",maxWidth:"600px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+          <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:t.text,margin:0}}>Active Jobs</h2>
+          {!activeJobsEditing&&<button onClick={()=>setPinDialog("activeJobs")} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Edit</button>}
+          {activeJobsEditing&&<button onClick={()=>{setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");}} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Done</button>}
+        </div>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"14px"}}>
+          <thead>
+            <tr>
+              <th style={{textAlign:"left",padding:"10px 12px",borderBottom:"2px solid #1A1A1A",fontWeight:700,fontSize:"13px",color:t.text}}>Job Name</th>
+              <th style={{textAlign:"left",padding:"10px 12px",borderBottom:"2px solid #1A1A1A",fontWeight:700,fontSize:"13px",color:t.text}}>Address</th>
+              {activeJobsEditing&&<th style={{width:"40px",borderBottom:"2px solid #1A1A1A"}}></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {(activeJobs||[]).map((job,idx)=>(
+              editingActiveJob===idx?(
+                <tr key={idx}>
+                  <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}} placeholder="Job name"/></td>
+                  <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}}/></td>
+                  <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`,whiteSpace:"nowrap"}}>
+                    <button onClick={()=>saveActiveJob(newJobName,newJobAddress)} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button>
+                    <button onClick={()=>{setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");}} style={{...ghostBtn,padding:"4px",color:t.danger}}>&times;</button>
+                  </td>
+                </tr>
+              ):(
+                <tr key={idx}>
+                  <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.border}`,fontWeight:600,color:t.text}}>{job.name}</td>
+                  <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.border}`,color:t.text}}>{job.address}</td>
+                  {activeJobsEditing&&<td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`}}>
+                    <div style={{position:"relative"}}>
+                      <button onClick={()=>{
+                        const action=window.prompt("Type 'edit' to edit or 'delete' to remove:");
+                        if(action?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);}
+                        else if(action?.toLowerCase()==="delete"){deleteActiveJob(idx);}
+                      }} style={{...ghostBtn,padding:"4px"}}><DotsIcon/></button>
+                    </div>
+                  </td>}
+                </tr>
+              )
+            ))}
+            {activeJobsEditing&&editingActiveJob===null&&(
+              <tr>
+                <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}} placeholder="NEW JOB NAME" onKeyDown={e=>{if(e.key==="Tab"&&!e.shiftKey){};}}/></td>
+                <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}}/></td>
+                <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`}}><button onClick={()=>{if(newJobName.trim()){saveActiveJob(newJobName,newJobAddress);}}} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button></td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {(activeJobs||[]).length===0&&!activeJobsEditing&&<div style={{textAlign:"center",padding:"24px",color:t.textMuted,fontSize:"13px"}}>No active jobs</div>}
+      </div>
+
       {pinDialog==="manager"&&<PinDialog title="Enter Manager PIN" onSuccess={()=>{setPinDialog(null);setManagerAuth(true);setMode("manager");}} onCancel={()=>setPinDialog(null)}/>}
+      {pinDialog==="activeJobs"&&<PinDialog title="Enter Admin Code" onSuccess={()=>{setPinDialog(null);setActiveJobsEditing(true);}} onCancel={()=>setPinDialog(null)}/>}
     </div>
   );
 
