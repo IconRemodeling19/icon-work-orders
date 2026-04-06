@@ -45,6 +45,8 @@ const FolderIcon=()=>ic(<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-
 const CameraIcon=()=>ic(<><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></>);
 const NoteIcon=()=>ic(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>);
 const KeyIcon=()=>ic(<><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></>);
+const WifiIcon=()=>ic(<><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></>,18);
+const XIcon=()=>ic(<path d="M18 6L6 18M6 6l12 12"/>,18);
 
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
 
@@ -83,6 +85,21 @@ function PinDialog({onSuccess,onCancel,title}){
       <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.card,color:t.textMuted,padding:"12px"}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px"}}>Enter</button></div>
     </div>
   </div>);
+}
+
+// Info Modal — shown when tapping 🔑 or 📶 icon
+function InfoModal({title,icon,children,onClose}){
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={onClose}>
+      <div style={{background:"#fff",borderRadius:"16px",padding:"28px",maxWidth:"340px",width:"100%"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px",color:t.text}}>{icon}<span style={{fontSize:"17px",fontWeight:700}}>{title}</span></div>
+          <button onClick={onClose} style={{...ghostBtn,padding:"4px"}}><XIcon/></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 // Header component with home button
@@ -137,30 +154,32 @@ export default function App(){
   const[noteAtts,setNoteAtts]=useState([]);
   const[selectedJob,setSelectedJob]=useState("");
   const[selectedLockbox,setSelectedLockbox]=useState(null);
-  const[lockboxForm,setLockboxForm]=useState({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:""});
+  const[lockboxForm,setLockboxForm]=useState({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});
   const[editingLockbox,setEditingLockbox]=useState(null);
   const[showLockboxForm,setShowLockboxForm]=useState(false);
   const[editingActiveJob,setEditingActiveJob]=useState(null);
   const[activeJobsEditing,setActiveJobsEditing]=useState(false);
   const[newJobName,setNewJobName]=useState("");
   const[newJobAddress,setNewJobAddress]=useState("");
+  const[newJobWifiName,setNewJobWifiName]=useState("");
+  const[newJobWifiPass,setNewJobWifiPass]=useState("");
+  // Modals for icons on active jobs
+  const[keyModal,setKeyModal]=useState(null); // {code, jobName}
+  const[wifiModal,setWifiModal]=useState(null); // {wifiName, wifiPassword}
   const fileRef=useRef(null);
   const fieldFileRef=useRef(null);
   const noteFileRef=useRef(null);
   const cameraRef=useRef(null);
-
   const filesUploadRef=useRef(null);
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 
-  // Track seen per section
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
 
-  // Check for updates per section
   const hasUpdate=(section,items)=>{const ls=lastSeen[section]||"";return(items||[]).some(o=>o.lastModified&&o.lastModified>ls);};
   const crewUpdates=hasUpdate("crew",orders);
   const fieldUpdates=hasUpdate("fieldops",fieldOrders);
@@ -169,7 +188,6 @@ export default function App(){
   const lockboxUpdates=hasUpdate("lockbox",lockboxCodes);
   const managerUpdates=crewUpdates;
 
-  // File upload
   const handleUpload=async(e,fd,setFd)=>{
     const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
     const atts=[...(fd.attachments||[])];
@@ -190,7 +208,6 @@ export default function App(){
   const removeMember=(crew,i)=>{saveToFB("crews",{...crews,[crew]:crews[crew].filter((_,x)=>x!==i)});showToast("Removed");};
   const toggleMember=n=>{setFormData(p=>({...p,members:p.members.includes(n)?p.members.filter(x=>x!==n):[...p.members,n]}));};
 
-  // Field Ops handlers
   const saveField=()=>{
     const now=new Date().toISOString();const d={...fieldFormData,lastModified:now};let u;
     if(editingFieldOrder!==null){u=fieldOrders.map((o,i)=>i===editingFieldOrder?d:o);}else{u=[...fieldOrders,d];}
@@ -199,10 +216,8 @@ export default function App(){
   const deleteField=i=>{saveToFB("fieldOrders",fieldOrders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const toggleFieldMember=n=>{setFieldFormData(p=>({...p,staffMember:p.staffMember.includes(n)?p.staffMember.filter(x=>x!==n):[...p.staffMember,n]}));};
 
-  // Field Notes handlers
   const addFieldNote=async(note)=>{const now=new Date().toISOString();const n={...note,submittedAt:now,lastModified:now};const u=[...(fieldNotes||[]),n];saveToFB("fieldNotes",u);showToast("Field note saved");};
 
-  // Print handler
   const handlePrint=(order)=>{
     const members=(order.members||order.staffMember||[]).join(", ");
     const title=`Work_Order_${members||order.crewName||"Field_Ops"}_${order.date}`.replace(/[^a-zA-Z0-9_-]/g,"_");
@@ -236,27 +251,72 @@ export default function App(){
   const Toast=()=>toast?<div style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",background:t.accent,color:"#fff",padding:"12px 24px",borderRadius:"10px",fontSize:"14px",fontWeight:600,zIndex:1001,boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>{toast}</div>:null;
   const Dot=()=><span style={{position:"absolute",top:"12px",right:"12px",width:"10px",height:"10px",background:t.danger,borderRadius:"50%"}}/>;
 
-  // Active Jobs helpers
-  const saveActiveJob=(name,address)=>{
+  // ── Active Jobs helpers ──
+  // Find lockbox code linked to a job index
+  const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
+
+  const saveActiveJob=(name,address,wifiName,wifiPass)=>{
     if(!name.trim()){showToast("Job name required");return;}
     const now=new Date().toISOString();
     const jobs=[...(activeJobs||[])];
-    if(editingActiveJob!==null){jobs[editingActiveJob]={name:name.trim().toUpperCase(),address:address.trim(),lastModified:now};}
-    else{jobs.push({name:name.trim().toUpperCase(),address:address.trim(),lastModified:now});}
-    saveToFB("activeJobs",jobs);setNewJobName("");setNewJobAddress("");setEditingActiveJob(null);showToast(editingActiveJob!==null?"Updated":"Job added");
-  };
-  const deleteActiveJob=(idx)=>{
-    if(!window.confirm("Remove this job?"))return;
-    saveToFB("activeJobs",(activeJobs||[]).filter((_,i)=>i!==idx));showToast("Removed");
+    const jobData={name:name.trim().toUpperCase(),address:address.trim(),lastModified:now};
+    if(wifiName&&wifiName.trim())jobData.wifiName=wifiName.trim();
+    if(wifiPass&&wifiPass.trim())jobData.wifiPassword=wifiPass.trim();
+    if(editingActiveJob!==null){jobs[editingActiveJob]=jobData;}
+    else{jobs.push(jobData);}
+    saveToFB("activeJobs",jobs);
+    setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");
+    setEditingActiveJob(null);showToast(editingActiveJob!==null?"Updated":"Job added");
   };
 
-  // Three dots menu icon
+  const deleteActiveJob=(idx)=>{
+    if(!window.confirm("Remove this job?"))return;
+    // Unlink any lockbox codes that referenced this job
+    const updatedCodes=(lockboxCodes||[]).map(c=>{
+      if(String(c.linkedJobIndex)===String(idx)){return {...c,linkedJobIndex:""};}
+      // Shift indices for jobs after deleted one
+      if(Number(c.linkedJobIndex)>idx){return {...c,linkedJobIndex:String(Number(c.linkedJobIndex)-1)};}
+      return c;
+    });
+    saveToFB("lockboxCodes",updatedCodes);
+    saveToFB("activeJobs",(activeJobs||[]).filter((_,i)=>i!==idx));
+    showToast("Removed");
+  };
+
   const DotsIcon=()=>ic(<><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></>,16);
 
   // ── HOME ──
   if(mode===null)return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif",padding:"24px",display:"flex",flexDirection:"column",alignItems:"center"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
+
+      {/* Key Modal */}
+      {keyModal&&<InfoModal title="Lock Box Code" icon={<KeyIcon/>} onClose={()=>setKeyModal(null)}>
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+          {keyModal.jobName&&<div><div style={labelStyle}>Job</div><div style={{fontSize:"15px",fontWeight:600,color:t.text}}>{keyModal.jobName}</div></div>}
+          {keyModal.jobLocation&&<div><div style={labelStyle}>Location</div><div style={{fontSize:"14px",color:t.text}}>{keyModal.jobLocation}</div></div>}
+          {keyModal.keyBoxLocation&&<div><div style={labelStyle}>Key Box Location</div><div style={{fontSize:"14px",color:t.text}}>{keyModal.keyBoxLocation}</div></div>}
+          <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}>
+            <div style={labelStyle}>Key Box Code</div>
+            <div style={{fontSize:"32px",fontWeight:700,color:t.accent,letterSpacing:"6px"}}>{keyModal.keyBoxCode||"—"}</div>
+          </div>
+        </div>
+      </InfoModal>}
+
+      {/* Wifi Modal */}
+      {wifiModal&&<InfoModal title="WiFi Information" icon={<WifiIcon/>} onClose={()=>setWifiModal(null)}>
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+          <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px"}}>
+            <div style={labelStyle}>Network Name (SSID)</div>
+            <div style={{fontSize:"18px",fontWeight:700,color:t.accent}}>{wifiModal.wifiName||"—"}</div>
+          </div>
+          <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px"}}>
+            <div style={labelStyle}>Password</div>
+            <div style={{fontSize:"18px",fontWeight:700,color:t.accent,wordBreak:"break-all"}}>{wifiModal.wifiPassword||"—"}</div>
+          </div>
+        </div>
+      </InfoModal>}
+
       <div style={{textAlign:"center",marginBottom:"24px"}}><Logo size={80}/><h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"28px",color:t.text,margin:"16px 0 0"}}>Work Orders</h1><p style={{color:t.textMuted,fontSize:"14px",marginTop:"6px"}}>Create and view daily crew assignments</p></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",width:"100%",maxWidth:"400px",marginBottom:"32px"}}>
         <button onClick={()=>setPinDialog("manager")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
@@ -279,12 +339,12 @@ export default function App(){
         </button>
       </div>
 
-      {/* ── ACTIVE JOBS ── */}
+      {/* ── ACTIVE JOBS TABLE ── */}
       <div style={{width:"100%",maxWidth:"600px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
           <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:t.text,margin:0}}>Active Jobs</h2>
           {!activeJobsEditing&&<button onClick={()=>setPinDialog("activeJobs")} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Edit</button>}
-          {activeJobsEditing&&<button onClick={()=>{setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");}} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Done</button>}
+          {activeJobsEditing&&<button onClick={()=>{setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");}} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Done</button>}
         </div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"14px"}}>
           <thead>
@@ -295,37 +355,59 @@ export default function App(){
             </tr>
           </thead>
           <tbody>
-            {(activeJobs||[]).map((job,idx)=>(
-              editingActiveJob===idx?(
+            {(activeJobs||[]).map((job,idx)=>{
+              const linked=getLinkedLockbox(idx);
+              const hasWifi=!!(job.wifiName||job.wifiPassword);
+              return editingActiveJob===idx?(
                 <tr key={idx}>
                   <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}} placeholder="Job name"/></td>
-                  <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}}/></td>
+                  <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}>
+                    <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px",marginBottom:"6px"}}/>
+                    <input type="text" value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"4px"}}/>
+                    <input type="text" value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Password (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px"}}/>
+                  </td>
                   <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`,whiteSpace:"nowrap"}}>
-                    <button onClick={()=>saveActiveJob(newJobName,newJobAddress)} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button>
-                    <button onClick={()=>{setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");}} style={{...ghostBtn,padding:"4px",color:t.danger}}>&times;</button>
+                    <button onClick={()=>saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass)} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button>
+                    <button onClick={()=>{setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");}} style={{...ghostBtn,padding:"4px",color:t.danger}}>&times;</button>
                   </td>
                 </tr>
               ):(
                 <tr key={idx}>
                   <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.border}`,fontWeight:600,color:t.text}}>{job.name}</td>
-                  <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.border}`,color:t.text}}>{job.address}</td>
-                  {activeJobsEditing&&<td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`}}>
-                    <div style={{position:"relative"}}>
-                      <button onClick={()=>{
-                        const action=window.prompt("Type 'edit' to edit or 'delete' to remove:");
-                        if(action?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);}
-                        else if(action?.toLowerCase()==="delete"){deleteActiveJob(idx);}
-                      }} style={{...ghostBtn,padding:"4px"}}><DotsIcon/></button>
+                  <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.border}`,color:t.text}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap"}}>
+                      <span>{job.address}</span>
+                      {linked&&(
+                        <button onClick={()=>setKeyModal(linked)} title="Lock Box Code" style={{...baseBtn,padding:"4px 8px",background:"#FFF8E1",border:"1.5px solid #F59E0B",borderRadius:"8px",color:"#92400E",gap:"4px",fontSize:"12px"}}>
+                          <KeyIcon/><span style={{fontSize:"11px",fontWeight:700}}>Code</span>
+                        </button>
+                      )}
+                      {hasWifi&&(
+                        <button onClick={()=>setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword})} title="WiFi Info" style={{...baseBtn,padding:"4px 8px",background:"#EFF6FF",border:"1.5px solid #3B82F6",borderRadius:"8px",color:"#1D4ED8",gap:"4px",fontSize:"12px"}}>
+                          <WifiIcon/><span style={{fontSize:"11px",fontWeight:700}}>WiFi</span>
+                        </button>
+                      )}
                     </div>
+                  </td>
+                  {activeJobsEditing&&<td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`}}>
+                    <button onClick={()=>{
+                      const action=window.prompt("Type 'edit' to edit or 'delete' to remove:");
+                      if(action?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");}
+                      else if(action?.toLowerCase()==="delete"){deleteActiveJob(idx);}
+                    }} style={{...ghostBtn,padding:"4px"}}><DotsIcon/></button>
                   </td>}
                 </tr>
-              )
-            ))}
+              );
+            })}
             {activeJobsEditing&&editingActiveJob===null&&(
               <tr>
-                <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}} placeholder="NEW JOB NAME" onKeyDown={e=>{if(e.key==="Tab"&&!e.shiftKey){};}}/></td>
-                <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}}/></td>
-                <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`}}><button onClick={()=>{if(newJobName.trim()){saveActiveJob(newJobName,newJobAddress);}}} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button></td>
+                <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`,verticalAlign:"top"}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}} placeholder="NEW JOB NAME"/></td>
+                <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}>
+                  <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px",marginBottom:"6px"}}/>
+                  <input type="text" value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"4px"}}/>
+                  <input type="text" value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Password (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px"}}/>
+                </td>
+                <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`,verticalAlign:"top"}}><button onClick={()=>{if(newJobName.trim()){saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass);}}} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button></td>
               </tr>
             )}
           </tbody>
@@ -342,7 +424,6 @@ export default function App(){
   if(mode==="lockbox"){
     const codes=lockboxCodes||[];
     const selected=selectedLockbox!==null?codes[selectedLockbox]:null;
-
     return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
@@ -356,6 +437,12 @@ export default function App(){
               <div><div style={labelStyle}>Job Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.jobLocation}</div></div>
               <div><div style={labelStyle}>Key Box Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.keyBoxLocation||"\u2014"}</div></div>
               <div style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}><div style={labelStyle}>Key Box Code</div><div style={{fontSize:"28px",fontWeight:700,color:t.accent,letterSpacing:"4px"}}>{selected.keyBoxCode||"\u2014"}</div></div>
+              {/* Show linked job badge */}
+              {selected.linkedJobIndex!==""&&selected.linkedJobIndex!==undefined&&(activeJobs||[])[selected.linkedJobIndex]&&(
+                <div style={{background:"#FFF8E1",border:"1.5px solid #F59E0B",borderRadius:"10px",padding:"12px",display:"flex",alignItems:"center",gap:"8px"}}>
+                  <KeyIcon/><div><div style={{fontSize:"11px",fontWeight:700,color:"#92400E",textTransform:"uppercase",letterSpacing:"1px"}}>Linked Active Job</div><div style={{fontSize:"14px",color:"#78350F",fontWeight:600}}>{(activeJobs||[])[selected.linkedJobIndex]?.name}</div></div>
+                </div>
+              )}
             </div>
           </div>
         ):(
@@ -364,7 +451,15 @@ export default function App(){
             :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
               {codes.map((code,idx)=>(
                 <button key={idx} onClick={()=>setSelectedLockbox(idx)} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 20px",borderRadius:"12px",justifyContent:"space-between",color:t.text,width:"100%",textAlign:"left"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}><KeyIcon/><span style={{fontSize:"16px",fontWeight:600}}>{code.jobName||code.jobLocation}</span></div>
+                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                    <KeyIcon/>
+                    <div>
+                      <span style={{fontSize:"16px",fontWeight:600}}>{code.jobName||code.jobLocation}</span>
+                      {code.linkedJobIndex!==""&&code.linkedJobIndex!==undefined&&(activeJobs||[])[code.linkedJobIndex]&&(
+                        <div style={{fontSize:"11px",color:"#92400E",marginTop:"2px"}}>🔗 {(activeJobs||[])[code.linkedJobIndex]?.name}</div>
+                      )}
+                    </div>
+                  </div>
                 </button>))}
             </div>}
           </>
@@ -376,12 +471,15 @@ export default function App(){
   // ── MANAGE LOCK BOX CODES (Manager only) ──
   if(mode==="manageLockbox"){
     const codes=lockboxCodes||[];
+    const jobs=activeJobs||[];
 
     const saveLockbox=()=>{
       if(!lockboxForm.jobLocation.trim()){showToast("Job location required");return;}
-      const now=new Date().toISOString();const d={...lockboxForm,lastModified:now};let u;
+      const now=new Date().toISOString();
+      const d={...lockboxForm,linkedJobIndex:lockboxForm.linkedJobIndex!==""?lockboxForm.linkedJobIndex:"",lastModified:now};
+      let u;
       if(editingLockbox!==null){u=codes.map((c,i)=>i===editingLockbox?d:c);}else{u=[...codes,d];}
-      saveToFB("lockboxCodes",u);setShowLockboxForm(false);setEditingLockbox(null);setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:""});showToast(editingLockbox!==null?"Updated":"Lock box code saved");
+      saveToFB("lockboxCodes",u);setShowLockboxForm(false);setEditingLockbox(null);setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});showToast(editingLockbox!==null?"Updated":"Lock box code saved");
     };
 
     const deleteLockbox=(idx)=>{
@@ -393,7 +491,7 @@ export default function App(){
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
       <Header title="Manage Lock Box Codes" subtitle={`${codes.length} location${codes.length!==1?"s":""}`} onBack={()=>{setShowLockboxForm(false);setEditingLockbox(null);setMode("manager");}} onHome={goHome}>
-        {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> Add</button>}
+        {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 18px",fontSize:"14px"}}><PlusIcon/> Add</button>}
       </Header>
       <div style={{padding:"20px"}}>
         {showLockboxForm?(
@@ -404,6 +502,22 @@ export default function App(){
               <div><label style={labelStyle}>Job Location</label><AddressInput value={lockboxForm.jobLocation} onChange={e=>setLockboxForm({...lockboxForm,jobLocation:e.target.value})} style={inputStyle}/><div style={{fontSize:"11px",color:t.textMuted,marginTop:"4px"}}>Start typing and select from suggestions</div></div>
               <div><label style={labelStyle}>Key Box Location</label><input type="text" value={lockboxForm.keyBoxLocation} onChange={e=>setLockboxForm({...lockboxForm,keyBoxLocation:e.target.value})} placeholder="e.g. Front door handle, back gate" style={inputStyle}/></div>
               <div><label style={labelStyle}>Key Box Code</label><input type="text" value={lockboxForm.keyBoxCode} onChange={e=>setLockboxForm({...lockboxForm,keyBoxCode:e.target.value})} placeholder="e.g. 4589" style={inputStyle}/></div>
+
+              {/* ── POST TO ACTIVE JOB ── */}
+              <div style={{background:"#FFF8E1",border:"1.5px solid #F59E0B",borderRadius:"12px",padding:"16px"}}>
+                <label style={{...labelStyle,color:"#92400E"}}>Post to Active Job (optional)</label>
+                <p style={{fontSize:"12px",color:"#78350F",marginTop:0,marginBottom:"10px"}}>Selecting a job will display a 🔑 key icon next to that job's address on the home screen.</p>
+                <select
+                  value={lockboxForm.linkedJobIndex}
+                  onChange={e=>setLockboxForm({...lockboxForm,linkedJobIndex:e.target.value})}
+                  style={{...inputStyle,appearance:"none",cursor:"pointer",background:"#fffbeb"}}
+                >
+                  <option value="">— No association —</option>
+                  {jobs.map((job,i)=><option key={i} value={String(i)}>{job.name}{job.address?` — ${job.address}`:""}</option>)}
+                </select>
+                {jobs.length===0&&<div style={{fontSize:"11px",color:"#78350F",marginTop:"6px"}}>No active jobs yet. Add jobs on the home screen first.</div>}
+              </div>
+
               <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowLockboxForm(false);setEditingLockbox(null);}} style={{...baseBtn,flex:1,background:t.card,border:`1.5px solid ${t.border}`,color:t.textMuted,padding:"14px"}}>Cancel</button><button onClick={saveLockbox} style={{...primaryBtn,flex:2}}>{editingLockbox!==null?"Update":"Save"}</button></div>
             </div>
           </div>
@@ -413,9 +527,15 @@ export default function App(){
             :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
               {codes.map((code,idx)=>(
                 <div key={idx} style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"12px",padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{code.jobName||code.jobLocation}</div><div style={{fontSize:"13px",color:t.textMuted}}>{code.jobLocation} \u2022 Code: {code.keyBoxCode}</div></div>
+                  <div>
+                    <div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{code.jobName||code.jobLocation}</div>
+                    <div style={{fontSize:"13px",color:t.textMuted}}>{code.jobLocation} • Code: {code.keyBoxCode}</div>
+                    {code.linkedJobIndex!==""&&code.linkedJobIndex!==undefined&&jobs[code.linkedJobIndex]&&(
+                      <div style={{fontSize:"12px",color:"#92400E",marginTop:"4px",display:"flex",alignItems:"center",gap:"4px"}}><KeyIcon/>Linked: {jobs[code.linkedJobIndex]?.name}</div>
+                    )}
+                  </div>
                   <div style={{display:"flex",gap:"4px"}}>
-                    <button onClick={()=>{setLockboxForm({jobName:code.jobName||"",jobLocation:code.jobLocation,keyBoxLocation:code.keyBoxLocation,keyBoxCode:code.keyBoxCode});setEditingLockbox(idx);setShowLockboxForm(true);}} style={{...ghostBtn,padding:"6px"}}><EditIcon/></button>
+                    <button onClick={()=>{setLockboxForm({jobName:code.jobName||"",jobLocation:code.jobLocation,keyBoxLocation:code.keyBoxLocation,keyBoxCode:code.keyBoxCode,linkedJobIndex:code.linkedJobIndex!==undefined?String(code.linkedJobIndex):""});setEditingLockbox(idx);setShowLockboxForm(true);}} style={{...ghostBtn,padding:"6px"}}><EditIcon/></button>
                     <button onClick={()=>deleteLockbox(idx)} style={{...ghostBtn,padding:"6px",color:t.danger}}><TrashIcon/></button>
                   </div>
                 </div>))}
@@ -474,7 +594,6 @@ export default function App(){
           {noteAtts.length>0&&<div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{noteAtts.map((a,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:t.card,padding:"8px 12px",borderRadius:"8px"}}><span style={{fontSize:"13px",display:"flex",alignItems:"center",gap:"4px"}}><PaperclipIcon/>{a.name}</span><button onClick={()=>setNoteAtts(noteAtts.filter((_,x)=>x!==i))} style={{...ghostBtn,padding:"4px",color:t.danger}}><TrashIcon/></button></div>)}</div>}
           <button onClick={submitNote} disabled={uploading} style={{...primaryBtn,width:"100%"}}>Submit Field Note</button>
         </div>
-
         <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:t.text,margin:"0 0 12px",borderTop:`1.5px solid ${t.border}`,paddingTop:"20px"}}>Previous Notes</h2>
         {(fieldNotes||[]).length===0?<div style={{textAlign:"center",padding:"32px",color:t.textMuted}}>No field notes yet</div>
         :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
