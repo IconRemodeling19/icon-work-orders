@@ -47,6 +47,8 @@ const NoteIcon=()=>ic(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 00
 const KeyIcon=()=>ic(<><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></>);
 const WifiIcon=()=>ic(<><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></>,18);
 const XIcon=()=>ic(<path d="M18 6L6 18M6 6l12 12"/>,18);
+const DoorIcon=()=>ic(<><path d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16"/><path d="M14 12a1 1 0 100-2 1 1 0 000 2z" fill="currentColor" stroke="none"/></>,18);
+const GarageIcon=()=>ic(<><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/><path d="M9 12h6"/><path d="M9 15h6"/></>,18);
 
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
 
@@ -166,6 +168,12 @@ export default function App(){
   // Modals for icons on active jobs
   const[keyModal,setKeyModal]=useState(null); // {code, jobName}
   const[wifiModal,setWifiModal]=useState(null); // {wifiName, wifiPassword}
+  const[doorModal,setDoorModal]=useState(null); // {type, code, doorLocation?}
+  // new-job door/garage edit fields
+  const[newJobGarageCode,setNewJobGarageCode]=useState("");
+  const[newJobDoorType,setNewJobDoorType]=useState(""); // ""| "garage" | "door"
+  const[newJobDoorLocation,setNewJobDoorLocation]=useState("");
+  const[newJobDoorCode,setNewJobDoorCode]=useState("");
   const fileRef=useRef(null);
   const fieldFileRef=useRef(null);
   const noteFileRef=useRef(null);
@@ -174,7 +182,7 @@ export default function App(){
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrew(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
@@ -255,17 +263,19 @@ export default function App(){
   // Find lockbox code linked to a job index
   const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
 
-  const saveActiveJob=(name,address,wifiName,wifiPass)=>{
+  const saveActiveJob=(name,address,wifiName,wifiPass,garageCode,doorType,doorLocation,doorCode)=>{
     if(!name.trim()){showToast("Job name required");return;}
     const now=new Date().toISOString();
     const jobs=[...(activeJobs||[])];
     const jobData={name:name.trim().toUpperCase(),address:address.trim(),lastModified:now};
     if(wifiName&&wifiName.trim())jobData.wifiName=wifiName.trim();
     if(wifiPass&&wifiPass.trim())jobData.wifiPassword=wifiPass.trim();
+    if(garageCode&&garageCode.trim())jobData.garageCode=garageCode.trim();
+    if(doorType&&doorType.trim()){jobData.doorType=doorType;if(doorLocation&&doorLocation.trim())jobData.doorLocation=doorLocation.trim();if(doorCode&&doorCode.trim())jobData.doorCode=doorCode.trim();}
     if(editingActiveJob!==null){jobs[editingActiveJob]=jobData;}
     else{jobs.push(jobData);}
     saveToFB("activeJobs",jobs);
-    setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");
+    setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");
     setEditingActiveJob(null);showToast(editingActiveJob!==null?"Updated":"Job added");
   };
 
@@ -317,6 +327,22 @@ export default function App(){
         </div>
       </InfoModal>}
 
+      {/* Door / Garage Modal */}
+      {doorModal&&<InfoModal title={doorModal.type==="garage"?"Garage Door Code":"Door Access Code"} icon={doorModal.type==="garage"?<GarageIcon/>:<DoorIcon/>} onClose={()=>setDoorModal(null)}>
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+          {doorModal.type==="door"&&doorModal.doorLocation&&(
+            <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"14px"}}>
+              <div style={labelStyle}>Door Location</div>
+              <div style={{fontSize:"15px",color:t.text}}>{doorModal.doorLocation}</div>
+            </div>
+          )}
+          <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}>
+            <div style={labelStyle}>{doorModal.type==="garage"?"Garage Code":"Access Code"}</div>
+            <div style={{fontSize:"32px",fontWeight:700,color:t.accent,letterSpacing:"6px"}}>{doorModal.code||"—"}</div>
+          </div>
+        </div>
+      </InfoModal>}
+
       <div style={{textAlign:"center",marginBottom:"24px"}}><Logo size={80}/><h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"28px",color:t.text,margin:"16px 0 0"}}>Work Orders</h1><p style={{color:t.textMuted,fontSize:"14px",marginTop:"6px"}}>Create and view daily crew assignments</p></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",width:"100%",maxWidth:"400px",marginBottom:"32px"}}>
         <button onClick={()=>setPinDialog("manager")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
@@ -358,17 +384,27 @@ export default function App(){
             {(activeJobs||[]).map((job,idx)=>{
               const linked=getLinkedLockbox(idx);
               const hasWifi=!!(job.wifiName||job.wifiPassword);
+              const hasGarage=!!job.garageCode;
+              const hasDoor=!!(job.doorType&&job.doorCode);
               return editingActiveJob===idx?(
                 <tr key={idx}>
                   <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"13px"}} placeholder="Job name"/></td>
                   <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}>
                     <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px",marginBottom:"6px"}}/>
                     <input type="text" value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"4px"}}/>
-                    <input type="text" value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Password (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px"}}/>
+                    <input type="text" value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Password (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"6px"}}/>
+                    <input type="text" value={newJobGarageCode} onChange={e=>setNewJobGarageCode(e.target.value)} placeholder="Garage Door Code (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"6px"}}/>
+                    <select value={newJobDoorType} onChange={e=>{setNewJobDoorType(e.target.value);if(!e.target.value){setNewJobDoorLocation("");setNewJobDoorCode("");}}} style={{...inputStyle,padding:"6px 10px",fontSize:"12px",appearance:"none",marginBottom:"4px"}}>
+                      <option value="">— Door Access Code type (optional) —</option>
+                      <option value="garage">Garage Door Code</option>
+                      <option value="door">Main Door Access Code</option>
+                    </select>
+                    {newJobDoorType==="door"&&<input type="text" value={newJobDoorLocation} onChange={e=>setNewJobDoorLocation(e.target.value)} placeholder="Door location description (e.g. Front door, side gate)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"4px"}}/>}
+                    {newJobDoorType&&<input type="text" value={newJobDoorCode} onChange={e=>setNewJobDoorCode(e.target.value)} placeholder={newJobDoorType==="garage"?"Garage code":"Access code"} style={{...inputStyle,padding:"6px 10px",fontSize:"12px"}}/>}
                   </td>
-                  <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`,whiteSpace:"nowrap"}}>
-                    <button onClick={()=>saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass)} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button>
-                    <button onClick={()=>{setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");}} style={{...ghostBtn,padding:"4px",color:t.danger}}>&times;</button>
+                  <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`,whiteSpace:"nowrap",verticalAlign:"top"}}>
+                    <button onClick={()=>saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode)} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button>
+                    <button onClick={()=>{setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");}} style={{...ghostBtn,padding:"4px",color:t.danger}}>&times;</button>
                   </td>
                 </tr>
               ):(
@@ -387,12 +423,22 @@ export default function App(){
                           <WifiIcon/><span style={{fontSize:"11px",fontWeight:700}}>WiFi</span>
                         </button>
                       )}
+                      {hasGarage&&(
+                        <button onClick={()=>setDoorModal({type:"garage",code:job.garageCode})} title="Garage Code" style={{...baseBtn,padding:"4px 8px",background:"#F0FDF4",border:"1.5px solid #22C55E",borderRadius:"8px",color:"#15803D",gap:"4px",fontSize:"12px"}}>
+                          <GarageIcon/><span style={{fontSize:"11px",fontWeight:700}}>Garage</span>
+                        </button>
+                      )}
+                      {hasDoor&&(
+                        <button onClick={()=>setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation})} title="Door Access Code" style={{...baseBtn,padding:"4px 8px",background:"#FDF4FF",border:"1.5px solid #A855F7",borderRadius:"8px",color:"#7E22CE",gap:"4px",fontSize:"12px"}}>
+                          <DoorIcon/><span style={{fontSize:"11px",fontWeight:700}}>Door</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                   {activeJobsEditing&&<td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`}}>
                     <button onClick={()=>{
                       const action=window.prompt("Type 'edit' to edit or 'delete' to remove:");
-                      if(action?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");}
+                      if(action?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");setNewJobGarageCode(job.garageCode||"");setNewJobDoorType(job.doorType||"");setNewJobDoorLocation(job.doorLocation||"");setNewJobDoorCode(job.doorCode||"");}
                       else if(action?.toLowerCase()==="delete"){deleteActiveJob(idx);}
                     }} style={{...ghostBtn,padding:"4px"}}><DotsIcon/></button>
                   </td>}
@@ -405,9 +451,17 @@ export default function App(){
                 <td style={{padding:"6px 8px",borderBottom:`1px solid ${t.border}`}}>
                   <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"13px",marginBottom:"6px"}}/>
                   <input type="text" value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"4px"}}/>
-                  <input type="text" value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Password (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px"}}/>
+                  <input type="text" value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Password (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"6px"}}/>
+                  <input type="text" value={newJobGarageCode} onChange={e=>setNewJobGarageCode(e.target.value)} placeholder="Garage Door Code (optional)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"6px"}}/>
+                  <select value={newJobDoorType} onChange={e=>{setNewJobDoorType(e.target.value);if(!e.target.value){setNewJobDoorLocation("");setNewJobDoorCode("");}}} style={{...inputStyle,padding:"6px 10px",fontSize:"12px",appearance:"none",marginBottom:"4px"}}>
+                    <option value="">— Door Access Code type (optional) —</option>
+                    <option value="garage">Garage Door Code</option>
+                    <option value="door">Main Door Access Code</option>
+                  </select>
+                  {newJobDoorType==="door"&&<input type="text" value={newJobDoorLocation} onChange={e=>setNewJobDoorLocation(e.target.value)} placeholder="Door location (e.g. Front door, side gate)" style={{...inputStyle,padding:"6px 10px",fontSize:"12px",marginBottom:"4px"}}/>}
+                  {newJobDoorType&&<input type="text" value={newJobDoorCode} onChange={e=>setNewJobDoorCode(e.target.value)} placeholder={newJobDoorType==="garage"?"Garage code":"Access code"} style={{...inputStyle,padding:"6px 10px",fontSize:"12px"}}/>}
                 </td>
-                <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`,verticalAlign:"top"}}><button onClick={()=>{if(newJobName.trim()){saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass);}}} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button></td>
+                <td style={{padding:"6px 4px",borderBottom:`1px solid ${t.border}`,verticalAlign:"top"}}><button onClick={()=>{if(newJobName.trim()){saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode);}}} style={{...ghostBtn,padding:"4px",color:"green"}}><CheckIcon/></button></td>
               </tr>
             )}
           </tbody>
@@ -423,40 +477,63 @@ export default function App(){
   // ── LOCK BOX CODES (Read-only for field crew) ──
   if(mode==="lockbox"){
     const codes=lockboxCodes||[];
-    const selected=selectedLockbox!==null?codes[selectedLockbox]:null;
+    const jobs=activeJobs||[];
+    // Build a unified list: lock box codes + garage/door codes from active jobs
+    const allEntries=[
+      ...codes.map((c,i)=>({...c,_source:"lockbox",_idx:i})),
+      ...jobs.flatMap((job,ji)=>{
+        const entries=[];
+        if(job.garageCode){entries.push({_source:"job-garage",_jobIdx:ji,jobName:job.name,jobLocation:job.address,code:job.garageCode,label:"Garage Door Code"});}
+        if(job.doorType&&job.doorCode){entries.push({_source:"job-door",_jobIdx:ji,jobName:job.name,jobLocation:job.address,code:job.doorCode,doorLocation:job.doorLocation,doorType:job.doorType,label:job.doorType==="garage"?"Garage Door Code":"Main Door Access Code"});}
+        return entries;
+      })
+    ];
+    const selected=selectedLockbox!==null?allEntries[selectedLockbox]:null;
     return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
-      <Header title={selected?"Lock Box Details":"Lock Box Codes"} subtitle={`${codes.length} location${codes.length!==1?"s":""}`} onBack={()=>{if(selected){setSelectedLockbox(null);}else{goHome();}}} onHome={goHome}/>
+      <Header title={selected?"Access Code Details":"Lock Box Codes"} subtitle={`${allEntries.length} location${allEntries.length!==1?"s":""}`} onBack={()=>{if(selected){setSelectedLockbox(null);}else{goHome();}}} onHome={goHome}/>
       <div style={{padding:"20px"}}>
         {selected?(
           <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"14px",padding:"24px"}}>
-            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:t.text,margin:"0 0 20px"}}>{selected.jobName||selected.jobLocation}</h2>
+            <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"20px"}}>
+              {selected._source==="lockbox"?<KeyIcon/>:selected._source==="job-garage"||selected.doorType==="garage"?<GarageIcon/>:<DoorIcon/>}
+              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:t.text,margin:0}}>{selected.jobName||selected.jobLocation}</h2>
+            </div>
             <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
-              {selected.jobName&&<div><div style={labelStyle}>Job Name</div><div style={{fontSize:"16px",color:t.text,fontWeight:600}}>{selected.jobName}</div></div>}
-              <div><div style={labelStyle}>Job Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.jobLocation}</div></div>
-              <div><div style={labelStyle}>Key Box Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.keyBoxLocation||"\u2014"}</div></div>
-              <div style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}><div style={labelStyle}>Key Box Code</div><div style={{fontSize:"28px",fontWeight:700,color:t.accent,letterSpacing:"4px"}}>{selected.keyBoxCode||"\u2014"}</div></div>
-              {/* Show linked job badge */}
-              {selected.linkedJobIndex!==""&&selected.linkedJobIndex!==undefined&&(activeJobs||[])[selected.linkedJobIndex]&&(
-                <div style={{background:"#FFF8E1",border:"1.5px solid #F59E0B",borderRadius:"10px",padding:"12px",display:"flex",alignItems:"center",gap:"8px"}}>
-                  <KeyIcon/><div><div style={{fontSize:"11px",fontWeight:700,color:"#92400E",textTransform:"uppercase",letterSpacing:"1px"}}>Linked Active Job</div><div style={{fontSize:"14px",color:"#78350F",fontWeight:600}}>{(activeJobs||[])[selected.linkedJobIndex]?.name}</div></div>
-                </div>
-              )}
+              {selected._source==="lockbox"&&<>
+                {selected.jobName&&<div><div style={labelStyle}>Job Name</div><div style={{fontSize:"16px",color:t.text,fontWeight:600}}>{selected.jobName}</div></div>}
+                <div><div style={labelStyle}>Job Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.jobLocation}</div></div>
+                <div><div style={labelStyle}>Key Box Location</div><div style={{fontSize:"16px",color:t.text}}>{selected.keyBoxLocation||"—"}</div></div>
+                <div style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}><div style={labelStyle}>Key Box Code</div><div style={{fontSize:"28px",fontWeight:700,color:t.accent,letterSpacing:"4px"}}>{selected.keyBoxCode||"—"}</div></div>
+                {selected.linkedJobIndex!==""&&selected.linkedJobIndex!==undefined&&(activeJobs||[])[selected.linkedJobIndex]&&(
+                  <div style={{background:"#FFF8E1",border:"1.5px solid #F59E0B",borderRadius:"10px",padding:"12px",display:"flex",alignItems:"center",gap:"8px"}}>
+                    <KeyIcon/><div><div style={{fontSize:"11px",fontWeight:700,color:"#92400E",textTransform:"uppercase",letterSpacing:"1px"}}>Linked Active Job</div><div style={{fontSize:"14px",color:"#78350F",fontWeight:600}}>{(activeJobs||[])[selected.linkedJobIndex]?.name}</div></div>
+                  </div>
+                )}
+              </>}
+              {(selected._source==="job-garage"||selected._source==="job-door")&&<>
+                <div><div style={labelStyle}>Job</div><div style={{fontSize:"16px",color:t.text,fontWeight:600}}>{selected.jobName}</div></div>
+                {selected.jobLocation&&<div><div style={labelStyle}>Address</div><div style={{fontSize:"15px",color:t.text}}>{selected.jobLocation}</div></div>}
+                <div><div style={labelStyle}>Type</div><div style={{fontSize:"15px",color:t.text}}>{selected.label}</div></div>
+                {selected.doorLocation&&<div><div style={labelStyle}>Door Location</div><div style={{fontSize:"15px",color:t.text}}>{selected.doorLocation}</div></div>}
+                <div style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:"10px",padding:"16px",textAlign:"center"}}><div style={labelStyle}>Code</div><div style={{fontSize:"28px",fontWeight:700,color:t.accent,letterSpacing:"4px"}}>{selected.code||"—"}</div></div>
+              </>}
             </div>
           </div>
         ):(
           <>
-            {codes.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:t.textMuted}}>No lock box codes yet. Ask your manager to add codes.</div>
+            {allEntries.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:t.textMuted}}>No access codes yet. Ask your manager to add codes.</div>
             :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-              {codes.map((code,idx)=>(
+              {allEntries.map((entry,idx)=>(
                 <button key={idx} onClick={()=>setSelectedLockbox(idx)} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 20px",borderRadius:"12px",justifyContent:"space-between",color:t.text,width:"100%",textAlign:"left"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                    <KeyIcon/>
+                    {entry._source==="lockbox"?<KeyIcon/>:entry._source==="job-garage"||entry.doorType==="garage"?<GarageIcon/>:<DoorIcon/>}
                     <div>
-                      <span style={{fontSize:"16px",fontWeight:600}}>{code.jobName||code.jobLocation}</span>
-                      {code.linkedJobIndex!==""&&code.linkedJobIndex!==undefined&&(activeJobs||[])[code.linkedJobIndex]&&(
-                        <div style={{fontSize:"11px",color:"#92400E",marginTop:"2px"}}>🔗 {(activeJobs||[])[code.linkedJobIndex]?.name}</div>
+                      <div style={{fontSize:"16px",fontWeight:600}}>{entry.jobName||entry.jobLocation}</div>
+                      <div style={{fontSize:"11px",color:t.textMuted,marginTop:"2px"}}>{entry._source==="lockbox"?"Lock Box":entry.label}</div>
+                      {entry._source==="lockbox"&&entry.linkedJobIndex!==""&&entry.linkedJobIndex!==undefined&&(activeJobs||[])[entry.linkedJobIndex]&&(
+                        <div style={{fontSize:"11px",color:"#92400E",marginTop:"2px"}}>🔗 {(activeJobs||[])[entry.linkedJobIndex]?.name}</div>
                       )}
                     </div>
                   </div>
