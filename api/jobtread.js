@@ -37,7 +37,7 @@ export default async function handler(req, res) {
             "nodes": {
               "id": {},
               "name": {},
-              "customer": { "name": {} },
+              "account": { "id": {}, "name": {} },
               "customFieldValues": {
                 "nodes": {
                   "customField": { "name": {} },
