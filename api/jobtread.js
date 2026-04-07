@@ -40,7 +40,8 @@ export default async function handler(req, res) {
     }
 
     if (action === "getJobs" && orgId) {
-      // Only fetch non-archived, non-complete jobs with their custom fields
+      // Fetch only non-archived jobs with ONLY their Status custom field
+      // Uses the "with" pattern from JobTread docs to filter customFieldValues
       const d = await jtFetch({
         "currentGrant": {
           "user": {
@@ -52,10 +53,7 @@ export default async function handler(req, res) {
                   "id": {},
                   "jobs": {
                     "$": {
-                      "where": [
-                        ["status", "!=", "archived"],
-                        ["status", "!=", "complete"]
-                      ]
+                      "where": [["status", "!=", "archived"]]
                     },
                     "nodes": {
                       "id": {},
@@ -74,7 +72,26 @@ export default async function handler(req, res) {
           }
         }
       });
-      return res.status(200).json(d);
+
+      // Filter the response server-side: only return the Status field value per job
+      // This drastically reduces response size before sending to browser
+      const memberships = d?.currentGrant?.user?.memberships?.nodes || [];
+      const org = memberships[0];
+      const jobs = org?.organization?.jobs?.nodes || [];
+
+      const slim = jobs.map(job => {
+        const cfvs = job.customFieldValues?.nodes || [];
+        const statusField = cfvs.find(c =>
+          c.customField?.name?.toLowerCase() === "status"
+        );
+        return {
+          id: job.id,
+          name: job.name,
+          status: statusField?.value || null
+        };
+      });
+
+      return res.status(200).json({ jobs: slim });
     }
 
     return res.status(400).json({ error: "Invalid action" });
