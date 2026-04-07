@@ -22,7 +22,6 @@ export default async function handler(req, res) {
   try {
     const { action, orgId } = req.body || {};
 
-    // ── GET ORG ──
     if (action === "getOrg") {
       const d = await jtFetch({
         "currentGrant": {
@@ -40,10 +39,8 @@ export default async function handler(req, res) {
       return res.status(200).json(d);
     }
 
-    // ── GET ALL JOBS WITH STATUS ──
-    // Strategy: fetch jobs with ONLY id, name, and customFieldValues
-    // but filter out archived/complete to keep the payload small
     if (action === "getJobs" && orgId) {
+      // Only fetch non-archived, non-complete jobs with their custom fields
       const d = await jtFetch({
         "currentGrant": {
           "user": {
@@ -55,15 +52,15 @@ export default async function handler(req, res) {
                   "id": {},
                   "jobs": {
                     "$": {
-                      "where": [["status", "!=", "archived"]]
+                      "where": [
+                        ["status", "!=", "archived"],
+                        ["status", "!=", "complete"]
+                      ]
                     },
                     "nodes": {
                       "id": {},
                       "name": {},
                       "customFieldValues": {
-                        "$": {
-                          "where": [["customField", "name", "=", "Status"]]
-                        },
                         "nodes": {
                           "customField": { "name": {} },
                           "value": {}
