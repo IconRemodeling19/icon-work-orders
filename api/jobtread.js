@@ -8,13 +8,22 @@ export default async function handler(req, res) {
 
   const GRANT_KEY = "22TM6dKUXmnEfBfnz8W2J5CneTTjQetHDC";
 
+  async function jtFetch(query) {
+    const r = await fetch("https://api.jobtread.com/pave", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: { "$": { "grantKey": GRANT_KEY }, ...query } }),
+    });
+    const text = await r.text();
+    if (!r.ok) throw new Error(text);
+    return JSON.parse(text);
+  }
+
   try {
-    const { action, orgId, cursor } = req.body || {};
-    let query;
+    const { action, orgId, cursor, jobId } = req.body || {};
 
     if (action === "getOrg") {
-      query = {
-        "$": { "grantKey": GRANT_KEY },
+      const d = await jtFetch({
         "currentGrant": {
           "user": {
             "id": {},
@@ -26,12 +35,12 @@ export default async function handler(req, res) {
             }
           }
         }
-      };
-    } else if (action === "getJobs" && orgId) {
-      // Fetch jobs in pages of 10 with custom field values
+      });
+      return res.status(200).json(d);
+
+    } else if (action === "getJobIds" && orgId) {
       const jobsInput = cursor ? { "after": cursor } : {};
-      query = {
-        "$": { "grantKey": GRANT_KEY },
+      const d = await jtFetch({
         "currentGrant": {
           "user": {
             "id": {},
@@ -46,12 +55,7 @@ export default async function handler(req, res) {
                     "nodes": {
                       "id": {},
                       "name": {},
-                      "customFieldValues": {
-                        "nodes": {
-                          "customField": { "name": {} },
-                          "value": {}
-                        }
-                      }
+                      "status": {}
                     }
                   }
                 }
@@ -59,20 +63,27 @@ export default async function handler(req, res) {
             }
           }
         }
-      };
+      });
+      return res.status(200).json(d);
+
+    } else if (action === "getJobStatus" && jobId) {
+      const d = await jtFetch({
+        "job": {
+          "$": { "id": jobId },
+          "id": {},
+          "customFieldValues": {
+            "nodes": {
+              "customField": { "name": {} },
+              "value": {}
+            }
+          }
+        }
+      });
+      return res.status(200).json(d);
+
     } else {
       return res.status(400).json({ error: "Invalid action" });
     }
-
-    const response = await fetch("https://api.jobtread.com/pave", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
-
-    const text = await response.text();
-    if (!response.ok) return res.status(response.status).json({ error: text });
-    return res.status(200).json(JSON.parse(text));
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
