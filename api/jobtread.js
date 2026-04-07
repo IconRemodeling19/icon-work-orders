@@ -6,10 +6,10 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  try {
-    const GRANT_KEY = "22TM6dKUXmnEfBfnz8W2J5CneTTjQetHDC";
+  const GRANT_KEY = "22TM6dKUXmnEfBfnz8W2J5CneTTjQetHDC";
 
-    const { action, orgId } = req.body || {};
+  try {
+    const { action, orgId, cursor } = req.body || {};
 
     let query;
 
@@ -19,9 +19,9 @@ export default async function handler(req, res) {
         "currentGrant": {
           "user": {
             "id": {},
-            "name": {},
             "memberships": {
               "nodes": {
+                "id": {},
                 "organization": { "id": {}, "name": {} }
               }
             }
@@ -29,19 +29,35 @@ export default async function handler(req, res) {
         }
       };
     } else if (action === "getJobs" && orgId) {
+      // Fetch jobs with pagination - only id, name, customFieldValues (no account)
+      const jobsQuery = cursor
+        ? { "after": cursor }
+        : {};
+
       query = {
         "$": { "grantKey": GRANT_KEY },
-        "organization": {
-          "$": { "id": orgId },
-          "jobs": {
-            "nodes": {
-              "id": {},
-              "name": {},
-              "account": { "id": {}, "name": {} },
-              "customFieldValues": {
-                "nodes": {
-                  "customField": { "name": {} },
-                  "value": {}
+        "currentGrant": {
+          "user": {
+            "id": {},
+            "memberships": {
+              "nodes": {
+                "id": {},
+                "organization": {
+                  "id": {},
+                  "jobs": {
+                    "$": jobsQuery,
+                    "nextPage": {},
+                    "nodes": {
+                      "id": {},
+                      "name": {},
+                      "customFieldValues": {
+                        "nodes": {
+                          "customField": { "name": {} },
+                          "value": {}
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -68,5 +84,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
 
 
