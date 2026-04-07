@@ -12,11 +12,19 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Handle both parsed and unparsed body
+    const bodyData = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+
     const response = await fetch("https://api.jobtread.com/pave", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
+      body: bodyData,
     });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(response.status).json({ error: `JobTread error: ${text}` });
+    }
 
     const data = await response.json();
     return res.status(200).json(data);
@@ -24,3 +32,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
