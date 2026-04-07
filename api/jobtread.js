@@ -18,6 +18,8 @@ export default async function handler(req, res) {
         "$": { "grantKey": GRANT_KEY },
         "currentGrant": {
           "user": {
+            "id": {},
+            "name": {},
             "memberships": {
               "nodes": {
                 "organization": { "id": {}, "name": {} }
