@@ -311,7 +311,6 @@
 </div>
 
 <script>
-const GRANT_KEY  = "22TM6dKUXmnEfBfnz8W2J5CneTTjQetHDC";
 const PROXY      = "/api/jobtread";
 const REFRESH_MS = 60000;
 
@@ -350,29 +349,24 @@ tick(); setInterval(tick,1000);
 async function jtQuery(body) {
   const r = await fetch(PROXY, {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ query:{ $:{ grantKey:GRANT_KEY }, ...body } })
+    body: JSON.stringify(body)
   });
-  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  if(!r.ok) {
+    const txt = await r.text();
+    throw new Error(`HTTP ${r.status}: ${txt}`);
+  }
   return r.json();
 }
 
 async function getOrgId() {
-  const d = await jtQuery({ currentGrant:{ memberships:{ nodes:{ organization:{ id:{},name:{} } } } } });
+  const d = await jtQuery({ action: "getOrg" });
   const nodes = d?.currentGrant?.memberships?.nodes||[];
   const m = nodes.find(n=>n.organization?.name?.toLowerCase().includes("icon"))||nodes[0];
   return m?.organization?.id||null;
 }
 
 async function fetchJobs(oid) {
-  const d = await jtQuery({
-    organization:{ $:{id:oid},
-      jobs:{ $:{where:[["status","!=","archived"]]},
-        nodes:{ id:{},name:{}, account:{name:{}},
-          customFieldValues:{ nodes:{ customField:{name:{}}, value:{} } }
-        }
-      }
-    }
-  });
+  const d = await jtQuery({ action: "getJobs", orgId: oid });
   return d?.organization?.jobs?.nodes||[];
 }
 
