@@ -387,7 +387,7 @@ function render(id, jobs, sec) {
   const list = document.getElementById(`list-${id}`);
   if(!jobs.length){ list.innerHTML=`<div class="empty">No jobs</div>`; return; }
   list.innerHTML = jobs.map(j=>{
-    const st = jobStatus(j), cu = j.account?.name||"";
+    const st = jobStatus(j), cu = j.customer?.name||"";
     return `<div class="job-card">
       <div class="job-dot" style="background:${dot}"></div>
       <div class="job-info">
