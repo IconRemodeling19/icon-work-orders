@@ -24,8 +24,6 @@ export default async function handler(req, res) {
     const { action, page } = req.body || {};
 
     if (action === "getJobs") {
-      // Fetch jobs page by page using size+page pagination
-      // Each page: job id, name, and Status custom field only
       const pageInput = page ? { "size": 20, "page": page } : { "size": 20 };
 
       const d = await jtFetch({
@@ -33,15 +31,7 @@ export default async function handler(req, res) {
           "$": { "id": ORG_ID },
           "id": {},
           "jobs": {
-            "$": {
-              ...pageInput,
-              "where": {
-                "and": [
-                  ["status", "!=", "archived"],
-                  ["status", "!=", "complete"]
-                ]
-              }
-            },
+            "$": pageInput,
             "nextPage": {},
             "nodes": {
               "id": {},
@@ -58,15 +48,17 @@ export default async function handler(req, res) {
         }
       });
 
-      // Slim down server-side — only send id, name, status to browser
       const jobs = d?.organization?.jobs?.nodes || [];
       const nextPage = d?.organization?.jobs?.nextPage || null;
 
-      const slim = jobs.map(job => {
-        const cfvs = job.customFieldValues?.nodes || [];
-        const sf = cfvs.find(c => c.customField?.name?.toLowerCase() === "status");
-        return { id: job.id, name: job.name, status: sf?.value || null };
-      });
+      // Extract status from custom fields and skip Complete jobs server-side
+      const slim = jobs
+        .map(job => {
+          const cfvs = job.customFieldValues?.nodes || [];
+          const sf = cfvs.find(c => c.customField?.name?.toLowerCase() === "status");
+          return { id: job.id, name: job.name, status: sf?.value || null };
+        })
+        .filter(j => j.status !== "Complete"); // skip complete jobs
 
       return res.status(200).json({ jobs: slim, nextPage });
     }
