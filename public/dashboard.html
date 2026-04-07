@@ -6,11 +6,7 @@
 <title>Icon Remodeling — Operations Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --black:#090909; --gray-1:#111111; --gray-2:#1A1A1A; --gray-3:#252525;
-    --gray-4:#333333; --muted:#666666; --follow:#F59E0B; --estimate:#3B82F6;
-    --pending:#8B5CF6; --active:#22C55E; --punch:#EF4444; --white:#FFFFFF;
-  }
+  :root{--black:#090909;--gray-1:#111111;--gray-2:#1A1A1A;--gray-3:#252525;--gray-4:#333333;--muted:#666666;--follow:#F59E0B;--estimate:#3B82F6;--pending:#8B5CF6;--active:#22C55E;--punch:#EF4444;--white:#FFFFFF;}
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   html,body{width:100%;height:100%;overflow:hidden;background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;}
   .app{display:flex;flex-direction:column;height:100vh;width:100vw;}
@@ -56,13 +52,11 @@
 </style>
 </head>
 <body>
-
 <div id="loading" class="loading">
   <img src="/logo.jpg" style="height:48px;filter:brightness(0) invert(1);opacity:0.4" onerror="this.style.display='none'"/>
   <div class="spinner"></div>
   <div class="loading-txt">Connecting to JobTread...</div>
 </div>
-
 <div class="app" id="app" style="display:none">
   <header>
     <div class="brand">
@@ -80,9 +74,7 @@
       <div class="live-pill"><div class="live-dot"></div>LIVE</div>
     </div>
   </header>
-
   <div id="error-bar" class="error-bar" style="display:none"></div>
-
   <div class="grid">
     <div class="section sec-active">
       <div class="sec-header">
@@ -122,94 +114,70 @@
   </div>
   <div class="footer" id="footer"></div>
 </div>
-
 <script>
-const PROXY = "/api/jobtread";
-const REFRESH_MS = 60000;
+const PROXY="/api/jobtread", REFRESH_MS=60000;
 
-const STATUS_MAP = {
-  "New Lead":                                "followups",
-  "Appointment Set":                         "followups",
-  "Estimate Sent - Pending Approval":        "followups",
-  "Estimating":                              "estimates",
-  "Estimate Revision Requested":             "estimates",
-  "Estimate Approved":                       "pending",
-  "Permit Filed":                            "pending",
-  "No Permit Requested - Approved To Start": "pending",
-  "In Progress":                             "active",
-  "Punch List":                              "punch",
+const STATUS_MAP={
+  "New Lead":"followups",
+  "Appointment Set":"followups",
+  "Estimate Sent - Pending Approval":"followups",
+  "Estimating":"estimates",
+  "Estimate Revision Requested":"estimates",
+  "Estimate Approved":"pending",
+  "Permit Filed":"pending",
+  "No Permit Requested - Approved To Start":"pending",
+  "In Progress":"active",
+  "Punch List":"punch"
 };
 
-const C = {
-  active:    {dot:"#22C55E",pill:"background:rgba(34,197,94,0.2);color:#22C55E"},
-  estimates: {dot:"#3B82F6",pill:"background:rgba(59,130,246,0.2);color:#3B82F6"},
-  pending:   {dot:"#8B5CF6",pill:"background:rgba(139,92,246,0.2);color:#8B5CF6"},
-  followups: {dot:"#F59E0B",pill:"background:rgba(245,158,11,0.2);color:#F59E0B"},
-  punch:     {dot:"#EF4444",pill:"background:rgba(239,68,68,0.2);color:#EF4444"},
+const C={
+  active:{dot:"#22C55E",pill:"background:rgba(34,197,94,0.2);color:#22C55E"},
+  estimates:{dot:"#3B82F6",pill:"background:rgba(59,130,246,0.2);color:#3B82F6"},
+  pending:{dot:"#8B5CF6",pill:"background:rgba(139,92,246,0.2);color:#8B5CF6"},
+  followups:{dot:"#F59E0B",pill:"background:rgba(245,158,11,0.2);color:#F59E0B"},
+  punch:{dot:"#EF4444",pill:"background:rgba(239,68,68,0.2);color:#EF4444"}
 };
 
-let orgId = null;
+let orgId=null;
 
 function tick(){
-  const n=new Date(), h=n.getHours()%12||12, m=String(n.getMinutes()).padStart(2,"0");
+  const n=new Date(),h=n.getHours()%12||12,m=String(n.getMinutes()).padStart(2,"0");
   document.getElementById("clock").textContent=`${h}:${m} ${n.getHours()>=12?"PM":"AM"}`;
   document.getElementById("date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}).toUpperCase();
 }
-tick(); setInterval(tick,1000);
+tick();setInterval(tick,1000);
 
-async function jtQuery(body){
+async function api(body){
   const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(!r.ok){const t=await r.text();throw new Error(`HTTP ${r.status}: ${t}`);}
   return r.json();
 }
 
 async function getOrgId(){
-  const d=await jtQuery({action:"getOrg"});
+  const d=await api({action:"getOrg"});
   const nodes=d?.currentGrant?.user?.memberships?.nodes||[];
   const m=nodes.find(n=>n.organization?.id)||nodes[0];
-  if(!m?.organization?.id) throw new Error("No organization found");
-  console.log("Org:",m.organization.name,m.organization.id);
+  if(!m?.organization?.id) throw new Error("Organization not found");
   return m.organization.id;
 }
 
 async function fetchJobs(oid){
-  // Step 1: get all job IDs and names (lightweight)
-  let allJobs=[],cursor=null,page=0;
-  while(page<20){
-    const d=await jtQuery({action:"getJobIds",orgId:oid,cursor});
-    const memberships=d?.currentGrant?.user?.memberships?.nodes||[];
-    const org=memberships.find(m=>m.organization?.id===oid)||memberships[0];
-    const jobsData=org?.organization?.jobs;
-    const nodes=jobsData?.nodes||[];
-    allJobs=allJobs.concat(nodes);
-    const next=jobsData?.nextPage;
-    if(!next||nodes.length===0) break;
-    cursor=next; page++;
-  }
-  console.log("Total jobs:",allJobs.length);
-
-  // Step 2: for each job, fetch its custom field status individually
-  const withStatus = await Promise.all(allJobs.map(async job => {
-    try {
-      const d = await jtQuery({action:"getJobStatus", jobId:job.id});
-      const cfvs = d?.job?.customFieldValues?.nodes||[];
-      const f = cfvs.find(c=>c.customField?.name?.toLowerCase()==="status");
-      return {...job, _status: f?.value||null};
-    } catch(e) {
-      return {...job, _status: null};
-    }
-  }));
-  return withStatus;
+  const d=await api({action:"getJobs",orgId:oid});
+  const memberships=d?.currentGrant?.user?.memberships?.nodes||[];
+  const org=memberships.find(m=>m.organization?.id===oid)||memberships[0];
+  return org?.organization?.jobs?.nodes||[];
 }
 
 function jobStatus(job){
-  return job._status||null;
+  const cfvs=job.customFieldValues?.nodes||[];
+  const f=cfvs.find(c=>c.customField?.name?.toLowerCase()==="status");
+  return f?.value||null;
 }
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
 function render(id,jobs,sec){
-  const {dot,pill}=C[sec];
+  const{dot,pill}=C[sec];
   document.getElementById(`cnt-${id}`).textContent=jobs.length;
   const list=document.getElementById(`list-${id}`);
   if(!jobs.length){list.innerHTML=`<div class="empty">No jobs</div>`;return;}
@@ -223,29 +191,25 @@ async function load(){
   try{
     if(!orgId) orgId=await getOrgId();
     const jobs=await fetchJobs(orgId);
-    console.log("Unique statuses:",[...new Set(jobs.map(j=>jobStatus(j)))]);
+    console.log("Jobs loaded:",jobs.length,"Statuses:",[...new Set(jobs.map(j=>jobStatus(j)))]);
     const b={active:[],estimates:[],pending:[],followups:[],punch:[]};
     jobs.forEach(j=>{const s=STATUS_MAP[jobStatus(j)];if(s)b[s].push(j);});
-    render("active",b.active,"active");
-    render("estimates",b.estimates,"estimates");
-    render("pending",b.pending,"pending");
-    render("followups",b.followups,"followups");
-    render("punch",b.punch,"punch");
+    ["active","estimates","pending","followups","punch"].forEach(k=>render(k,b[k],k));
     document.getElementById("error-bar").style.display="none";
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="flex";
     document.getElementById("footer").textContent="Last updated: "+new Date().toLocaleTimeString();
   }catch(e){
-    console.error(e);
+    console.error("Dashboard error:",e);
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="flex";
     const b=document.getElementById("error-bar");
-    b.textContent=`Connection error: ${e.message} — retrying in 1 minute`;
+    b.textContent=`Error: ${e.message} — retrying in 1 min`;
     b.style.display="block";
   }
 }
 
-load(); setInterval(load,REFRESH_MS);
+load();setInterval(load,REFRESH_MS);
 </script>
 </body>
 </html>
