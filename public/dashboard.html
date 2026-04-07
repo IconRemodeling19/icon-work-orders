@@ -162,16 +162,9 @@ async function getOrgId(){
 }
 
 async function fetchJobs(oid){
+  // Proxy now returns {jobs:[{id,name,status}]} — already slim
   const d=await api({action:"getJobs",orgId:oid});
-  const memberships=d?.currentGrant?.user?.memberships?.nodes||[];
-  const org=memberships.find(m=>m.organization?.id===oid)||memberships[0];
-  return org?.organization?.jobs?.nodes||[];
-}
-
-function jobStatus(job){
-  const cfvs=job.customFieldValues?.nodes||[];
-  const f=cfvs.find(c=>c.customField?.name?.toLowerCase()==="status");
-  return f?.value||null;
+  return d?.jobs||[];
 }
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
@@ -181,19 +174,16 @@ function render(id,jobs,sec){
   document.getElementById(`cnt-${id}`).textContent=jobs.length;
   const list=document.getElementById(`list-${id}`);
   if(!jobs.length){list.innerHTML=`<div class="empty">No jobs</div>`;return;}
-  list.innerHTML=jobs.map(j=>{
-    const st=jobStatus(j);
-    return `<div class="job-card"><div class="job-dot" style="background:${dot}"></div><div class="job-info"><div class="job-name">${esc(j.name||"Unnamed")}</div></div>${st?`<div class="job-status" style="${pill}">${esc(st)}</div>`:""}</div>`;
-  }).join("");
+  list.innerHTML=jobs.map(j=>`<div class="job-card"><div class="job-dot" style="background:${dot}"></div><div class="job-info"><div class="job-name">${esc(j.name||"Unnamed")}</div></div>${j.status?`<div class="job-status" style="${pill}">${esc(j.status)}</div>`:""}</div>`).join("");
 }
 
 async function load(){
   try{
     if(!orgId) orgId=await getOrgId();
     const jobs=await fetchJobs(orgId);
-    console.log("Jobs loaded:",jobs.length,"Statuses:",[...new Set(jobs.map(j=>jobStatus(j)))]);
+    console.log("Jobs:",jobs.length,"Statuses:",[...new Set(jobs.map(j=>j.status))]);
     const b={active:[],estimates:[],pending:[],followups:[],punch:[]};
-    jobs.forEach(j=>{const s=STATUS_MAP[jobStatus(j)];if(s)b[s].push(j);});
+    jobs.forEach(j=>{const s=STATUS_MAP[j.status];if(s)b[s].push(j);});
     ["active","estimates","pending","followups","punch"].forEach(k=>render(k,b[k],k));
     document.getElementById("error-bar").style.display="none";
     document.getElementById("loading").style.display="none";
@@ -203,9 +193,9 @@ async function load(){
     console.error("Dashboard error:",e);
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="flex";
-    const b=document.getElementById("error-bar");
-    b.textContent=`Error: ${e.message} — retrying in 1 min`;
-    b.style.display="block";
+    const eb=document.getElementById("error-bar");
+    eb.textContent=`Error: ${e.message} — retrying in 1 min`;
+    eb.style.display="block";
   }
 }
 
