@@ -44,8 +44,8 @@ function AppGate({children}){
       setPinsLoaded(true);
     });
     // If crewPin doesn't exist yet, still mark loaded after a moment
-    const t=setTimeout(()=>setPinsLoaded(true),2000);
-    return()=>{u1();u2();clearTimeout(t);};
+    const timer=setTimeout(()=>setPinsLoaded(true),2000);
+    return()=>{u1();u2();clearTimeout(timer);};
   },[firebaseUser]);
 
   const check=()=>{
