@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Icon Remodeling — Operations Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --black:   #090909;
+    --gray-1:  #111111;
+    --gray-2:  #1A1A1A;
+    --gray-3:  #252525;
+    --gray-4:  #333333;
+    --muted:   #666666;
+    --follow:  #F59E0B;
+    --estimate:#3B82F6;
+    --pending: #8B5CF6;
+    --active:  #22C55E;
+    --punch:   #EF4444;
+    --white:   #FFFFFF;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--black);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── HEADER ── */
+  header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 28px;
+    background: var(--gray-1);
+    border-bottom: 1px solid var(--gray-3);
+    height: 62px;
+  }
+
+  .brand { display:flex; align-items:center; gap:14px; }
+  .logo { height:34px; width:auto; filter:brightness(0) invert(1); opacity:0.85; }
+  .brand-name { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2.5px; line-height:1; }
+  .brand-sub { font-size:10px; color:var(--muted); letter-spacing:3px; text-transform:uppercase; margin-top:3px; }
+
+  .header-right { display:flex; align-items:center; gap:24px; }
+  .clock { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:2px; line-height:1; }
+  .date  { font-size:10px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; text-align:right; margin-top:3px; }
+
+  .live-pill { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+  .live-dot  { width:8px; height:8px; border-radius:50%; background:var(--active); animation:blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+  /* ── GRID ──
+     Row 1: Active (full width) — fixed small height
+     Row 2: Estimates(2fr) | Pending(1fr) | FollowUps(1fr) — takes remaining space
+     Row 3: Punch List (full width) — fixed small height
+  */
+  .grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 8px;
+    padding: 8px 12px;
+    min-height: 0;
+  }
+
+  .sec-active    { grid-column:1/-1; grid-row:1; }
+  .sec-estimates { grid-column:1;    grid-row:2; }
+  .sec-pending   { grid-column:2;    grid-row:2; }
+  .sec-followups { grid-column:3;    grid-row:2; }
+  .sec-punch     { grid-column:1/-1; grid-row:3; }
+
+  /* ── SECTION ── */
+  .section {
+    background: var(--gray-1);
+    border: 1px solid var(--gray-3);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sec-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--gray-3);
+  }
+
+  .sec-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    letter-spacing: 2px;
+  }
+
+  .accent { width:3px; border-radius:2px; align-self:stretch; flex-shrink:0; }
+
+  .count {
+    font-family:'DM Sans',sans-serif;
+    font-size:11px; font-weight:700;
+    padding:2px 9px; border-radius:20px;
+  }
+
+  /* ── JOB LIST: wrapping flex, no scroll ── */
+  .job-list {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px;
+    padding: 6px 8px;
+    overflow: hidden;   /* NEVER scroll */
+    min-height: 0;
+  }
+
+  /* Active + Punch rows: horizontal chips */
+  .sec-active .job-list,
+  .sec-punch  .job-list {
+    align-content: center;
+    flex-direction: row;
+  }
+
+  /* Estimates: vertical list inside its column */
+  .sec-estimates .job-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 3px;
+  }
+
+  /* Pending + FollowUps: vertical list */
+  .sec-pending .job-list,
+  .sec-followups .job-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 3px;
+  }
+
+  /* ── JOB CARD ── */
+  .job-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--gray-2);
+    border: 1px solid var(--gray-3);
+    border-radius: 7px;
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  /* Chips for Active/Punch rows */
+  .sec-active .job-card,
+  .sec-punch  .job-card {
+    flex: 0 0 auto;
+  }
+
+  /* Full-width rows for vertical sections */
+  .sec-estimates .job-card,
+  .sec-pending   .job-card,
+  .sec-followups .job-card {
+    width: 100%;
+  }
+
+  .job-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+  .job-info { flex:1; min-width:0; }
+
+  .job-name {
+    font-size: 12px; font-weight:600; color:var(--white);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .job-sub {
+    font-size: 10px; color:var(--muted); margin-top:1px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .job-status {
+    font-size:9px; font-weight:700; padding:2px 7px;
+    border-radius:10px; text-transform:uppercase;
+    letter-spacing:0.5px; white-space:nowrap; flex-shrink:0;
+  }
+
+  .empty {
+    color:var(--gray-4); font-size:11px; letter-spacing:1.5px;
+    text-transform:uppercase; padding:10px 14px;
+  }
+
+  /* ── ERROR ── */
+  .error-bar {
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.25);
+    color:#FCA5A5; font-size:11px;
+    padding:5px 14px; margin:0 12px 4px;
+    border-radius:6px; letter-spacing:0.5px;
+  }
+
+  /* ── LOADING ── */
+  .loading {
+    position:fixed; inset:0; background:var(--black);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:16px; z-index:999;
+  }
+  .spinner {
+    width:36px; height:36px;
+    border:3px solid var(--gray-3);
+    border-top-color:var(--active);
+    border-radius:50%; animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-txt { font-size:11px; color:var(--muted); letter-spacing:3px; text-transform:uppercase; }
+
+  .footer {
+    flex-shrink:0; font-size:10px; color:var(--gray-4);
+    text-align:right; padding:2px 14px 4px; letter-spacing:1px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <img src="/logo.jpg" style="height:48px;filter:brightness(0) invert(1);opacity:0.4" onerror="this.style.display='none'"/>
+  <div class="spinner"></div>
+  <div class="loading-txt">Connecting to JobTread...</div>
+</div>
+
+<div class="app" id="app" style="display:none">
+  <header>
+    <div class="brand">
+      <img src="/logo.jpg" class="logo" onerror="this.style.display='none'"/>
+      <div>
+        <div class="brand-name">Icon Remodeling Group</div>
+        <div class="brand-sub">Operations Dashboard</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div>
+        <div class="clock" id="clock">--:--</div>
+        <div class="date"  id="date"></div>
+      </div>
+      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    </div>
+  </header>
+
+  <div id="error-bar" class="error-bar" style="display:none"></div>
+
+  <div class="grid">
+    <div class="section sec-active">
+      <div class="sec-header">
+        <div class="sec-title"><div class="accent" style="background:var(--active)"></div>Active Jobs</div>
+        <div class="count" id="cnt-active" style="background:rgba(34,197,94,0.15);color:var(--active)">0</div>
+      </div>
+      <div class="job-list" id="list-active"></div>
+    </div>
+
+    <div class="section sec-estimates">
+      <div class="sec-header">
+        <div class="sec-title"><div class="accent" style="background:var(--estimate)"></div>Estimates To Do</div>
+        <div class="count" id="cnt-estimates" style="background:rgba(59,130,246,0.15);color:var(--estimate)">0</div>
+      </div>
+      <div class="job-list" id="list-estimates"></div>
+    </div>
+
+    <div class="section sec-pending">
+      <div class="sec-header">
+        <div class="sec-title"><div class="accent" style="background:var(--pending)"></div>Pending Jobs</div>
+        <div class="count" id="cnt-pending" style="background:rgba(139,92,246,0.15);color:var(--pending)">0</div>
+      </div>
+      <div class="job-list" id="list-pending"></div>
+    </div>
+
+    <div class="section sec-followups">
+      <div class="sec-header">
+        <div class="sec-title"><div class="accent" style="background:var(--follow)"></div>Follow Ups</div>
+        <div class="count" id="cnt-followups" style="background:rgba(245,158,11,0.15);color:var(--follow)">0</div>
+      </div>
+      <div class="job-list" id="list-followups"></div>
+    </div>
+
+    <div class="section sec-punch">
+      <div class="sec-header">
+        <div class="sec-title"><div class="accent" style="background:var(--punch)"></div>Punch List</div>
+        <div class="count" id="cnt-punch" style="background:rgba(239,68,68,0.15);color:var(--punch)">0</div>
+      </div>
+      <div class="job-list" id="list-punch"></div>
+    </div>
+  </div>
+
+  <div class="footer" id="footer"></div>
+</div>
+
+<script>
+const GRANT_KEY  = "22TM6dKUXmnEfBfnz8W2J5CneTTjQetHDC";
+const PROXY      = "/api/jobtread";
+const REFRESH_MS = 60000;
+
+const STATUS_MAP = {
+  "New Lead":                                    "followups",
+  "Appointment Set":                             "followups",
+  "Estimate Sent \u2013 Pending Approval":       "followups",
+  "Estimating":                                  "estimates",
+  "Estimate Revision Requested":                 "estimates",
+  "Estimate Approved":                           "pending",
+  "Permit Filed":                                "pending",
+  "No Permit Requested \u2013 Approved to Start":"pending",
+  "In Progress":                                 "active",
+  "Punch List":                                  "punch",
+};
+
+const C = {
+  active:    { dot:"#22C55E", pill:"background:rgba(34,197,94,0.2);color:#22C55E" },
+  estimates: { dot:"#3B82F6", pill:"background:rgba(59,130,246,0.2);color:#3B82F6" },
+  pending:   { dot:"#8B5CF6", pill:"background:rgba(139,92,246,0.2);color:#8B5CF6" },
+  followups: { dot:"#F59E0B", pill:"background:rgba(245,158,11,0.2);color:#F59E0B" },
+  punch:     { dot:"#EF4444", pill:"background:rgba(239,68,68,0.2);color:#EF4444" },
+};
+
+let orgId = null;
+
+function tick() {
+  const n = new Date();
+  const h = n.getHours()%12||12, m = String(n.getMinutes()).padStart(2,"0");
+  document.getElementById("clock").textContent = `${h}:${m} ${n.getHours()>=12?"PM":"AM"}`;
+  document.getElementById("date").textContent =
+    n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}).toUpperCase();
+}
+tick(); setInterval(tick,1000);
+
+async function jtQuery(body) {
+  const r = await fetch(PROXY, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ query:{ $:{ grantKey:GRANT_KEY }, ...body } })
+  });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function getOrgId() {
+  const d = await jtQuery({ currentGrant:{ memberships:{ nodes:{ organization:{ id:{},name:{} } } } } });
+  const nodes = d?.currentGrant?.memberships?.nodes||[];
+  const m = nodes.find(n=>n.organization?.name?.toLowerCase().includes("icon"))||nodes[0];
+  return m?.organization?.id||null;
+}
+
+async function fetchJobs(oid) {
+  const d = await jtQuery({
+    organization:{ $:{id:oid},
+      jobs:{ $:{where:[["status","!=","archived"]]},
+        nodes:{ id:{},name:{}, account:{name:{}},
+          customFieldValues:{ nodes:{ customField:{name:{}}, value:{} } }
+        }
+      }
+    }
+  });
+  return d?.organization?.jobs?.nodes||[];
+}
+
+function jobStatus(job) {
+  const f = (job.customFieldValues?.nodes||[]).find(c=>c.customField?.name?.toLowerCase().includes("status"));
+  return f?.value||null;
+}
+
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function render(id, jobs, sec) {
+  const {dot,pill} = C[sec];
+  document.getElementById(`cnt-${id}`).textContent = jobs.length;
+  const list = document.getElementById(`list-${id}`);
+  if(!jobs.length){ list.innerHTML=`<div class="empty">No jobs</div>`; return; }
+  list.innerHTML = jobs.map(j=>{
+    const st = jobStatus(j), cu = j.account?.name||"";
+    return `<div class="job-card">
+      <div class="job-dot" style="background:${dot}"></div>
+      <div class="job-info">
+        <div class="job-name">${esc(j.name||"Unnamed")}</div>
+        ${cu?`<div class="job-sub">${esc(cu)}</div>`:""}
+      </div>
+      ${st?`<div class="job-status" style="${pill}">${esc(st)}</div>`:""}
+    </div>`;
+  }).join("");
+}
+
+async function load() {
+  try {
+    if(!orgId) orgId = await getOrgId();
+    if(!orgId) throw new Error("Organization not found");
+    const jobs = await fetchJobs(orgId);
+    const b = {active:[],estimates:[],pending:[],followups:[],punch:[]};
+    jobs.forEach(j=>{ const s=STATUS_MAP[jobStatus(j)]; if(s)b[s].push(j); });
+    render("active",    b.active,    "active");
+    render("estimates", b.estimates, "estimates");
+    render("pending",   b.pending,   "pending");
+    render("followups", b.followups, "followups");
+    render("punch",     b.punch,     "punch");
+    document.getElementById("error-bar").style.display="none";
+    document.getElementById("loading").style.display="none";
+    document.getElementById("app").style.display="flex";
+    document.getElementById("footer").textContent="Last updated: "+new Date().toLocaleTimeString();
+  } catch(e) {
+    console.error(e);
+    document.getElementById("loading").style.display="none";
+    document.getElementById("app").style.display="flex";
+    const b = document.getElementById("error-bar");
+    b.textContent=`Connection error: ${e.message} — retrying in 1 minute`;
+    b.style.display="block";
+    document.getElementById("footer").textContent="Last attempt: "+new Date().toLocaleTimeString();
+  }
+}
+
+load();
+setInterval(load,REFRESH_MS);
+</script>
+</body>
+</html>
