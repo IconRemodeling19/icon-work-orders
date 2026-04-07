@@ -481,7 +481,7 @@ function AppInner(){
       </div>
 
       {/* ── ACTIVE JOBS TABLE ── */}
-      <div style={{width:"100%",maxWidth:"600px"}}>
+      <div style={{width:"100%",maxWidth:"600px",marginLeft:"auto",marginRight:"auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
           <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:t.text,margin:0}}>Active Jobs</h2>
           {!activeJobsEditing&&<button onClick={()=>setPinDialog("activeJobs")} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Edit</button>}
