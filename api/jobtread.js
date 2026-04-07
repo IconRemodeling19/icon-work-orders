@@ -7,6 +7,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const GRANT_KEY = "22TM6dKUXmnEfBfnz8W2J5CneTTjQetHDC";
+  const ORG_ID    = "22PHzmPPGXx";
 
   async function jtFetch(queryBody) {
     const r = await fetch("https://api.jobtread.com/pave", {
@@ -20,52 +21,36 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action, orgId } = req.body || {};
+    const { action, page } = req.body || {};
 
-    if (action === "getOrg") {
+    if (action === "getJobs") {
+      // Fetch jobs page by page using size+page pagination
+      // Each page: job id, name, and Status custom field only
+      const pageInput = page ? { "size": 20, "page": page } : { "size": 20 };
+
       const d = await jtFetch({
-        "currentGrant": {
-          "user": {
-            "id": {},
-            "memberships": {
-              "nodes": {
-                "id": {},
-                "organization": { "id": {}, "name": {} }
+        "organization": {
+          "$": { "id": ORG_ID },
+          "id": {},
+          "jobs": {
+            "$": {
+              ...pageInput,
+              "where": {
+                "and": [
+                  ["status", "!=", "archived"],
+                  ["status", "!=", "complete"]
+                ]
               }
-            }
-          }
-        }
-      });
-      return res.status(200).json(d);
-    }
-
-    if (action === "getJobs" && orgId) {
-      // Fetch only non-archived jobs with ONLY their Status custom field
-      // Uses the "with" pattern from JobTread docs to filter customFieldValues
-      const d = await jtFetch({
-        "currentGrant": {
-          "user": {
-            "id": {},
-            "memberships": {
-              "nodes": {
-                "id": {},
-                "organization": {
-                  "id": {},
-                  "jobs": {
-                    "$": {
-                      "where": [["status", "!=", "archived"]]
-                    },
-                    "nodes": {
-                      "id": {},
-                      "name": {},
-                      "customFieldValues": {
-                        "nodes": {
-                          "customField": { "name": {} },
-                          "value": {}
-                        }
-                      }
-                    }
-                  }
+            },
+            "nextPage": {},
+            "nodes": {
+              "id": {},
+              "name": {},
+              "customFieldValues": {
+                "$": { "size": 25 },
+                "nodes": {
+                  "customField": { "name": {} },
+                  "value": {}
                 }
               }
             }
@@ -73,25 +58,17 @@ export default async function handler(req, res) {
         }
       });
 
-      // Filter the response server-side: only return the Status field value per job
-      // This drastically reduces response size before sending to browser
-      const memberships = d?.currentGrant?.user?.memberships?.nodes || [];
-      const org = memberships[0];
-      const jobs = org?.organization?.jobs?.nodes || [];
+      // Slim down server-side — only send id, name, status to browser
+      const jobs = d?.organization?.jobs?.nodes || [];
+      const nextPage = d?.organization?.jobs?.nextPage || null;
 
       const slim = jobs.map(job => {
         const cfvs = job.customFieldValues?.nodes || [];
-        const statusField = cfvs.find(c =>
-          c.customField?.name?.toLowerCase() === "status"
-        );
-        return {
-          id: job.id,
-          name: job.name,
-          status: statusField?.value || null
-        };
+        const sf = cfvs.find(c => c.customField?.name?.toLowerCase() === "status");
+        return { id: job.id, name: job.name, status: sf?.value || null };
       });
 
-      return res.status(200).json({ jobs: slim });
+      return res.status(200).json({ jobs: slim, nextPage });
     }
 
     return res.status(400).json({ error: "Invalid action" });
