@@ -360,18 +360,40 @@ async function jtQuery(body) {
 
 async function getOrgId() {
   const d = await jtQuery({ action: "getOrg" });
-  console.log("getOrg response:", JSON.stringify(d));
+  console.log("getOrg:", JSON.stringify(d).substring(0, 300));
   const nodes = d?.currentGrant?.user?.memberships?.nodes || [];
-  // Take first org that has an id, regardless of name
   const m = nodes.find(n => n.organization?.id) || nodes[0];
-  if (!m?.organization?.id) throw new Error("No organization found. Check grant key permissions.");
-  console.log("Using org:", m.organization.name, m.organization.id);
+  if (!m?.organization?.id) throw new Error("No organization found");
+  console.log("Org:", m.organization.name, m.organization.id);
   return m.organization.id;
 }
 
 async function fetchJobs(oid) {
-  const d = await jtQuery({ action: "getJobs", orgId: oid });
-  return d?.organization?.jobs?.nodes||[];
+  // Fetch all jobs via pagination
+  let allJobs = [];
+  let cursor = null;
+  let pages = 0;
+
+  while (pages < 10) {
+    const d = await jtQuery({ action: "getJobs", orgId: oid, cursor });
+    console.log("getJobs page", pages, "response:", JSON.stringify(d).substring(0, 500));
+
+    // Navigate the response - jobs are nested inside memberships
+    const memberships = d?.currentGrant?.user?.memberships?.nodes || [];
+    const org = memberships.find(m => m.organization?.id === oid) || memberships[0];
+    const jobs = org?.organization?.jobs;
+    const nodes = jobs?.nodes || [];
+
+    allJobs = allJobs.concat(nodes);
+
+    const next = jobs?.nextPage;
+    if (!next || nodes.length === 0) break;
+    cursor = next;
+    pages++;
+  }
+
+  console.log("Total jobs fetched:", allJobs.length);
+  return allJobs;
 }
 
 function jobStatus(job) {
