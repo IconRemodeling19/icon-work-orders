@@ -17,9 +17,11 @@ export default async function handler(req, res) {
       query = {
         "$": { "grantKey": GRANT_KEY },
         "currentGrant": {
-          "memberships": {
-            "nodes": {
-              "organization": { "id": {}, "name": {} }
+          "user": {
+            "memberships": {
+              "nodes": {
+                "organization": { "id": {}, "name": {} }
+              }
             }
           }
         }
