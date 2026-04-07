@@ -417,11 +417,6 @@ function AppInner(){
       `}</style>
       <Toast/>
 
-      {/* Watermark */}
-      <div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none",zIndex:0}}>
-        <img src={LOGO_SRC} alt="" style={{width:"80vw",maxWidth:"600px",height:"auto",opacity:0.05,userSelect:"none"}}/>
-      </div>
-
       {/* Key Modal */}
       {keyModal&&<InfoModal title="Lock Box Code" icon={<KeyIcon/>} onClose={()=>setKeyModal(null)}>
         <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
