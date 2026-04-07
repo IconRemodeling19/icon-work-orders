@@ -138,8 +138,6 @@ const C={
   punch:{dot:"#EF4444",pill:"background:rgba(239,68,68,0.2);color:#EF4444"}
 };
 
-let orgId=null;
-
 function tick(){
   const n=new Date(),h=n.getHours()%12||12,m=String(n.getMinutes()).padStart(2,"0");
   document.getElementById("clock").textContent=`${h}:${m} ${n.getHours()>=12?"PM":"AM"}`;
@@ -153,18 +151,19 @@ async function api(body){
   return r.json();
 }
 
-async function getOrgId(){
-  const d=await api({action:"getOrg"});
-  const nodes=d?.currentGrant?.user?.memberships?.nodes||[];
-  const m=nodes.find(n=>n.organization?.id)||nodes[0];
-  if(!m?.organization?.id) throw new Error("Organization not found");
-  return m.organization.id;
-}
-
-async function fetchJobs(oid){
-  // Proxy now returns {jobs:[{id,name,status}]} — already slim
-  const d=await api({action:"getJobs",orgId:oid});
-  return d?.jobs||[];
+async function fetchAllJobs(){
+  // Paginate through all jobs collecting {id,name,status}
+  let allJobs=[], page=null, pageCount=0;
+  while(pageCount<20){
+    const body={action:"getJobs"};
+    if(page) body.page=page;
+    const d=await api(body);
+    allJobs=allJobs.concat(d.jobs||[]);
+    page=d.nextPage||null;
+    if(!page) break;
+    pageCount++;
+  }
+  return allJobs;
 }
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
@@ -179,8 +178,7 @@ function render(id,jobs,sec){
 
 async function load(){
   try{
-    if(!orgId) orgId=await getOrgId();
-    const jobs=await fetchJobs(orgId);
+    const jobs=await fetchAllJobs();
     console.log("Jobs:",jobs.length,"Statuses:",[...new Set(jobs.map(j=>j.status))]);
     const b={active:[],estimates:[],pending:[],followups:[],punch:[]};
     jobs.forEach(j=>{const s=STATUS_MAP[j.status];if(s)b[s].push(j);});
