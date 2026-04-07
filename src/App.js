@@ -481,9 +481,9 @@ function AppInner(){
       </div>
 
       {/* ── ACTIVE JOBS TABLE ── */}
-      <div style={{width:"100%",maxWidth:"600px",marginLeft:"auto",marginRight:"auto"}}>
+      <div style={{width:"100%",maxWidth:"600px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
-          <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:t.text,margin:0}}>Active Jobs</h2>
+          <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:t.text,margin:"0 auto",textAlign:"center",flex:1}}>Active Jobs</h2>
           {!activeJobsEditing&&<button onClick={()=>setPinDialog("activeJobs")} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Edit</button>}
           {activeJobsEditing&&<button onClick={()=>{setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");}} style={{...ghostBtn,padding:"6px",fontSize:"12px",color:t.accent}}>Done</button>}
         </div>
