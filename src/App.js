@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { db, ref, set, onValue, storage, storageRef, uploadBytes, getDownloadURL } from "./firebase";
+import { db, ref, set, onValue, storage, storageRef, uploadBytes, getDownloadURL, auth, signInAnonymously, onAuthStateChanged } from "./firebase";
 
 const GOOGLE_API_KEY = "AIzaSyDP9N998QacTADs3UaDYBohltD3rfflMmE";
 const LOGO_SRC = "/logo.jpg";
@@ -7,6 +7,114 @@ const ALL_MEMBERS = ["Luis","Azael","Oswaldo","Andres","Vicente","Gabriel","Geov
 const DEFAULT_CREWS = {"Crew 1":[...ALL_MEMBERS],"Crew 2":[...ALL_MEMBERS],"Crew 3":[...ALL_MEMBERS],"Crew 4":[...ALL_MEMBERS],"Crew 5":[...ALL_MEMBERS]};
 const FIELD_OPS_MEMBERS = ["Joe","Bryan"];
 const DEFAULT_PIN = "1234";
+const DEFAULT_CREW_PIN = "5678";
+const AUTH_KEY = "wo-auth-granted";
+
+// ── APP GATE (wraps entire app, enforces PIN before anything loads) ──
+function AppGate({children}){
+  const[authed,setAuthed]=useState(()=>localStorage.getItem(AUTH_KEY)==="true");
+  const[pin,setPin]=useState("");
+  const[err,setErr]=useState(false);
+  const[shake,setShake]=useState(false);
+  const[firebaseUser,setFirebaseUser]=useState(null);
+  const[authLoading,setAuthLoading]=useState(true);
+  // PINs are fetched after anon auth succeeds
+  const[storedManagerPin,setStoredManagerPin]=useState(DEFAULT_PIN);
+  const[storedCrewPin,setStoredCrewPin]=useState(DEFAULT_CREW_PIN);
+  const[pinsLoaded,setPinsLoaded]=useState(false);
+
+  // Step 1: Always sign in anonymously first (no PIN needed for this)
+  useEffect(()=>{
+    const unsub=onAuthStateChanged(auth,user=>{
+      setFirebaseUser(user);
+      setAuthLoading(false);
+      if(!user){
+        signInAnonymously(auth).catch(e=>console.error("Anon sign in:",e));
+      }
+    });
+    return()=>unsub();
+  },[]);
+
+  // Step 2: Once we have a Firebase user, fetch the real PINs
+  useEffect(()=>{
+    if(!firebaseUser)return;
+    const u1=onValue(ref(db,"settings/managerPin"),s=>{if(s.val())setStoredManagerPin(s.val());});
+    const u2=onValue(ref(db,"settings/crewPin"),s=>{
+      if(s.val())setStoredCrewPin(s.val());
+      setPinsLoaded(true);
+    });
+    // If crewPin doesn't exist yet, still mark loaded after a moment
+    const t=setTimeout(()=>setPinsLoaded(true),2000);
+    return()=>{u1();u2();clearTimeout(t);};
+  },[firebaseUser]);
+
+  const check=()=>{
+    if(pin===storedManagerPin||pin===storedCrewPin){
+      localStorage.setItem(AUTH_KEY,"true");
+      setAuthed(true);
+    } else {
+      setErr(true);setShake(true);setPin("");
+      setTimeout(()=>{setErr(false);setShake(false);},2000);
+    }
+  };
+
+  if(authLoading)return(
+    <div style={{minHeight:"100vh",background:"#FFF",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',sans-serif"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/>
+      <div style={{textAlign:"center",color:"#71717A"}}><img src="/logo.jpg" alt="Icon Remodeling" style={{width:70,height:"auto"}}/><p style={{marginTop:16}}>Loading...</p></div>
+    </div>
+  );
+
+  if(authed)return children;
+
+  return(
+    <div style={{minHeight:"100vh",background:"#FFF",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/>
+      <style>{`
+        @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+      `}</style>
+      <div style={{width:"100%",maxWidth:"340px",textAlign:"center",animation:"fadeUp 0.4s ease"}}>
+        <img src="/logo.jpg" alt="Icon Remodeling Group" style={{width:80,height:"auto",marginBottom:"20px"}}/>
+        <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"26px",color:"#1A1A1A",margin:"0 0 6px"}}>Work Orders</h1>
+        <p style={{color:"#71717A",fontSize:"14px",margin:"0 0 32px"}}>Icon Remodeling Group Inc.</p>
+
+        <div style={{background:"#F7F7F8",border:"1.5px solid #E4E4E7",borderRadius:"16px",padding:"28px"}}>
+          <div style={{fontSize:"13px",fontWeight:700,color:"#71717A",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"16px"}}>Enter Access PIN</div>
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={8}
+            value={pin}
+            onChange={e=>setPin(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter")check();}}
+            placeholder="••••"
+            autoFocus
+            style={{
+              width:"100%",padding:"16px",background:"#FFF",
+              border:`2px solid ${err?"#DC2626":"#E4E4E7"}`,
+              borderRadius:"12px",color:"#1A1A1A",fontSize:"28px",
+              fontFamily:"'DM Sans',sans-serif",outline:"none",
+              boxSizing:"border-box",textAlign:"center",letterSpacing:"10px",
+              marginBottom:"12px",
+              animation:shake?"shake 0.4s ease":"none",
+              transition:"border-color 0.2s"
+            }}
+          />
+          {err&&<div style={{color:"#DC2626",fontSize:"13px",fontWeight:600,marginBottom:"12px"}}>Incorrect PIN — try again</div>}
+          <button
+            onClick={check}
+            disabled={!pinsLoaded}
+            style={{width:"100%",padding:"14px",background:pinsLoaded?"#1A1A1A":"#A1A1AA",color:"#FFF",border:"none",borderRadius:"10px",fontSize:"15px",fontWeight:700,cursor:pinsLoaded?"pointer":"not-allowed",fontFamily:"'DM Sans',sans-serif",transition:"background 0.2s"}}
+          >
+            {pinsLoaded?"Enter":"Connecting..."}
+          </button>
+        </div>
+        <p style={{color:"#A1A1AA",fontSize:"12px",marginTop:"20px"}}>Contact your manager if you need access.</p>
+      </div>
+    </div>
+  );
+}
 
 const emptyCrewOrder = {crewName:"",members:[],jobAddress:"",jobDescription:"",materials:"",specialNotes:"",customerName:"",customerPhone:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
 const emptyFieldOrder = {staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
@@ -123,11 +231,16 @@ function Header({title,subtitle,onBack,onHome,children}){
 }
 
 export default function App(){
+  return <AppGate><AppInner/></AppGate>;
+}
+
+function AppInner(){
   const[mode,setMode]=useState(null);
   const[orders,ordersL]=useFB("orders",[]);
   const[fieldOrders,fieldL]=useFB("fieldOrders",[]);
   const[crews,crewsL]=useFB("crews",DEFAULT_CREWS);
   const[managerPin]=useFB("settings/managerPin",DEFAULT_PIN);
+  const[crewPin]=useFB("settings/crewPin",DEFAULT_CREW_PIN);
   const[fieldNotes,fieldNotesL]=useFB("fieldNotes",[]);
   const[standaloneFiles,standaloneFilesL]=useFB("standaloneFiles",[]);
   const[lockboxCodes,lockboxL]=useFB("lockboxCodes",[]);
@@ -149,6 +262,7 @@ export default function App(){
   const[managerAuth,setManagerAuth]=useState(false);
   const[showPinSettings,setShowPinSettings]=useState(false);
   const[newPin,setNewPin]=useState("");
+  const[newCrewPin,setNewCrewPin]=useState("");
   const[editingFieldOrder,setEditingFieldOrder]=useState(null);
   const[showFieldForm,setShowFieldForm]=useState(false);
   const[selectedCrewOrder,setSelectedCrewOrder]=useState(null);
@@ -246,7 +360,8 @@ export default function App(){
     w.document.write(`</body></html>`);w.document.close();setTimeout(()=>w.print(),500);
   };
 
-  const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");setShowPinSettings(false);showToast("PIN updated");}else showToast("PIN must be at least 4 digits");};
+  const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");showToast("Manager PIN updated");}else showToast("PIN must be at least 4 digits");};
+  const saveNewCrewPin=()=>{if(newCrewPin.length>=4){saveToFB("settings/crewPin",newCrewPin);setNewCrewPin("");showToast("Crew PIN updated");}else showToast("PIN must be at least 4 digits");};
 
   const todayStr=new Date().toISOString().split("T")[0];
   const activeCrew=getActive(orders);const activeField=getActive(fieldOrders);
@@ -887,12 +1002,34 @@ export default function App(){
   if(showPinSettings)return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/><Toast/>
-      <Header title="Change Manager PIN" onBack={()=>setShowPinSettings(false)} onHome={goHome}/>
-      <div style={{padding:"20px",maxWidth:"400px"}}>
-        <p style={{color:t.textMuted,fontSize:"14px",marginBottom:"20px"}}>Current PIN: {managerPin}</p>
-        <label style={labelStyle}>New PIN (min 4 digits)</label>
-        <input type="password" inputMode="numeric" value={newPin} onChange={e=>setNewPin(e.target.value)} placeholder="Enter new PIN" style={{...inputStyle,marginBottom:"16px"}}/>
-        <button onClick={saveNewPin} style={{...primaryBtn,width:"100%"}}>Update PIN</button>
+      <Header title="PIN & Access Settings" onBack={()=>setShowPinSettings(false)} onHome={goHome}/>
+      <div style={{padding:"20px",maxWidth:"400px",display:"flex",flexDirection:"column",gap:"28px"}}>
+
+        {/* Manager PIN */}
+        <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"14px",padding:"20px"}}>
+          <div style={{fontSize:"13px",fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Manager PIN</div>
+          <div style={{fontSize:"12px",color:t.textMuted,marginBottom:"16px"}}>Grants access to create/edit work orders. Current: <strong>{managerPin}</strong></div>
+          <label style={labelStyle}>New Manager PIN (min 4 digits)</label>
+          <input type="password" inputMode="numeric" value={newPin} onChange={e=>setNewPin(e.target.value)} placeholder="Enter new PIN" style={{...inputStyle,marginBottom:"12px"}}/>
+          <button onClick={saveNewPin} style={{...primaryBtn,width:"100%",padding:"12px"}}>Update Manager PIN</button>
+        </div>
+
+        {/* Crew PIN */}
+        <div style={{background:t.card,border:`1.5px solid ${t.border}`,borderRadius:"14px",padding:"20px"}}>
+          <div style={{fontSize:"13px",fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Crew Access PIN</div>
+          <div style={{fontSize:"12px",color:t.textMuted,marginBottom:"16px"}}>Required to open the app. Share with all crew members. Current: <strong>{crewPin||DEFAULT_CREW_PIN}</strong></div>
+          <label style={labelStyle}>New Crew PIN (min 4 digits)</label>
+          <input type="password" inputMode="numeric" value={newCrewPin} onChange={e=>setNewCrewPin(e.target.value)} placeholder="Enter new crew PIN" style={{...inputStyle,marginBottom:"12px"}}/>
+          <button onClick={saveNewCrewPin} style={{...primaryBtn,width:"100%",padding:"12px",background:"#1E40AF"}}>Update Crew PIN</button>
+        </div>
+
+        {/* Sign Out / Reset device */}
+        <div style={{background:"#FFF5F5",border:`1.5px solid #FECACA`,borderRadius:"14px",padding:"20px"}}>
+          <div style={{fontSize:"13px",fontWeight:700,color:t.danger,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Reset Device Access</div>
+          <div style={{fontSize:"12px",color:t.textMuted,marginBottom:"16px"}}>Clears the saved login on this device. The PIN will be required again on next open.</div>
+          <button onClick={()=>{if(window.confirm("Clear saved login on this device?")){localStorage.removeItem(AUTH_KEY);window.location.reload();}}} style={{...baseBtn,width:"100%",padding:"12px",background:t.danger,color:"#fff",fontSize:"14px"}}>Sign Out This Device</button>
+        </div>
+
       </div>
     </div>
   );
