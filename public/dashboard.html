@@ -315,16 +315,22 @@ const PROXY      = "/api/jobtread";
 const REFRESH_MS = 60000;
 
 const STATUS_MAP = {
-  "New Lead":                                     "followups",
-  "Appointment Set":                              "followups",
-  "Estimate Sent - Pending Approval":             "followups",
-  "Estimating":                                   "estimates",
-  "Estimate Revision Requested":                  "estimates",
-  "Estimate Approved":                            "pending",
-  "Permit Filed":                                 "pending",
-  "No Permit Requested - Approved To Start":      "pending",
-  "In Progress":                                  "active",
-  "Punch List":                                   "punch",
+  // Native JobTread statuses
+  "lead":          "followups",
+  "active":        "active",
+  "complete":      null,
+  "archived":      null,
+  // Your custom picklist values (exact text from JobTread)
+  "New Lead":                                    "followups",
+  "Appointment Set":                             "followups",
+  "Estimate Sent - Pending Approval":            "followups",
+  "Estimating":                                  "estimates",
+  "Estimate Revision Requested":                 "estimates",
+  "Estimate Approved":                           "pending",
+  "Permit Filed":                                "pending",
+  "No Permit Requested - Approved To Start":     "pending",
+  "In Progress":                                 "active",
+  "Punch List":                                  "punch",
 };
 
 const C = {
@@ -369,36 +375,14 @@ async function getOrgId() {
 }
 
 async function fetchJobs(oid) {
-  // Fetch all jobs via pagination
-  let allJobs = [];
-  let cursor = null;
-  let pages = 0;
-
-  while (pages < 10) {
-    const d = await jtQuery({ action: "getJobs", orgId: oid, cursor });
-    console.log("getJobs page", pages, "response:", JSON.stringify(d).substring(0, 500));
-
-    // Navigate the response - jobs are nested inside memberships
-    const memberships = d?.currentGrant?.user?.memberships?.nodes || [];
-    const org = memberships.find(m => m.organization?.id === oid) || memberships[0];
-    const jobs = org?.organization?.jobs;
-    const nodes = jobs?.nodes || [];
-
-    allJobs = allJobs.concat(nodes);
-
-    const next = jobs?.nextPage;
-    if (!next || nodes.length === 0) break;
-    cursor = next;
-    pages++;
-  }
-
-  console.log("Total jobs fetched:", allJobs.length);
-  return allJobs;
+  const d = await jtQuery({ action: "getJobs", orgId: oid });
+  const memberships = d?.currentGrant?.user?.memberships?.nodes || [];
+  const org = memberships.find(m => m.organization?.id === oid) || memberships[0];
+  return org?.organization?.jobs?.nodes || [];
 }
 
 function jobStatus(job) {
-  const f = (job.customFieldValues?.nodes||[]).find(c=>c.customField?.name?.toLowerCase().includes("status"));
-  return f?.value||null;
+  return job.status || null;
 }
 
 function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
