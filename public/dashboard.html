@@ -360,7 +360,7 @@ async function jtQuery(body) {
 
 async function getOrgId() {
   const d = await jtQuery({ action: "getOrg" });
-  const nodes = d?.currentGrant?.memberships?.nodes||[];
+  const nodes = d?.currentGrant?.user?.memberships?.nodes||[];
   const m = nodes.find(n=>n.organization?.name?.toLowerCase().includes("icon"))||nodes[0];
   return m?.organization?.id||null;
 }
