@@ -315,16 +315,16 @@ const PROXY      = "/api/jobtread";
 const REFRESH_MS = 60000;
 
 const STATUS_MAP = {
-  "New Lead":                                    "followups",
-  "Appointment Set":                             "followups",
-  "Estimate Sent \u2013 Pending Approval":       "followups",
-  "Estimating":                                  "estimates",
-  "Estimate Revision Requested":                 "estimates",
-  "Estimate Approved":                           "pending",
-  "Permit Filed":                                "pending",
-  "No Permit Requested \u2013 Approved to Start":"pending",
-  "In Progress":                                 "active",
-  "Punch List":                                  "punch",
+  "New Lead":                                     "followups",
+  "Appointment Set":                              "followups",
+  "Estimate Sent - Pending Approval":             "followups",
+  "Estimating":                                   "estimates",
+  "Estimate Revision Requested":                  "estimates",
+  "Estimate Approved":                            "pending",
+  "Permit Filed":                                 "pending",
+  "No Permit Requested - Approved To Start":      "pending",
+  "In Progress":                                  "active",
+  "Punch List":                                   "punch",
 };
 
 const C = {
@@ -387,7 +387,7 @@ function render(id, jobs, sec) {
   const list = document.getElementById(`list-${id}`);
   if(!jobs.length){ list.innerHTML=`<div class="empty">No jobs</div>`; return; }
   list.innerHTML = jobs.map(j=>{
-    const st = jobStatus(j), cu = j.customer?.name||"";
+    const st = jobStatus(j), cu = j.account?.name||"";
     return `<div class="job-card">
       <div class="job-dot" style="background:${dot}"></div>
       <div class="job-info">
