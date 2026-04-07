@@ -10,7 +10,6 @@ export default async function handler(req, res) {
 
   try {
     const { action, orgId, cursor } = req.body || {};
-
     let query;
 
     if (action === "getOrg") {
@@ -29,6 +28,8 @@ export default async function handler(req, res) {
         }
       };
     } else if (action === "getJobs" && orgId) {
+      // Fetch jobs in pages of 10 with custom field values
+      const jobsInput = cursor ? { "after": cursor } : {};
       query = {
         "$": { "grantKey": GRANT_KEY },
         "currentGrant": {
@@ -40,11 +41,17 @@ export default async function handler(req, res) {
                 "organization": {
                   "id": {},
                   "jobs": {
+                    "$": jobsInput,
                     "nextPage": {},
                     "nodes": {
                       "id": {},
                       "name": {},
-                      "status": {}
+                      "customFieldValues": {
+                        "nodes": {
+                          "customField": { "name": {} },
+                          "value": {}
+                        }
+                      }
                     }
                   }
                 }
@@ -64,15 +71,9 @@ export default async function handler(req, res) {
     });
 
     const text = await response.text();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: text });
-    }
-
+    if (!response.ok) return res.status(response.status).json({ error: text });
     return res.status(200).json(JSON.parse(text));
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 }
-
-
-
