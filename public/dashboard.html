@@ -173,9 +173,10 @@ async function getOrgId(){
 }
 
 async function fetchJobs(oid){
+  // Step 1: get all job IDs and names (lightweight)
   let allJobs=[],cursor=null,page=0;
   while(page<20){
-    const d=await jtQuery({action:"getJobs",orgId:oid,cursor});
+    const d=await jtQuery({action:"getJobIds",orgId:oid,cursor});
     const memberships=d?.currentGrant?.user?.memberships?.nodes||[];
     const org=memberships.find(m=>m.organization?.id===oid)||memberships[0];
     const jobsData=org?.organization?.jobs;
@@ -186,13 +187,23 @@ async function fetchJobs(oid){
     cursor=next; page++;
   }
   console.log("Total jobs:",allJobs.length);
-  return allJobs;
+
+  // Step 2: for each job, fetch its custom field status individually
+  const withStatus = await Promise.all(allJobs.map(async job => {
+    try {
+      const d = await jtQuery({action:"getJobStatus", jobId:job.id});
+      const cfvs = d?.job?.customFieldValues?.nodes||[];
+      const f = cfvs.find(c=>c.customField?.name?.toLowerCase()==="status");
+      return {...job, _status: f?.value||null};
+    } catch(e) {
+      return {...job, _status: null};
+    }
+  }));
+  return withStatus;
 }
 
 function jobStatus(job){
-  const cfvs=job.customFieldValues?.nodes||[];
-  const f=cfvs.find(c=>c.customField?.name?.toLowerCase()==="status");
-  return f?.value||null;
+  return job._status||null;
 }
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
