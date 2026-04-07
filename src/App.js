@@ -219,7 +219,6 @@ function Header({title,subtitle,onBack,onHome,children}){
       <div style={{padding:"12px 16px",borderBottom:`1.5px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:0,flex:"0 1 auto"}}>
           {onBack&&<button onClick={onBack} style={{...ghostBtn,padding:"6px",flexShrink:0}}><BackIcon/></button>}
-          <Logo size={32}/>
           <div style={{minWidth:0}}><div style={{fontSize:"15px",fontWeight:700,color:t.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</div>{subtitle&&<div style={{fontSize:"11px",color:t.textMuted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subtitle}</div>}</div>
         </div>
         <div style={{display:"flex",gap:"4px",alignItems:"center",flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
@@ -412,8 +411,13 @@ function AppInner(){
 
   // ── HOME ──
   if(mode===null)return(
-    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif",padding:"24px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+    <div style={{minHeight:"100vh",background:t.bg,fontFamily:"'DM Sans',sans-serif",padding:"24px",display:"flex",flexDirection:"column",alignItems:"center",position:"relative",overflow:"hidden"}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/><Toast/>
+
+      {/* Watermark */}
+      <div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none",zIndex:0}}>
+        <img src={LOGO_SRC} alt="" style={{width:"80vw",maxWidth:"600px",height:"auto",opacity:0.07,userSelect:"none"}}/>
+      </div>
 
       {/* Key Modal */}
       {keyModal&&<InfoModal title="Lock Box Code" icon={<KeyIcon/>} onClose={()=>setKeyModal(null)}>
@@ -458,7 +462,8 @@ function AppInner(){
         </div>
       </InfoModal>}
 
-      <div style={{textAlign:"center",marginBottom:"24px"}}><Logo size={80}/><h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"28px",color:t.text,margin:"16px 0 0"}}>Work Orders</h1><p style={{color:t.textMuted,fontSize:"14px",marginTop:"6px"}}>Create and view daily crew assignments</p></div>
+      <div style={{position:"relative",zIndex:1,width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <div style={{textAlign:"center",marginBottom:"24px"}}><h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"28px",color:t.text,margin:"0 0 0"}}>Work Orders</h1><p style={{color:t.textMuted,fontSize:"14px",marginTop:"6px"}}>Create and view daily crew assignments</p></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",width:"100%",maxWidth:"400px",marginBottom:"32px"}}>
         <button onClick={()=>setPinDialog("manager")} style={{...baseBtn,background:t.card,border:`1.5px solid ${t.border}`,padding:"18px 12px",borderRadius:"14px",flexDirection:"column",gap:"4px",color:t.text,position:"relative"}}>
           <span style={{display:"flex",alignItems:"center",gap:"4px"}}><LockIcon/><span style={{fontSize:"15px",fontWeight:700}}>Manager</span></span><span style={{fontSize:"11px",color:t.textMuted,fontWeight:400}}>Create & manage work orders</span>{managerUpdates&&<Dot/>}
@@ -583,6 +588,7 @@ function AppInner(){
         </table>
         {(activeJobs||[]).length===0&&!activeJobsEditing&&<div style={{textAlign:"center",padding:"24px",color:t.textMuted,fontSize:"13px"}}>No active jobs</div>}
       </div>
+      </div>{/* end z-index wrapper */}
 
       {pinDialog==="manager"&&<PinDialog title="Enter Manager PIN" onSuccess={()=>{setPinDialog(null);setManagerAuth(true);setMode("manager");}} onCancel={()=>setPinDialog(null)}/>}
       {pinDialog==="activeJobs"&&<PinDialog title="Enter Admin Code" onSuccess={()=>{setPinDialog(null);setActiveJobsEditing(true);}} onCancel={()=>setPinDialog(null)}/>}
