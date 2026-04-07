@@ -29,11 +29,6 @@ export default async function handler(req, res) {
         }
       };
     } else if (action === "getJobs" && orgId) {
-      // Fetch jobs with pagination - only id, name, customFieldValues (no account)
-      const jobsQuery = cursor
-        ? { "after": cursor }
-        : {};
-
       query = {
         "$": { "grantKey": GRANT_KEY },
         "currentGrant": {
@@ -45,17 +40,11 @@ export default async function handler(req, res) {
                 "organization": {
                   "id": {},
                   "jobs": {
-                    "$": jobsQuery,
                     "nextPage": {},
                     "nodes": {
                       "id": {},
                       "name": {},
-                      "customFieldValues": {
-                        "nodes": {
-                          "customField": { "name": {} },
-                          "value": {}
-                        }
-                      }
+                      "status": {}
                     }
                   }
                 }
