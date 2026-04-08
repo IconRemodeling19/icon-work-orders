@@ -59,6 +59,11 @@
   .sec-pending{border-color:var(--pending);}
   .sec-followups{border-color:var(--follow);}
   .sec-punch{border-color:var(--punch);}
+  .sec-estimates .sec-title{color:var(--estimate);}
+  .sec-active .sec-title{color:var(--active);}
+  .sec-pending .sec-title{color:var(--pending);}
+  .sec-followups .sec-title{color:var(--follow);}
+  .sec-punch .sec-title{color:var(--punch);}
   .sec-title{display:flex;align-items:center;gap:8px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;}
   .accent{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;}
   .count{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:2px 10px;border-radius:20px;}
@@ -138,14 +143,14 @@
     <div class="row-top">
       <div class="section sec-estimates">
         <div class="sec-header">
-          <div class="sec-title"><div class="accent" style="background:var(--estimate)"></div>Estimates To Do</div>
+          <div class="sec-title">Estimates To Do</div>
           <div class="count" id="cnt-estimates" style="background:rgba(59,130,246,0.15);color:var(--estimate)">0</div>
         </div>
         <div class="job-list" id="list-estimates"></div>
       </div>
       <div class="section sec-active">
         <div class="sec-header">
-          <div class="sec-title"><div class="accent" style="background:var(--active)"></div>Active Jobs</div>
+          <div class="sec-title">Active Jobs</div>
           <div class="count" id="cnt-active" style="background:rgba(34,197,94,0.15);color:var(--active)">0</div>
         </div>
         <div class="job-list" id="list-active"></div>
@@ -154,21 +159,21 @@
     <div class="row-bottom">
       <div class="section sec-pending">
         <div class="sec-header">
-          <div class="sec-title"><div class="accent" style="background:var(--pending)"></div>Pending Jobs</div>
+          <div class="sec-title">Pending Jobs</div>
           <div class="count" id="cnt-pending" style="background:rgba(139,92,246,0.15);color:var(--pending)">0</div>
         </div>
         <div class="job-list" id="list-pending"></div>
       </div>
       <div class="section sec-followups">
         <div class="sec-header">
-          <div class="sec-title"><div class="accent" style="background:var(--follow)"></div>Follow Ups</div>
+          <div class="sec-title">Follow Ups</div>
           <div class="count" id="cnt-followups" style="background:rgba(245,158,11,0.15);color:var(--follow)">0</div>
         </div>
         <div class="job-list" id="list-followups"></div>
       </div>
       <div class="section sec-punch">
         <div class="sec-header">
-          <div class="sec-title"><div class="accent" style="background:var(--punch)"></div>Punch List</div>
+          <div class="sec-title">Punch List</div>
           <div class="count" id="cnt-punch" style="background:rgba(239,68,68,0.15);color:var(--punch)">0</div>
         </div>
         <div class="job-list" id="list-punch"></div>
