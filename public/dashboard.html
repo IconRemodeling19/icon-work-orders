@@ -8,149 +8,101 @@
 <style>
   :root{--black:#090909;--gray-1:#111111;--gray-2:#1A1A1A;--gray-3:#252525;--gray-4:#333333;--muted:#666666;--follow:#F59E0B;--estimate:#3B82F6;--pending:#8B5CF6;--active:#22C55E;--punch:#EF4444;--white:#FFFFFF;}
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  html,body{width:100%;height:100%;overflow-x:hidden;background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;}
+  html,body{width:100%;min-height:100%;background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;}
   .app{display:flex;flex-direction:column;min-height:100vh;width:100vw;}
+
+  /* ── HEADER ── */
   header{
     flex-shrink:0;
-    display:grid;
-    grid-template-columns:1fr auto 1fr;
+    display:flex;
     align-items:center;
-    padding:12px 28px;
+    justify-content:space-between;
+    padding:14px 28px;
     background:var(--gray-1);
     border-bottom:1px solid var(--gray-3);
-    height:120px;
   }
-  .brand-left{display:flex;align-items:center;}
-  .logo{height:110px;width:auto;}
-  .brand-center{text-align:center;}
+  .header-left{width:120px;} /* spacer to balance centered title */
+  .header-center{text-align:center;flex:1;}
   .brand-name{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:4px;line-height:1;color:var(--white);}
   .brand-sub{font-size:18px;color:var(--white);letter-spacing:4px;text-transform:uppercase;margin-top:4px;}
-  .brand-right{display:flex;flex-direction:column;align-items:flex-end;}
-  .clock{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:2px;line-height:1;}
-  .date{font-size:12px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
-  .live-pill{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
+  .header-right{display:flex;align-items:center;justify-content:flex-end;width:120px;}
+  .live-pill{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
   .live-dot{width:8px;height:8px;border-radius:50%;background:var(--active);animation:blink 2s infinite;}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-  /* ── LAYOUT
-     Row 1: Estimates (1fr) | Active Jobs (1fr) — large, side by side
-     Row 2: Pending | Follow Ups | Punch List — smaller, auto-height
-  ── */
-  .grid{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    padding:10px 14px;
-    overflow-y:auto;
-  }
+
+  /* ── GRID ── */
+  .grid{display:flex;flex-direction:column;gap:10px;padding:10px 14px;}
   .row-top{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .row-bottom{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 
-  /* Sections auto-size to their content */
-  .section{
-    background:var(--gray-1);
-    border:1px solid var(--gray-3);
-    border-radius:10px;
-    display:flex;
-    flex-direction:column;
-    /* NO fixed height — grows with content */
-  }
-  .sec-estimates{border-color:var(--estimate);}
-  .sec-active{border-color:var(--active);}
-  .sec-pending{border-color:var(--pending);}
-  .sec-followups{border-color:var(--follow);}
-  .sec-punch{border-color:var(--punch);}
-  .sec-estimates .sec-title{color:var(--estimate);}
-  .sec-active .sec-title{color:var(--active);}
-  .sec-pending .sec-title{color:var(--pending);}
-  .sec-followups .sec-title{color:var(--follow);}
-  .sec-punch .sec-title{color:var(--punch);}
-  .sec-title{display:flex;align-items:center;gap:8px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;}
-  .accent{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;}
+  /* ── SECTIONS ── */
+  .section{background:var(--gray-1);border:1px solid var(--gray-3);border-radius:10px;display:flex;flex-direction:column;}
+  .sec-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--gray-3);}
+  .sec-title{display:flex;align-items:center;gap:8px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;color:var(--white);}
+  .accent{width:3px;height:18px;border-radius:2px;flex-shrink:0;}
   .count{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:2px 10px;border-radius:20px;}
 
-  /* Job list wraps naturally — no overflow hidden, no fixed height */
-  .job-list{
-    display:flex;
-    flex-wrap:wrap;
-    gap:5px;
-    padding:8px 10px;
-  }
-
-  /* Top sections: each job card is a row */
-  .sec-estimates .job-list,
-  .sec-active .job-list{
-    flex-direction:column;
-    flex-wrap:nowrap;
-  }
-
-  /* Bottom sections: each job card is a row */
-  .sec-pending .job-list,
-  .sec-followups .job-list,
-  .sec-punch .job-list{
-    flex-direction:column;
-    flex-wrap:nowrap;
-  }
-
-  .job-card{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:8px 12px;
-    background:var(--gray-2);
-    border:1px solid var(--gray-3);
-    border-radius:8px;
-    width:100%;
-    min-width:0;
-  }
+  /* ── JOB LIST ── */
+  .job-list{display:flex;flex-direction:column;gap:5px;padding:8px 10px;}
+  .job-card{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--gray-2);border:1px solid var(--gray-3);border-radius:8px;width:100%;min-width:0;}
   .job-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .job-info{flex:1;min-width:0;}
   .job-name{font-size:14px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .job-sub{font-size:12px;color:#AAAAAA;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .job-status{font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;flex-shrink:0;}
   .empty{color:var(--gray-4);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:12px 16px;}
+
+  /* ── FOOTER — clock/date centered at bottom ── */
+  .footer{
+    margin-top:auto;
+    padding:16px 0 20px;
+    text-align:center;
+  }
+  .footer-clock{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:3px;line-height:1;color:var(--white);}
+  .footer-date{font-size:14px;color:var(--white);letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
+
+  /* ── MISC ── */
   .error-bar{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#FCA5A5;font-size:12px;padding:6px 16px;margin:0 14px 6px;border-radius:6px;}
   .loading{position:fixed;inset:0;background:var(--black);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999;}
   .spinner{width:36px;height:36px;border:3px solid var(--gray-3);border-top-color:var(--active);border-radius:50%;animation:spin 0.8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
   .loading-txt{font-size:12px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;}
-  .footer{flex-shrink:0;font-size:11px;color:var(--gray-4);text-align:right;padding:3px 16px 5px;letter-spacing:1px;}
 </style>
 </head>
 <body>
+
 <div id="loading" class="loading">
-  <img src="/logo.jpg" style="height:48px;filter:brightness(0) invert(1);opacity:0.4" onerror="this.style.display='none'"/>
   <div class="spinner"></div>
   <div class="loading-txt">Connecting to JobTread...</div>
 </div>
+
 <div class="app" id="app" style="display:none">
+
   <header>
-    <div class="brand-left">
-      <img src="/icon-remodeling-group-white copia.png" class="logo" onerror="this.style.display='none'"/>
-    </div>
-    <div class="brand-center">
+    <div class="header-left"></div>
+    <div class="header-center">
       <div class="brand-name">Icon Remodeling Group</div>
       <div class="brand-sub">Operations Dashboard</div>
     </div>
-    <div class="brand-right">
-      <div class="clock" id="clock">--:--</div>
-      <div class="date" id="date"></div>
+    <div class="header-right">
       <div class="live-pill"><div class="live-dot"></div>LIVE</div>
     </div>
   </header>
+
   <div id="error-bar" class="error-bar" style="display:none"></div>
 
   <div class="grid">
     <div class="row-top">
       <div class="section sec-estimates">
         <div class="sec-header">
-          <div class="sec-title">Estimates To Do</div>
+          <div class="sec-title"><div class="accent" style="background:var(--estimate)"></div>Estimates To Do</div>
           <div class="count" id="cnt-estimates" style="background:rgba(59,130,246,0.15);color:var(--estimate)">0</div>
         </div>
         <div class="job-list" id="list-estimates"></div>
       </div>
       <div class="section sec-active">
         <div class="sec-header">
-          <div class="sec-title">Active Jobs</div>
+          <div class="sec-title"><div class="accent" style="background:var(--active)"></div>Active Jobs</div>
           <div class="count" id="cnt-active" style="background:rgba(34,197,94,0.15);color:var(--active)">0</div>
         </div>
         <div class="job-list" id="list-active"></div>
@@ -159,29 +111,35 @@
     <div class="row-bottom">
       <div class="section sec-pending">
         <div class="sec-header">
-          <div class="sec-title">Pending Jobs</div>
+          <div class="sec-title"><div class="accent" style="background:var(--pending)"></div>Pending Jobs</div>
           <div class="count" id="cnt-pending" style="background:rgba(139,92,246,0.15);color:var(--pending)">0</div>
         </div>
         <div class="job-list" id="list-pending"></div>
       </div>
       <div class="section sec-followups">
         <div class="sec-header">
-          <div class="sec-title">Follow Ups</div>
+          <div class="sec-title"><div class="accent" style="background:var(--follow)"></div>Follow Ups</div>
           <div class="count" id="cnt-followups" style="background:rgba(245,158,11,0.15);color:var(--follow)">0</div>
         </div>
         <div class="job-list" id="list-followups"></div>
       </div>
       <div class="section sec-punch">
         <div class="sec-header">
-          <div class="sec-title">Punch List</div>
+          <div class="sec-title"><div class="accent" style="background:var(--punch)"></div>Punch List</div>
           <div class="count" id="cnt-punch" style="background:rgba(239,68,68,0.15);color:var(--punch)">0</div>
         </div>
         <div class="job-list" id="list-punch"></div>
       </div>
     </div>
   </div>
-  <div class="footer" id="footer"></div>
+
+  <div class="footer">
+    <div class="footer-clock" id="clock">--:--</div>
+    <div class="footer-date" id="date"></div>
+  </div>
+
 </div>
+
 <script>
 const PROXY="/api/jobtread", REFRESH_MS=60000;
 
@@ -220,8 +178,7 @@ async function api(body){
 }
 
 async function fetchAllJobs(){
-  // Paginate through all jobs collecting {id,name,status}
-  let allJobs=[], page=null, pageCount=0;
+  let allJobs=[],page=null,pageCount=0;
   while(pageCount<20){
     const body={action:"getJobs"};
     if(page) body.page=page;
@@ -247,14 +204,12 @@ function render(id,jobs,sec){
 async function load(){
   try{
     const jobs=await fetchAllJobs();
-    console.log("Jobs:",jobs.length,"Statuses:",[...new Set(jobs.map(j=>j.status))]);
     const b={active:[],estimates:[],pending:[],followups:[],punch:[]};
     jobs.forEach(j=>{const s=STATUS_MAP[j.status];if(s)b[s].push(j);});
     ["active","estimates","pending","followups","punch"].forEach(k=>render(k,b[k],k));
     document.getElementById("error-bar").style.display="none";
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="flex";
-    document.getElementById("footer").textContent="Last updated: "+new Date().toLocaleTimeString();
   }catch(e){
     console.error("Dashboard error:",e);
     document.getElementById("loading").style.display="none";
