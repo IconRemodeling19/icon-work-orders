@@ -36,6 +36,11 @@ export default async function handler(req, res) {
             "nodes": {
               "id": {},
               "name": {},
+              "location": {
+                "account": {
+                  "name": {}
+                }
+              },
               "customFieldValues": {
                 "$": { "size": 25 },
                 "nodes": {
@@ -56,7 +61,8 @@ export default async function handler(req, res) {
         .map(job => {
           const cfvs = job.customFieldValues?.nodes || [];
           const sf = cfvs.find(c => c.customField?.name?.toLowerCase() === "status");
-          return { id: job.id, name: job.name, status: sf?.value || null };
+          const customer = job.location?.account?.name || null;
+          return { id: job.id, name: job.name, customer, status: sf?.value || null };
         })
         .filter(j => j.status !== "Complete"); // skip complete jobs
 
