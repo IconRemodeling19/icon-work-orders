@@ -233,12 +233,12 @@ function OpsHomeBtn(){
       href="https://icon-operations-center.vercel.app"
       title="Back to Operations Center"
       style={{
-        position:"fixed",top:"14px",right:"16px",zIndex:9999,
+        position:"fixed",bottom:"20px",left:"50%",transform:"translateX(-50%)",zIndex:9999,
         display:"flex",alignItems:"center",gap:"7px",
-        padding:"8px 14px",
-        background:"rgba(9,11,16,0.88)",
+        padding:"9px 18px",
+        background:"rgba(9,11,16,0.92)",
         border:"1.5px solid rgba(79,127,255,0.35)",
-        borderRadius:"10px",
+        borderRadius:"24px",
         color:"#7AAEFF",
         fontSize:"12px",fontWeight:700,
         letterSpacing:".6px",
@@ -246,8 +246,10 @@ function OpsHomeBtn(){
         textDecoration:"none",
         cursor:"pointer",
         backdropFilter:"blur(8px)",
+        whiteSpace:"nowrap",
         fontFamily:ff,
         transition:"all 0.18s ease",
+        boxShadow:"0 4px 20px rgba(0,0,0,0.5)",
       }}
       onMouseEnter={e=>{e.currentTarget.style.background="rgba(79,127,255,0.18)";e.currentTarget.style.borderColor="rgba(79,127,255,0.65)";e.currentTarget.style.color="#fff";e.currentTarget.style.boxShadow="0 0 16px rgba(79,127,255,0.3)";}}
       onMouseLeave={e=>{e.currentTarget.style.background="rgba(9,11,16,0.88)";e.currentTarget.style.borderColor="rgba(79,127,255,0.35)";e.currentTarget.style.color="#7AAEFF";e.currentTarget.style.boxShadow="none";}}
