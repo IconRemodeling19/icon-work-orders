@@ -225,6 +225,42 @@ function Header({title,subtitle,onBack,onHome,children}){
     </div>);
 }
 
+
+// ── PERSISTENT OPERATIONS CENTER HOME BUTTON ────────────────────────────────
+function OpsHomeBtn(){
+  return(
+    <a
+      href="https://icon-operations-center.vercel.app"
+      title="Back to Operations Center"
+      style={{
+        position:"fixed",top:"14px",right:"16px",zIndex:9999,
+        display:"flex",alignItems:"center",gap:"7px",
+        padding:"8px 14px",
+        background:"rgba(9,11,16,0.88)",
+        border:"1.5px solid rgba(79,127,255,0.35)",
+        borderRadius:"10px",
+        color:"#7AAEFF",
+        fontSize:"12px",fontWeight:700,
+        letterSpacing:".6px",
+        textTransform:"uppercase",
+        textDecoration:"none",
+        cursor:"pointer",
+        backdropFilter:"blur(8px)",
+        fontFamily:ff,
+        transition:"all 0.18s ease",
+      }}
+      onMouseEnter={e=>{e.currentTarget.style.background="rgba(79,127,255,0.18)";e.currentTarget.style.borderColor="rgba(79,127,255,0.65)";e.currentTarget.style.color="#fff";e.currentTarget.style.boxShadow="0 0 16px rgba(79,127,255,0.3)";}}
+      onMouseLeave={e=>{e.currentTarget.style.background="rgba(9,11,16,0.88)";e.currentTarget.style.borderColor="rgba(79,127,255,0.35)";e.currentTarget.style.color="#7AAEFF";e.currentTarget.style.boxShadow="none";}}
+    >
+      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      Operations Center Home Page
+    </a>
+  );
+}
+
 export default function App(){return <AppGate><AppInner/></AppGate>;}
 
 function AppInner(){
@@ -314,7 +350,7 @@ function AppInner(){
   const todayCrew=activeCrew.filter(o=>o.date===todayStr);
   const crewNames=Object.keys(crews);
 
-  if(loading)return(<div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff}}><div style={{color:t.muted,fontSize:"14px"}}>Loading...</div></div>);
+  if(loading)return(<div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff}}><OpsHomeBtn/><div style={{color:t.muted,fontSize:"14px"}}>Loading...</div></div>);
 
   const Toast=()=>toast?<div style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg,#0891B2,#22D3EE)",color:"#fff",padding:"12px 24px",borderRadius:"10px",fontSize:"14px",fontWeight:600,zIndex:1001,boxShadow:"0 4px 20px rgba(34,211,238,.4)"}}>{toast}</div>:null;
   const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
@@ -481,6 +517,7 @@ function AppInner(){
           <span style={{fontSize:"11px",color:t.muted}}>{(activeJobs||[]).length} Active Jobs</span>
         </div>
       </div>
+      <OpsHomeBtn/>
       {pinDialog==="manager"&&<PinDialog title="Enter Manager PIN" onSuccess={()=>{setPinDialog(null);setManagerAuth(true);setMode("manager");}} onCancel={()=>setPinDialog(null)}/>}
       {pinDialog==="activeJobs"&&<PinDialog title="Enter Admin Code" onSuccess={()=>{setPinDialog(null);setActiveJobsEditing(true);}} onCancel={()=>setPinDialog(null)}/>}
     </div>
@@ -496,6 +533,7 @@ function AppInner(){
     const entryBorder=(e)=>e._source==="lockbox"?"rgba(245,158,11,.22)":e._source==="job-garage"||e.doorType==="garage"?"rgba(167,139,250,.22)":"rgba(34,211,238,.18)";
     const entryIcon=(e)=>e._source==="lockbox"?<KeyIcon/>:e._source==="job-garage"||e.doorType==="garage"?<GarageIcon/>:<DoorIcon/>;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <OpsHomeBtn/>
       <Header title={selected?"Access Code Details":"Job Access Codes"} subtitle={`${allEntries.length} locations`} onBack={()=>{if(selected)setSelectedLockbox(null);else goHome();}} onHome={goHome}/>
       <div style={{padding:"20px"}}>
         {selected?(<div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"22px"}}>
@@ -537,6 +575,7 @@ function AppInner(){
     const saveLockbox=()=>{if(!lockboxForm.jobLocation.trim()){showToast("Location required");return;}const now=new Date().toISOString();const d={...lockboxForm,linkedJobIndex:lockboxForm.linkedJobIndex!==""?lockboxForm.linkedJobIndex:"",lastModified:now};let u;if(editingLockbox!==null){u=codes.map((c,i)=>i===editingLockbox?d:c);}else{u=[...codes,d];}saveToFB("lockboxCodes",u);setShowLockboxForm(false);setEditingLockbox(null);setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});showToast("Saved");};
     const deleteLockbox=(idx)=>{if(!window.confirm("Delete?"))return;saveToFB("lockboxCodes",codes.filter((_,i)=>i!==idx));showToast("Deleted");};
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <OpsHomeBtn/>
       <Header title="Manage Lock Box Codes" onBack={()=>{setShowLockboxForm(false);setEditingLockbox(null);setMode("manager");}} onHome={goHome}>
         {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> Add</button>}
       </Header>
@@ -571,6 +610,7 @@ function AppInner(){
     const handleNoteUpload=async(e)=>{const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);const atts=[...noteAtts];for(const f of files){const dn=window.prompt("Name:",f.name)||f.name;try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`fieldnotes/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);atts.push({name:dn,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Failed");}}setNoteAtts(atts);setUploading(false);showToast("Uploaded");e.target.value="";};
     const handleCamera=async(e)=>{const file=e.target.files[0];if(!file)return;setUploading(true);const dn=window.prompt("Name photo:",`Photo`)||file.name;try{const fn=`${Date.now()}_${file.name}`;const fr=storageRef(storage,`fieldnotes/${fn}`);await uploadBytes(fr,file);const url=await getDownloadURL(fr);setNoteAtts([...noteAtts,{name:dn,url,uploadedAt:new Date().toISOString()}]);}catch(err){showToast("Failed");}setUploading(false);e.target.value="";};
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <OpsHomeBtn/>
       <Header title="Field Notes & Photos" subtitle={today} onBack={goHome} onHome={goHome}/>
       <div style={{padding:"20px"}}>
         <div style={{display:"flex",flexDirection:"column",gap:"14px",marginBottom:"24px"}}>
@@ -608,6 +648,7 @@ function AppInner(){
     const handleDeleteFile=(att)=>{if(!window.confirm("Delete?"))return;if(att.orderType==="standalone"){saveToFB("standaloneFiles",(standaloneFiles||[]).filter((_,i)=>i!==att.attIdx));}else if(att.orderType==="crew"){saveToFB("orders",orders.map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).filter((_,j)=>j!==att.attIdx)}:o));}else if(att.orderType==="field"){saveToFB("fieldOrders",fieldOrders.map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).filter((_,j)=>j!==att.attIdx)}:o));}else if(att.orderType==="note"){saveToFB("fieldNotes",(fieldNotes||[]).map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).filter((_,j)=>j!==att.attIdx)}:o));}showToast("Deleted");};
     const handleDirectUpload=async(e)=>{const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);const nf=[...(standaloneFiles||[])];for(const f of files){const dn=window.prompt("Name:",f.name)||f.name;try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`files/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);nf.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Failed");}}saveToFB("standaloneFiles",nf);setUploading(false);showToast("Uploaded");e.target.value="";};
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <OpsHomeBtn/>
       <Header title="All Files" subtitle={`${allAtts.length} files`} onBack={goHome} onHome={goHome}>
         <input ref={filesUploadRef} type="file" multiple onChange={handleDirectUpload} style={{display:"none"}}/>
         <button onClick={()=>filesUploadRef.current?.click()} disabled={uploading} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> Upload</button>
@@ -626,6 +667,7 @@ function AppInner(){
   if(mode==="crew"){
     const allActive=activeCrew;const sel=selectedCrewOrder!==null?allActive[selectedCrewOrder]:null;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <OpsHomeBtn/>
       <Header title={sel?"Work Order":"Icon Field Crews"} subtitle={today} onBack={()=>{if(sel)setSelectedCrewOrder(null);else goHome();}} onHome={goHome}/>
       <div style={{padding:"20px"}}>
         {sel?(<div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"20px"}}>
@@ -659,6 +701,7 @@ function AppInner(){
   // ── FIELD OPS ─────────────────────────────────────────────────────────────
   if(mode==="fieldops")return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <OpsHomeBtn/>
       <Header title="Icon Operations" subtitle={today} onBack={()=>{setShowFieldForm(false);setEditingFieldOrder(null);goHome();}} onHome={goHome}>
         {!showFieldForm&&<button onClick={()=>{setFieldFormData({...emptyFieldOrder});setEditingFieldOrder(null);setShowFieldForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> New</button>}
       </Header>
@@ -753,6 +796,7 @@ function AppInner(){
   // ── MANAGER ───────────────────────────────────────────────────────────────
   return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <OpsHomeBtn/>
       {deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"26px",maxWidth:"300px",width:"100%",textAlign:"center"}}><div style={{fontSize:"16px",fontWeight:700,marginBottom:"8px",color:t.text}}>Delete Order?</div><div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>{"This can't be undone."}</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px",fontWeight:700,borderRadius:"10px"}}>Delete</button></div></div></div>}
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
         <button onClick={()=>setShowArchive(true)} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Archive"><ArchiveIcon/></button>
