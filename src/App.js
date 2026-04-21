@@ -334,7 +334,7 @@ function AppInner(){
   const managerUpdates=crewUpdates;
 
   const handleUpload=async(e,fd,setFd)=>{const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);const atts=[...(fd.attachments||[])];for(const f of files){const dn=window.prompt("Name this attachment:",f.name)||f.name;try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`attachments/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);atts.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Upload failed");}}setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";};
-  const saveCrew=()=>{if(!formData.crewName||!formData.jobAddress){showToast("Crew and address required");return;}if(!formData.customerName){showToast("Customer name required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);showToast(editingOrder!==null?"Updated":"Work order created");};
+  const saveCrew=()=>{if(!formData.crewName||!formData.jobAddress){showToast("Crew and address required");return;}if(!formData.jobTreadName&&!customerManualMode){showToast("Job name required");return;}if(!formData.customerName){showToast("Customer name required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);showToast(editingOrder!==null?"Updated":"Work order created");};
   const deleteCrew=i=>{saveToFB("orders",orders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const addMember=(crew)=>{if(!newMemberName.trim())return;saveToFB("crews",{...crews,[crew]:[...(crews[crew]||[]),newMemberName.trim()]});setNewMemberName("");showToast("Added");};
   const removeMember=(crew,i)=>{saveToFB("crews",{...crews,[crew]:crews[crew].filter((_,x)=>x!==i)});showToast("Removed");};
@@ -375,6 +375,7 @@ function AppInner(){
         .job-row:hover{background:${t.nav};}
         .edit-btn{font-size:12px;color:${t.muted};background:${t.card};border:1px solid ${t.line};border-radius:8px;padding:5px 14px;cursor:pointer;font-family:${ff};font-weight:600;}
         .edit-btn:hover{color:${t.blue};border-color:${t.blue};}
+        .job-ctx-menu button:hover{background:${t.tag} !important;}
       `}</style>
       <Toast/>
 
@@ -453,9 +454,8 @@ function AppInner(){
           <div style={{height:"1px",background:`linear-gradient(90deg,transparent,${t.line},transparent)`,marginBottom:"10px"}}/>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
             <thead><tr>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"20%"}}>Job ID</th>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"18%"}}>Customer</th>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"18%"}}>Job Name</th>
+              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"24%"}}>Job ID</th>
+              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"22%"}}>Customer</th>
               <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase"}}>Address</th>
               {activeJobsEditing&&<th style={{width:"36px",borderBottom:`1px solid ${t.line}`}}/>}
             </tr></thead>
@@ -466,7 +466,6 @@ function AppInner(){
                   <tr key={idx}>
                     <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="Job ID (e.g. MYERS)"/></td>
                     <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobCustomerName} onChange={e=>setNewJobCustomerName(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="Customer name"/></td>
-                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobTreadName} onChange={e=>setNewJobTreadName(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="e.g. Myers Kitchen Renovation"/></td>
                     <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}>
                       <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"7px 10px",fontSize:"12px",marginBottom:"4px"}}/>
                       <input value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
@@ -485,7 +484,6 @@ function AppInner(){
                   <tr key={idx} className="job-row" style={{transition:"background .12s"}}>
                     <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase"}}>{job.name}</td>
                     <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
-                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"11px",color:t.muted}}>{job.jobTreadName||<span style={{fontStyle:"italic"}}>—</span>}</td>
                     <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`}}>
                       <div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap"}}>
                         <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px"}}>{job.address}</span>
@@ -496,7 +494,16 @@ function AppInner(){
                       </div>
                     </td>
                     {activeJobsEditing&&<td style={{padding:"4px",borderBottom:`1px solid ${t.line}`}}>
-                      <button onClick={()=>{const a=window.prompt("Type edit or delete:");if(a?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");setNewJobGarageCode(job.garageCode||"");setNewJobDoorType(job.doorType||"");setNewJobDoorLocation(job.doorLocation||"");setNewJobDoorCode(job.doorCode||"");setNewJobCustomerName(job.customerName||"");setNewJobTreadName(job.jobTreadName||"");}else if(a?.toLowerCase()==="delete"){deleteActiveJob(idx);}}} style={{...ghostBtn,padding:"4px",color:t.muted}}><DotsIcon/></button>
+                      <div style={{position:"relative",display:"inline-block"}}>
+                        <button
+                          onClick={e=>{e.stopPropagation();const m=document.getElementById(`job-menu-${idx}`);document.querySelectorAll('.job-ctx-menu').forEach(el=>el.style.display='none');m.style.display=m.style.display==='block'?'none':'block';}}
+                          style={{...ghostBtn,padding:"4px",color:t.muted}}
+                        ><DotsIcon/></button>
+                        <div id={`job-menu-${idx}`} className="job-ctx-menu" style={{display:"none",position:"absolute",right:0,top:"100%",background:t.nav,border:`1px solid ${t.line}`,borderRadius:"10px",boxShadow:"0 4px 20px rgba(0,0,0,.5)",zIndex:999,minWidth:"110px",overflow:"hidden"}}>
+                          <button onClick={()=>{document.getElementById(`job-menu-${idx}`).style.display='none';setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");setNewJobGarageCode(job.garageCode||"");setNewJobDoorType(job.doorType||"");setNewJobDoorLocation(job.doorLocation||"");setNewJobDoorCode(job.doorCode||"");setNewJobCustomerName(job.customerName||"");setNewJobTreadName(job.jobTreadName||"");}} style={{display:"block",width:"100%",padding:"10px 14px",background:"transparent",border:"none",color:t.blue,fontSize:"13px",fontWeight:600,textAlign:"left",cursor:"pointer",fontFamily:ff}}>✏️ Edit</button>
+                          <button onClick={()=>{document.getElementById(`job-menu-${idx}`).style.display='none';deleteActiveJob(idx);}} style={{display:"block",width:"100%",padding:"10px 14px",background:"transparent",border:"none",color:t.danger,fontSize:"13px",fontWeight:600,textAlign:"left",cursor:"pointer",fontFamily:ff,borderTop:`1px solid ${t.line}`}}>🗑️ Delete</button>
+                        </div>
+                      </div>
                     </td>}
                   </tr>
                 );
@@ -824,73 +831,87 @@ function AppInner(){
             <div><label style={labelStyle}>Crew</label><select value={formData.crewName} onChange={e=>setFormData({...formData,crewName:e.target.value,members:[]})} style={{...inputStyle,appearance:"none"}}><option value="">Select a crew...</option>{crewNames.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
             {formData.crewName&&(crews[formData.crewName]||[]).length>0&&<div><label style={labelStyle}>Assign Members</label><div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>{(crews[formData.crewName]||[]).map(n=>{const s=formData.members.includes(n);return<button key={n} onClick={()=>toggleMember(n)} style={{...baseBtn,padding:"8px 14px",borderRadius:"20px",fontSize:"13px",background:s?"rgba(74,222,128,.15)":t.card,color:s?t.green:t.text,border:`1.5px solid ${s?"rgba(74,222,128,.4)":t.line}`,gap:"4px"}}>{s&&<CheckIcon/>}{n}</button>;})}</div></div>}
             <div><label style={labelStyle}>Date</label><input type="date" value={formData.date} onChange={e=>setFormData({...formData,date:e.target.value})} style={inputStyle}/></div>
-            {/* ── CUSTOMER / JOB SMART SELECTOR ── */}
+            {/* ── JOB NAME — dropdown from Active Jobs Job ID list ── */}
             <div>
-              <label style={labelStyle}>Customer Name <span style={{color:t.danger}}>*</span></label>
+              <label style={labelStyle}>Job Name <span style={{color:t.danger}}>*</span></label>
               {!customerManualMode?(
                 <div>
                   <select
-                    value={formData.customerName||""}
+                    value={formData.jobTreadName||""}
                     onChange={e=>{
                       if(e.target.value==="__manual__"){
                         setCustomerManualMode(true);
-                        setFormData({...formData,customerName:"",jobTreadName:"",jobAddress:""});
+                        setFormData({...formData,jobTreadName:"",customerName:"",jobAddress:""});
                       } else if(e.target.value===""){
-                        setFormData({...formData,customerName:"",jobTreadName:"",jobAddress:""});
+                        setFormData({...formData,jobTreadName:"",customerName:"",jobAddress:""});
                       } else {
-                        const job=(activeJobs||[]).find(j=>j.customerName===e.target.value);
+                        const job=(activeJobs||[]).find(j=>j.name===e.target.value);
                         setFormData({
                           ...formData,
-                          customerName:e.target.value,
-                          jobTreadName:job?.jobTreadName||"",
-                          jobAddress:job?.address||formData.jobAddress,
+                          jobTreadName:e.target.value,
+                          customerName:job?.customerName||"",
+                          jobAddress:job?.address||"",
                         });
                       }
                     }}
                     style={{...inputStyle,appearance:"none"}}
                   >
-                    <option value="">— Select customer from Active Jobs —</option>
-                    {(activeJobs||[]).filter(j=>j.customerName).map((job,i)=>(
-                      <option key={i} value={job.customerName}>{job.customerName}{job.name?` (${job.name})`:""}</option>
+                    <option value="">— Select from Active Jobs —</option>
+                    {(activeJobs||[]).map((job,i)=>(
+                      <option key={i} value={job.name}>{job.name}{job.customerName?` — ${job.customerName}`:""}</option>
                     ))}
                     <option value="__manual__">✏️ Enter manually (not on list)</option>
                   </select>
-                  <div style={{fontSize:"11px",color:t.muted,marginTop:"4px"}}>Select from Active Jobs list or choose manual entry</div>
+                  <div style={{fontSize:"11px",color:t.muted,marginTop:"4px"}}>Pulls from Active Jobs list — select or enter manually</div>
                 </div>
               ):(
                 <div>
                   <input
-                    value={formData.customerName||""}
-                    onChange={e=>setFormData({...formData,customerName:e.target.value})}
-                    placeholder="Type customer name manually"
+                    value={formData.jobTreadName||""}
+                    onChange={e=>setFormData({...formData,jobTreadName:e.target.value})}
+                    placeholder="Type job name manually"
                     style={inputStyle}
                     autoFocus
                   />
                   <button
-                    onClick={()=>{setCustomerManualMode(false);setFormData({...formData,customerName:"",jobTreadName:"",jobAddress:""});}}
+                    onClick={()=>{setCustomerManualMode(false);setFormData({...formData,jobTreadName:"",customerName:"",jobAddress:""});}}
                     style={{...ghostBtn,fontSize:"12px",color:t.cyan,padding:"4px 0",marginTop:"4px"}}
                   >← Back to dropdown</button>
                 </div>
               )}
             </div>
+
+            {/* ── CUSTOMER NAME — auto-fills from Job Name selection ── */}
             <div>
-              <label style={labelStyle}>Job Name</label>
-              <input
-                value={formData.jobTreadName||""}
-                onChange={e=>setFormData({...formData,jobTreadName:e.target.value})}
-                placeholder={formData.customerName&&!customerManualMode?"Auto-filled from Active Jobs":"e.g. Job-1234-Myers"}
-                style={{...inputStyle,color:formData.jobTreadName&&!customerManualMode?t.cyan:t.text}}
-              />
-              {formData.jobTreadName&&!customerManualMode&&<div style={{fontSize:"11px",color:t.cyan,marginTop:"4px"}}>✓ Auto-filled from Active Jobs</div>}
+              <label style={labelStyle}>Customer Name <span style={{color:t.danger}}>*</span></label>
+              {formData.customerName&&!customerManualMode?(
+                <div>
+                  <div style={{...inputStyle,color:t.cyan,background:"rgba(34,211,238,.07)",border:`1.5px solid rgba(34,211,238,.25)`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span>{formData.customerName}</span>
+                    <span style={{fontSize:"11px",opacity:.7}}>✓ Auto-filled</span>
+                  </div>
+                  <button onClick={()=>setFormData({...formData,customerName:""})} style={{...ghostBtn,fontSize:"11px",color:t.muted,padding:"4px 0",marginTop:"4px"}}>Edit manually</button>
+                </div>
+              ):(
+                <input
+                  value={formData.customerName||""}
+                  onChange={e=>setFormData({...formData,customerName:e.target.value})}
+                  placeholder={customerManualMode?"Type customer name":"Auto-fills when job is selected above"}
+                  style={inputStyle}
+                />
+              )}
             </div>
+
             <div style={{display:"flex",gap:"10px"}}><div style={{flex:1}}><label style={labelStyle}>Phone</label><input type="tel" value={formData.customerPhone||""} onChange={e=>setFormData({...formData,customerPhone:e.target.value})} placeholder="(555) 555-5555" style={inputStyle}/></div></div>
+
+            {/* ── JOB ADDRESS — auto-fills from Job Name selection ── */}
             <div>
               <label style={labelStyle}>Job Address</label>
-              {formData.jobAddress&&!customerManualMode&&(activeJobs||[]).find(j=>j.customerName===formData.customerName)?(
+              {formData.jobAddress&&!customerManualMode&&(activeJobs||[]).find(j=>j.name===formData.jobTreadName)?(
                 <div>
-                  <div style={{...inputStyle,display:"flex",alignItems:"center",justifyContent:"space-between",color:t.cyan,background:"rgba(34,211,238,.07)",border:`1.5px solid rgba(34,211,238,.25)`}}>
+                  <div style={{...inputStyle,color:t.cyan,background:"rgba(34,211,238,.07)",border:`1.5px solid rgba(34,211,238,.25)`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <span>{formData.jobAddress}</span>
-                    <span style={{fontSize:"11px",opacity:.7}}>Auto-filled</span>
+                    <span style={{fontSize:"11px",opacity:.7}}>✓ Auto-filled</span>
                   </div>
                   <button onClick={()=>setFormData({...formData,jobAddress:""})} style={{...ghostBtn,fontSize:"11px",color:t.muted,padding:"4px 0",marginTop:"4px"}}>Edit address manually</button>
                 </div>
