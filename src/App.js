@@ -858,7 +858,7 @@ function AppInner(){
                   >
                     <option value="">— Select from Active Jobs —</option>
                     {(activeJobs||[]).map((job,i)=>(
-                      <option key={i} value={job.name}>{job.name}{job.customerName?` — ${job.customerName}`:""}</option>
+                      <option key={i} value={job.name}>{job.name}</option>
                     ))}
                     <option value="__manual__">✏️ Enter manually (not on list)</option>
                   </select>
