@@ -361,6 +361,7 @@ function AppInner(){
   // ── HOME SCREEN ──────────────────────────────────────────────────────────
   if(mode===null)return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff,display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <OpsHomeBtn/>
       <style>{`
         .nav-btn{display:flex;flex-direction:column;align-items:center;gap:8px;background:${t.card};border:1px solid ${t.line};border-radius:14px;padding:16px 8px 12px;cursor:pointer;transition:all 0.18s;font-family:${ff};}
         .nav-btn:hover{border-color:${t.blue};background:${t.nav};transform:translateY(-2px);}
@@ -401,7 +402,7 @@ function AppInner(){
         <div style={{width:"100%",background:t.nav,borderBottom:`1px solid ${t.line}`,padding:"18px 20px 14px",textAlign:"center",position:"relative",boxShadow:"0 2px 20px rgba(0,0,0,.4)"}}>
           <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:`linear-gradient(90deg,${t.red},${t.blue},${t.green})`}}/>
           <div style={{fontSize:"19px",fontWeight:800,color:t.red,letterSpacing:"1px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
-          <div style={{fontSize:"10px",fontWeight:600,color:"rgba(255,255,255,.65)",letterSpacing:"4px",textTransform:"uppercase",marginTop:"3px"}}>Operations Portal</div>
+          <div style={{fontSize:"10px",fontWeight:600,color:"rgba(255,255,255,.65)",letterSpacing:"3px",textTransform:"uppercase",marginTop:"3px"}}>Work Orders / Field Operations</div>
         </div>
 
         {/* NAV — amber=manager, green=crews, purple=ops, cyan=access */}
