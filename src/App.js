@@ -119,7 +119,7 @@ function AppGate({children}){
   );
 }
 
-const emptyCrewOrder={crewName:"",members:[],jobAddress:"",jobDescription:"",materials:"",specialNotes:"",customerName:"",customerPhone:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
+const emptyCrewOrder={crewName:"",members:[],jobAddress:"",jobDescription:"",materials:"",specialNotes:"",customerName:"",customerPhone:"",jobTreadName:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
 const emptyFieldOrder={staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
 
 function saveToFB(path,data){set(ref(db,path),data).catch(e=>console.error("FB save:",e));}
@@ -309,6 +309,9 @@ function AppInner(){
   const[newJobAddress,setNewJobAddress]=useState("");
   const[newJobWifiName,setNewJobWifiName]=useState("");
   const[newJobWifiPass,setNewJobWifiPass]=useState("");
+  const[newJobCustomerName,setNewJobCustomerName]=useState("");
+  const[newJobTreadName,setNewJobTreadName]=useState("");
+  const[customerManualMode,setCustomerManualMode]=useState(false);
   const[keyModal,setKeyModal]=useState(null);
   const[wifiModal,setWifiModal]=useState(null);
   const[doorModal,setDoorModal]=useState(null);
@@ -320,7 +323,7 @@ function AppInner(){
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -331,7 +334,7 @@ function AppInner(){
   const managerUpdates=crewUpdates;
 
   const handleUpload=async(e,fd,setFd)=>{const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);const atts=[...(fd.attachments||[])];for(const f of files){const dn=window.prompt("Name this attachment:",f.name)||f.name;try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`attachments/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);atts.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Upload failed");}}setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";};
-  const saveCrew=()=>{if(!formData.crewName||!formData.jobAddress){showToast("Crew and address required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});showToast(editingOrder!==null?"Updated":"Work order created");};
+  const saveCrew=()=>{if(!formData.crewName||!formData.jobAddress){showToast("Crew and address required");return;}if(!formData.customerName){showToast("Customer name required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);showToast(editingOrder!==null?"Updated":"Work order created");};
   const deleteCrew=i=>{saveToFB("orders",orders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const addMember=(crew)=>{if(!newMemberName.trim())return;saveToFB("crews",{...crews,[crew]:[...(crews[crew]||[]),newMemberName.trim()]});setNewMemberName("");showToast("Added");};
   const removeMember=(crew,i)=>{saveToFB("crews",{...crews,[crew]:crews[crew].filter((_,x)=>x!==i)});showToast("Removed");};
@@ -341,7 +344,7 @@ function AppInner(){
   const toggleFieldMember=n=>{setFieldFormData(p=>({...p,staffMember:p.staffMember.includes(n)?p.staffMember.filter(x=>x!==n):[...p.staffMember,n]}));};
   const addFieldNote=async(note)=>{const now=new Date().toISOString();const n={...note,submittedAt:now,lastModified:now};const u=[...(fieldNotes||[]),n];saveToFB("fieldNotes",u);showToast("Field note saved");};
 
-  const handlePrint=(order)=>{const members=(order.members||order.staffMember||[]).join(", ");const w=window.open("","_blank","width=800,height=600");w.document.write(`<html><head><title>Work Order</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a;}.label{font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}.section{margin-bottom:16px;}.value{font-size:14px;line-height:1.6;white-space:pre-wrap;}</style></head><body>`);w.document.write(`<img src="${window.location.origin}/logo.jpg" style="width:80px;margin-bottom:12px;" crossorigin="anonymous"/>`);w.document.write(`<h1 style="font-size:22px;margin-bottom:4px;">Icon Remodeling Group Inc.</h1><h2 style="font-size:18px;margin-bottom:20px;">${order.crewName||"Field Operations"}</h2>`);if(members)w.document.write(`<h2>${members}</h2>`);w.document.write(`<div class="section"><div class="label">Date</div><div class="value">${order.date}</div></div>`);if(order.customerName)w.document.write(`<div class="section"><div class="label">Customer</div><div class="value">${order.customerName}${order.customerPhone?" - "+order.customerPhone:""}</div></div>`);if(order.jobAddress)w.document.write(`<div class="section"><div class="label">Job Address</div><div class="value">${order.jobAddress}</div></div>`);if(order.jobDescription)w.document.write(`<div class="section"><div class="label">Job Description</div><div class="value">${order.jobDescription}</div></div>`);if(order.todaysTasks)w.document.write(`<div class="section"><div class="label">Tasks</div><div class="value">${order.todaysTasks}</div></div>`);if(order.materials)w.document.write(`<div class="section"><div class="label">Materials</div><div class="value">${order.materials}</div></div>`);if(order.jobRequests)w.document.write(`<div class="section"><div class="label">Requests</div><div class="value">${order.jobRequests}</div></div>`);if(order.specialNotes)w.document.write(`<div class="section"><div class="label">Special Notes</div><div class="value">${order.specialNotes}</div></div>`);w.document.write(`</body></html>`);w.document.close();setTimeout(()=>w.print(),500);};
+  const handlePrint=(order)=>{const members=(order.members||order.staffMember||[]).join(", ");const w=window.open("","_blank","width=800,height=600");w.document.write(`<html><head><title>Work Order</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a;}.label{font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}.section{margin-bottom:16px;}.value{font-size:14px;line-height:1.6;white-space:pre-wrap;}</style></head><body>`);w.document.write(`<img src="${window.location.origin}/logo.jpg" style="width:80px;margin-bottom:12px;" crossorigin="anonymous"/>`);w.document.write(`<h1 style="font-size:22px;margin-bottom:4px;">Icon Remodeling Group Inc.</h1><h2 style="font-size:18px;margin-bottom:20px;">${order.crewName||"Field Operations"}</h2>`);if(members)w.document.write(`<h2>${members}</h2>`);w.document.write(`<div class="section"><div class="label">Date</div><div class="value">${order.date}</div></div>`);if(order.customerName)w.document.write(`<div class="section"><div class="label">Customer</div><div class="value">${order.customerName}${order.customerPhone?" - "+order.customerPhone:""}</div></div>`);if(order.jobTreadName)w.document.write(`<div class="section"><div class="label">Job Name</div><div class="value">${order.jobTreadName}</div></div>`);if(order.jobAddress)w.document.write(`<div class="section"><div class="label">Job Address</div><div class="value">${order.jobAddress}</div></div>`);if(order.jobDescription)w.document.write(`<div class="section"><div class="label">Job Description</div><div class="value">${order.jobDescription}</div></div>`);if(order.todaysTasks)w.document.write(`<div class="section"><div class="label">Tasks</div><div class="value">${order.todaysTasks}</div></div>`);if(order.materials)w.document.write(`<div class="section"><div class="label">Materials</div><div class="value">${order.materials}</div></div>`);if(order.jobRequests)w.document.write(`<div class="section"><div class="label">Requests</div><div class="value">${order.jobRequests}</div></div>`);if(order.specialNotes)w.document.write(`<div class="section"><div class="label">Special Notes</div><div class="value">${order.specialNotes}</div></div>`);w.document.write(`</body></html>`);w.document.close();setTimeout(()=>w.print(),500);};
 
   const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");showToast("Manager PIN updated");}else showToast("PIN must be at least 4 digits");};
   const saveNewCrewPin=()=>{if(newCrewPin.length>=4){saveToFB("settings/crewPin",newCrewPin);setNewCrewPin("");showToast("Crew PIN updated");}else showToast("PIN must be at least 4 digits");};
@@ -357,7 +360,7 @@ function AppInner(){
   const Toast=()=>toast?<div style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg,#0891B2,#22D3EE)",color:"#fff",padding:"12px 24px",borderRadius:"10px",fontSize:"14px",fontWeight:600,zIndex:1001,boxShadow:"0 4px 20px rgba(34,211,238,.4)"}}>{toast}</div>:null;
   const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
 
-  const saveActiveJob=(name,address,wifiName,wifiPass,garageCode,doorType,doorLocation,doorCode)=>{if(!name.trim()){showToast("Job name required");return;}const now=new Date().toISOString();const jobs=[...(activeJobs||[])];const jobData={name:name.trim().toUpperCase(),address:address.trim(),lastModified:now};if(wifiName&&wifiName.trim())jobData.wifiName=wifiName.trim();if(wifiPass&&wifiPass.trim())jobData.wifiPassword=wifiPass.trim();if(garageCode&&garageCode.trim())jobData.garageCode=garageCode.trim();if(doorType&&doorType.trim()){jobData.doorType=doorType;if(doorLocation&&doorLocation.trim())jobData.doorLocation=doorLocation.trim();if(doorCode&&doorCode.trim())jobData.doorCode=doorCode.trim();}if(editingActiveJob!==null){jobs[editingActiveJob]=jobData;}else{jobs.push(jobData);}saveToFB("activeJobs",jobs);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setEditingActiveJob(null);showToast(editingActiveJob!==null?"Updated":"Job added");};
+  const saveActiveJob=(name,address,wifiName,wifiPass,garageCode,doorType,doorLocation,doorCode,customerName,jobTreadName)=>{if(!name.trim()){showToast("Job name required");return;}const now=new Date().toISOString();const jobs=[...(activeJobs||[])];const jobData={name:name.trim().toUpperCase(),address:address.trim(),lastModified:now};if(customerName&&customerName.trim())jobData.customerName=customerName.trim();if(jobTreadName&&jobTreadName.trim())jobData.jobTreadName=jobTreadName.trim();if(wifiName&&wifiName.trim())jobData.wifiName=wifiName.trim();if(wifiPass&&wifiPass.trim())jobData.wifiPassword=wifiPass.trim();if(garageCode&&garageCode.trim())jobData.garageCode=garageCode.trim();if(doorType&&doorType.trim()){jobData.doorType=doorType;if(doorLocation&&doorLocation.trim())jobData.doorLocation=doorLocation.trim();if(doorCode&&doorCode.trim())jobData.doorCode=doorCode.trim();}if(editingActiveJob!==null){jobs[editingActiveJob]=jobData;}else{jobs.push(jobData);}saveToFB("activeJobs",jobs);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setEditingActiveJob(null);showToast(editingActiveJob!==null?"Updated":"Job added");};
   const deleteActiveJob=(idx)=>{if(!window.confirm("Remove this job?"))return;const updatedCodes=(lockboxCodes||[]).map(c=>{if(String(c.linkedJobIndex)===String(idx)){return{...c,linkedJobIndex:""};} if(Number(c.linkedJobIndex)>idx){return{...c,linkedJobIndex:String(Number(c.linkedJobIndex)-1)};} return c;});saveToFB("lockboxCodes",updatedCodes);saveToFB("activeJobs",(activeJobs||[]).filter((_,i)=>i!==idx));showToast("Removed");};
 
   // ── HOME SCREEN ──────────────────────────────────────────────────────────
@@ -450,7 +453,9 @@ function AppInner(){
           <div style={{height:"1px",background:`linear-gradient(90deg,transparent,${t.line},transparent)`,marginBottom:"10px"}}/>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
             <thead><tr>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"36%"}}>Job</th>
+              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"20%"}}>Job ID</th>
+              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"18%"}}>Customer</th>
+              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"18%"}}>Job Name</th>
               <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase"}}>Address</th>
               {activeJobsEditing&&<th style={{width:"36px",borderBottom:`1px solid ${t.line}`}}/>}
             </tr></thead>
@@ -459,7 +464,9 @@ function AppInner(){
                 const linked=getLinkedLockbox(idx);const hasWifi=!!(job.wifiName||job.wifiPassword);const hasGarage=!!job.garageCode;const hasDoor=!!(job.doorType&&job.doorCode);
                 return editingActiveJob===idx?(
                   <tr key={idx}>
-                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="Job name"/></td>
+                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="Job ID (e.g. MYERS)"/></td>
+                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobCustomerName} onChange={e=>setNewJobCustomerName(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="Customer name"/></td>
+                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobTreadName} onChange={e=>setNewJobTreadName(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="e.g. Myers Kitchen Renovation"/></td>
                     <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}>
                       <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"7px 10px",fontSize:"12px",marginBottom:"4px"}}/>
                       <input value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
@@ -470,13 +477,15 @@ function AppInner(){
                       {newJobDoorType&&<input value={newJobDoorCode} onChange={e=>setNewJobDoorCode(e.target.value)} placeholder="Code" style={{...inputStyle,padding:"5px 10px",fontSize:"11px"}}/>}
                     </td>
                     <td style={{padding:"4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
-                      <button onClick={()=>saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode)} style={{...ghostBtn,padding:"4px",color:t.green}}><CheckIcon/></button>
+                      <button onClick={()=>saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode,newJobCustomerName,newJobTreadName)} style={{...ghostBtn,padding:"4px",color:t.green}}><CheckIcon/></button>
                       <button onClick={()=>{setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");}} style={{...ghostBtn,padding:"4px",color:t.danger}}>&times;</button>
                     </td>
                   </tr>
                 ):(
                   <tr key={idx} className="job-row" style={{transition:"background .12s"}}>
                     <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase"}}>{job.name}</td>
+                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
+                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"11px",color:t.muted}}>{job.jobTreadName||<span style={{fontStyle:"italic"}}>—</span>}</td>
                     <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`}}>
                       <div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap"}}>
                         <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px"}}>{job.address}</span>
@@ -487,7 +496,7 @@ function AppInner(){
                       </div>
                     </td>
                     {activeJobsEditing&&<td style={{padding:"4px",borderBottom:`1px solid ${t.line}`}}>
-                      <button onClick={()=>{const a=window.prompt("Type edit or delete:");if(a?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");setNewJobGarageCode(job.garageCode||"");setNewJobDoorType(job.doorType||"");setNewJobDoorLocation(job.doorLocation||"");setNewJobDoorCode(job.doorCode||"");}else if(a?.toLowerCase()==="delete"){deleteActiveJob(idx);}}} style={{...ghostBtn,padding:"4px",color:t.muted}}><DotsIcon/></button>
+                      <button onClick={()=>{const a=window.prompt("Type edit or delete:");if(a?.toLowerCase()==="edit"){setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");setNewJobGarageCode(job.garageCode||"");setNewJobDoorType(job.doorType||"");setNewJobDoorLocation(job.doorLocation||"");setNewJobDoorCode(job.doorCode||"");setNewJobCustomerName(job.customerName||"");setNewJobTreadName(job.jobTreadName||"");}else if(a?.toLowerCase()==="delete"){deleteActiveJob(idx);}}} style={{...ghostBtn,padding:"4px",color:t.muted}}><DotsIcon/></button>
                     </td>}
                   </tr>
                 );
@@ -504,7 +513,7 @@ function AppInner(){
                   {newJobDoorType&&<input value={newJobDoorCode} onChange={e=>setNewJobDoorCode(e.target.value)} placeholder="Code" style={{...inputStyle,padding:"5px 10px",fontSize:"11px"}}/>}
                 </td>
                 <td style={{padding:"4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
-                  <button onClick={()=>{if(newJobName.trim())saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode);}} style={{...ghostBtn,padding:"4px",color:t.green}}><CheckIcon/></button>
+                  <button onClick={()=>{if(newJobName.trim())saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode,newJobCustomerName,newJobTreadName);}} style={{...ghostBtn,padding:"4px",color:t.green}}><CheckIcon/></button>
                 </td>
               </tr>)}
             </tbody>
@@ -681,7 +690,7 @@ function AppInner(){
             </div>
             <button onClick={()=>handlePrint(sel)} style={{...ghostBtn,padding:"7px",color:t.muted}} className="no-print"><PrintIcon/></button>
           </div>
-          {sel.customerName&&<div style={{fontSize:"13px",color:t.text,display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><UserIcon/> {sel.customerName}</div>}
+          {sel.customerName&&<div style={{fontSize:"13px",color:t.text,display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><UserIcon/> {sel.customerName}{sel.jobTreadName&&<span style={{fontSize:"11px",color:t.muted,marginLeft:"6px"}}>({sel.jobTreadName})</span>}</div>}
           {sel.customerPhone&&<div style={{fontSize:"12px",color:t.muted,display:"flex",alignItems:"center",gap:"5px",marginBottom:"12px"}}><PhoneIcon/> {sel.customerPhone}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
             <div><div style={labelStyle}>Job Description</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.jobDescription)}</div></div>
@@ -815,8 +824,80 @@ function AppInner(){
             <div><label style={labelStyle}>Crew</label><select value={formData.crewName} onChange={e=>setFormData({...formData,crewName:e.target.value,members:[]})} style={{...inputStyle,appearance:"none"}}><option value="">Select a crew...</option>{crewNames.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
             {formData.crewName&&(crews[formData.crewName]||[]).length>0&&<div><label style={labelStyle}>Assign Members</label><div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>{(crews[formData.crewName]||[]).map(n=>{const s=formData.members.includes(n);return<button key={n} onClick={()=>toggleMember(n)} style={{...baseBtn,padding:"8px 14px",borderRadius:"20px",fontSize:"13px",background:s?"rgba(74,222,128,.15)":t.card,color:s?t.green:t.text,border:`1.5px solid ${s?"rgba(74,222,128,.4)":t.line}`,gap:"4px"}}>{s&&<CheckIcon/>}{n}</button>;})}</div></div>}
             <div><label style={labelStyle}>Date</label><input type="date" value={formData.date} onChange={e=>setFormData({...formData,date:e.target.value})} style={inputStyle}/></div>
-            <div style={{display:"flex",gap:"10px"}}><div style={{flex:1}}><label style={labelStyle}>Customer Name</label><input value={formData.customerName||""} onChange={e=>setFormData({...formData,customerName:e.target.value})} placeholder="Customer name" style={inputStyle}/></div><div style={{flex:1}}><label style={labelStyle}>Phone</label><input type="tel" value={formData.customerPhone||""} onChange={e=>setFormData({...formData,customerPhone:e.target.value})} placeholder="(555) 555-5555" style={inputStyle}/></div></div>
-            <div><label style={labelStyle}>Job Address</label><AddressInput value={formData.jobAddress} onChange={e=>setFormData({...formData,jobAddress:e.target.value})} style={inputStyle}/></div>
+            {/* ── CUSTOMER / JOB SMART SELECTOR ── */}
+            <div>
+              <label style={labelStyle}>Customer Name <span style={{color:t.danger}}>*</span></label>
+              {!customerManualMode?(
+                <div>
+                  <select
+                    value={formData.customerName||""}
+                    onChange={e=>{
+                      if(e.target.value==="__manual__"){
+                        setCustomerManualMode(true);
+                        setFormData({...formData,customerName:"",jobTreadName:"",jobAddress:""});
+                      } else if(e.target.value===""){
+                        setFormData({...formData,customerName:"",jobTreadName:"",jobAddress:""});
+                      } else {
+                        const job=(activeJobs||[]).find(j=>j.customerName===e.target.value);
+                        setFormData({
+                          ...formData,
+                          customerName:e.target.value,
+                          jobTreadName:job?.jobTreadName||"",
+                          jobAddress:job?.address||formData.jobAddress,
+                        });
+                      }
+                    }}
+                    style={{...inputStyle,appearance:"none"}}
+                  >
+                    <option value="">— Select customer from Active Jobs —</option>
+                    {(activeJobs||[]).filter(j=>j.customerName).map((job,i)=>(
+                      <option key={i} value={job.customerName}>{job.customerName}{job.name?` (${job.name})`:""}</option>
+                    ))}
+                    <option value="__manual__">✏️ Enter manually (not on list)</option>
+                  </select>
+                  <div style={{fontSize:"11px",color:t.muted,marginTop:"4px"}}>Select from Active Jobs list or choose manual entry</div>
+                </div>
+              ):(
+                <div>
+                  <input
+                    value={formData.customerName||""}
+                    onChange={e=>setFormData({...formData,customerName:e.target.value})}
+                    placeholder="Type customer name manually"
+                    style={inputStyle}
+                    autoFocus
+                  />
+                  <button
+                    onClick={()=>{setCustomerManualMode(false);setFormData({...formData,customerName:"",jobTreadName:"",jobAddress:""});}}
+                    style={{...ghostBtn,fontSize:"12px",color:t.cyan,padding:"4px 0",marginTop:"4px"}}
+                  >← Back to dropdown</button>
+                </div>
+              )}
+            </div>
+            <div>
+              <label style={labelStyle}>Job Name</label>
+              <input
+                value={formData.jobTreadName||""}
+                onChange={e=>setFormData({...formData,jobTreadName:e.target.value})}
+                placeholder={formData.customerName&&!customerManualMode?"Auto-filled from Active Jobs":"e.g. Job-1234-Myers"}
+                style={{...inputStyle,color:formData.jobTreadName&&!customerManualMode?t.cyan:t.text}}
+              />
+              {formData.jobTreadName&&!customerManualMode&&<div style={{fontSize:"11px",color:t.cyan,marginTop:"4px"}}>✓ Auto-filled from Active Jobs</div>}
+            </div>
+            <div style={{display:"flex",gap:"10px"}}><div style={{flex:1}}><label style={labelStyle}>Phone</label><input type="tel" value={formData.customerPhone||""} onChange={e=>setFormData({...formData,customerPhone:e.target.value})} placeholder="(555) 555-5555" style={inputStyle}/></div></div>
+            <div>
+              <label style={labelStyle}>Job Address</label>
+              {formData.jobAddress&&!customerManualMode&&(activeJobs||[]).find(j=>j.customerName===formData.customerName)?(
+                <div>
+                  <div style={{...inputStyle,display:"flex",alignItems:"center",justifyContent:"space-between",color:t.cyan,background:"rgba(34,211,238,.07)",border:`1.5px solid rgba(34,211,238,.25)`}}>
+                    <span>{formData.jobAddress}</span>
+                    <span style={{fontSize:"11px",opacity:.7}}>Auto-filled</span>
+                  </div>
+                  <button onClick={()=>setFormData({...formData,jobAddress:""})} style={{...ghostBtn,fontSize:"11px",color:t.muted,padding:"4px 0",marginTop:"4px"}}>Edit address manually</button>
+                </div>
+              ):(
+                <AddressInput value={formData.jobAddress} onChange={e=>setFormData({...formData,jobAddress:e.target.value})} style={inputStyle}/>
+              )}
+            </div>
             <div><label style={labelStyle}>Job Description</label><BulletTextarea value={formData.jobDescription} onChange={e=>setFormData({...formData,jobDescription:e.target.value})} placeholder="Describe the work..." style={inputStyle}/></div>
             <div><label style={labelStyle}>Materials</label><BulletTextarea value={formData.materials} onChange={e=>setFormData({...formData,materials:e.target.value})} placeholder="List materials..." style={inputStyle}/></div>
             <div><label style={labelStyle}>Special Notes</label><BulletTextarea value={formData.specialNotes} onChange={e=>setFormData({...formData,specialNotes:e.target.value})} placeholder="Special instructions..." style={inputStyle}/></div>
@@ -824,7 +905,7 @@ function AppInner(){
               <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,color:t.text,padding:"12px",fontSize:"14px",width:"100%"}}><PaperclipIcon/> {uploading?"Uploading...":"Add Attachments"}</button>
               {formData.attachments?.length>0&&<div style={{marginTop:"8px",display:"flex",flexDirection:"column",gap:"5px"}}>{formData.attachments.map((a,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:t.card,padding:"7px 12px",borderRadius:"8px",border:`1px solid ${t.line}`}}><span style={{fontSize:"13px",color:t.text}}>{a.name}</span><button onClick={()=>setFormData({...formData,attachments:formData.attachments.filter((_,x)=>x!==i)})} style={{...ghostBtn,padding:"4px",color:t.danger}}><TrashIcon/></button></div>)}</div>}
             </div>
-            <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowForm(false);setEditingOrder(null);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button><button onClick={saveCrew} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingOrder!==null?"Update":"Create Order"}</button></div>
+            <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowForm(false);setEditingOrder(null);setCustomerManualMode(false);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button><button onClick={saveCrew} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingOrder!==null?"Update":"Create Order"}</button></div>
           </div></div>):(<>
           <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"4px"}}>{"Today's Orders"}</div>
           <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{todayCrew.length} active</div>
@@ -840,7 +921,7 @@ function AppInner(){
             </div>
             {order.members?.length>0&&<div style={{fontSize:"13px",fontWeight:700,color:t.text,marginBottom:"3px"}}>{order.members.join(", ")}</div>}
             <div style={{fontSize:"12px",color:t.blue,marginBottom:"3px"}}>{order.jobAddress}</div>
-            {order.customerName&&<div style={{fontSize:"12px",color:t.muted,marginBottom:"2px"}}>{order.customerName}</div>}
+            {order.customerName&&<div style={{fontSize:"12px",color:t.muted,marginBottom:"2px"}}>{order.customerName}{order.jobTreadName&&<span style={{color:t.muted,fontSize:"11px"}}> · {order.jobTreadName}</span>}</div>}
             <div style={{fontSize:"12px",color:t.muted,lineHeight:1.5}}>{order.jobDescription?(order.jobDescription.length>100?order.jobDescription.slice(0,100)+"...":order.jobDescription):"No description"}</div>
           </div>);})}
           </div>}
