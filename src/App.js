@@ -156,9 +156,10 @@ const DotsIcon=()=>ic(<><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r=
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
 
 function BulletTextarea({value,onChange,placeholder,style:s}){
-  const hk=e=>{if(e.key==="Enter"){e.preventDefault();const v=e.target.value;const p=e.target.selectionStart;const n=v.slice(0,p)+"\n\u2022 "+v.slice(p);onChange({target:{value:n}});setTimeout(()=>{e.target.selectionStart=e.target.selectionEnd=p+3;},0);}};
-  const hc=e=>{let v=e.target.value;if(v&&!v.startsWith("\u2022")&&v.trim().length>0&&!value)v="\u2022 "+v;onChange({target:{value:v}});};
-  return<textarea value={value} onChange={hc} onKeyDown={hk} placeholder={placeholder} rows={3} style={{...s,resize:"vertical",minHeight:"80px"}}/>;
+  const taRef=useRef(null);
+  const hk=e=>{if(e.key==="Enter"){e.preventDefault();const v=e.target.value;const p=e.target.selectionStart;const n=v.slice(0,p)+"\n\u2022 "+v.slice(p);onChange({target:{value:n}});setTimeout(()=>{if(taRef.current){taRef.current.selectionStart=taRef.current.selectionEnd=p+3;taRef.current.scrollTop=taRef.current.scrollHeight;}},0);}};
+  const hc=e=>{let v=e.target.value;if(v&&!v.startsWith("\u2022")&&v.trim().length>0&&!value)v="\u2022 "+v;v=v.replace(/\u2022 ([a-z])/g,(m,c)=>"\u2022 "+c.toUpperCase());onChange({target:{value:v}});setTimeout(()=>{if(taRef.current)taRef.current.scrollTop=taRef.current.scrollHeight;},0);};
+  return<textarea ref={taRef} value={value} onChange={hc} onKeyDown={hk} placeholder={placeholder} rows={3} style={{...s,resize:"vertical",minHeight:"80px"}}/>;
 }
 
 function AddressInput({value,onChange,style:s}){
@@ -305,6 +306,8 @@ function AppInner(){
   const[showLockboxForm,setShowLockboxForm]=useState(false);
   const[editingActiveJob,setEditingActiveJob]=useState(null);
   const[activeJobsEditing,setActiveJobsEditing]=useState(false);
+  const[showAddJob,setShowAddJob]=useState(false);
+  const[jobMenu,setJobMenu]=useState(null);
   const[newJobName,setNewJobName]=useState("");
   const[newJobAddress,setNewJobAddress]=useState("");
   const[newJobWifiName,setNewJobWifiName]=useState("");
@@ -323,7 +326,7 @@ function AppInner(){
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -361,13 +364,77 @@ function AppInner(){
   const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
 
   const saveActiveJob=(name,address,wifiName,wifiPass,garageCode,doorType,doorLocation,doorCode,customerName,jobTreadName)=>{if(!name.trim()){showToast("Job name required");return;}const now=new Date().toISOString();const jobs=[...(activeJobs||[])];const jobData={name:name.trim().toUpperCase(),address:address.trim(),lastModified:now};if(customerName&&customerName.trim())jobData.customerName=customerName.trim();if(jobTreadName&&jobTreadName.trim())jobData.jobTreadName=jobTreadName.trim();if(wifiName&&wifiName.trim())jobData.wifiName=wifiName.trim();if(wifiPass&&wifiPass.trim())jobData.wifiPassword=wifiPass.trim();if(garageCode&&garageCode.trim())jobData.garageCode=garageCode.trim();if(doorType&&doorType.trim()){jobData.doorType=doorType;if(doorLocation&&doorLocation.trim())jobData.doorLocation=doorLocation.trim();if(doorCode&&doorCode.trim())jobData.doorCode=doorCode.trim();}if(editingActiveJob!==null){jobs[editingActiveJob]=jobData;}else{jobs.push(jobData);}saveToFB("activeJobs",jobs);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setEditingActiveJob(null);showToast(editingActiveJob!==null?"Updated":"Job added");};
-  const deleteActiveJob=(idx)=>{if(!window.confirm("Remove this job?"))return;const updatedCodes=(lockboxCodes||[]).map(c=>{if(String(c.linkedJobIndex)===String(idx)){return{...c,linkedJobIndex:""};} if(Number(c.linkedJobIndex)>idx){return{...c,linkedJobIndex:String(Number(c.linkedJobIndex)-1)};} return c;});saveToFB("lockboxCodes",updatedCodes);saveToFB("activeJobs",(activeJobs||[]).filter((_,i)=>i!==idx));showToast("Removed");};
+  const deleteActiveJob=(idx)=>{const updatedCodes=(lockboxCodes||[]).map(c=>{if(String(c.linkedJobIndex)===String(idx)){return{...c,linkedJobIndex:""};} if(Number(c.linkedJobIndex)>idx){return{...c,linkedJobIndex:String(Number(c.linkedJobIndex)-1)};} return c;});saveToFB("lockboxCodes",updatedCodes);saveToFB("activeJobs",(activeJobs||[]).filter((_,i)=>i!==idx));showToast("Removed");};
+
+
+  // ── ADD / EDIT JOB SCREEN ─────────────────────────────────────────────────
+  if(showAddJob)return(
+    <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
+      <Toast/>
+      <OpsHomeBtn/>
+      <Header title={editingActiveJob!==null?"Edit Job":"Add New Job"} onBack={()=>{setShowAddJob(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");}} onHome={goHome}/>
+      <div style={{padding:"20px",maxWidth:"560px",margin:"0 auto",paddingBottom:"120px",boxSizing:"border-box"}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"18px"}}>
+          <div>
+            <label style={labelStyle}>Job ID / Name <span style={{color:t.danger}}>*</span></label>
+            <input value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} placeholder="e.g. SHAKE SHACK" style={{...inputStyle,textTransform:"uppercase"}}/>
+            <div style={{fontSize:"11px",color:t.muted,marginTop:"5px"}}>Short identifier — appears in work order dropdown</div>
+          </div>
+          <div>
+            <label style={labelStyle}>Customer Name</label>
+            <input value={newJobCustomerName} onChange={e=>setNewJobCustomerName(e.target.value)} placeholder="e.g. Mount Kisco Associates LLC" style={inputStyle}/>
+          </div>
+          <div>
+            <label style={labelStyle}>Job Address</label>
+            <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={inputStyle}/>
+            <div style={{fontSize:"11px",color:t.muted,marginTop:"5px"}}>Start typing and select from suggestions</div>
+          </div>
+          <div style={{background:"rgba(74,222,128,.05)",border:"1px solid rgba(74,222,128,.15)",borderRadius:"12px",padding:"16px"}}>
+            <div style={{fontSize:"11px",fontWeight:700,color:t.green,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"14px"}}>Access Info (Optional)</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+              <div>
+                <label style={labelStyle}>WiFi Network Name</label>
+                <input value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="Network name" style={inputStyle}/>
+              </div>
+              <div>
+                <label style={labelStyle}>WiFi Password</label>
+                <input value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="Password" style={inputStyle}/>
+              </div>
+              <div>
+                <label style={labelStyle}>Garage Code</label>
+                <input value={newJobGarageCode} onChange={e=>setNewJobGarageCode(e.target.value)} placeholder="Garage door code" style={inputStyle}/>
+              </div>
+              <div>
+                <label style={labelStyle}>Door Code Type</label>
+                <select value={newJobDoorType} onChange={e=>{setNewJobDoorType(e.target.value);if(!e.target.value){setNewJobDoorLocation("");setNewJobDoorCode("");}}} style={{...inputStyle,appearance:"none"}}>
+                  <option value="">None</option>
+                  <option value="garage">Garage</option>
+                  <option value="door">Main Door</option>
+                </select>
+              </div>
+              {newJobDoorType==="door"&&<div>
+                <label style={labelStyle}>Door Location</label>
+                <input value={newJobDoorLocation} onChange={e=>setNewJobDoorLocation(e.target.value)} placeholder="e.g. Front door, side entrance" style={inputStyle}/>
+              </div>}
+              {newJobDoorType&&<div>
+                <label style={labelStyle}>Door Code</label>
+                <input value={newJobDoorCode} onChange={e=>setNewJobDoorCode(e.target.value)} placeholder="Code" style={inputStyle}/>
+              </div>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:"10px"}}>
+            <button onClick={()=>{setShowAddJob(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button>
+            <button onClick={()=>saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode,newJobCustomerName,newJobTreadName)} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingActiveJob!==null?"Update Job":"Add Job"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   // ── HOME SCREEN ──────────────────────────────────────────────────────────
   if(mode===null)return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff,display:"flex",flexDirection:"column",alignItems:"center"}}>
-      <OpsHomeBtn/>
-      <style>{`
+        <style>{`
         .nav-btn{display:flex;flex-direction:column;align-items:center;gap:8px;background:${t.card};border:1px solid ${t.line};border-radius:14px;padding:16px 8px 12px;cursor:pointer;transition:all 0.18s;font-family:${ff};}
         .nav-btn:hover{border-color:${t.blue};background:${t.nav};transform:translateY(-2px);}
         .icon-wrap{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;}
@@ -445,89 +512,50 @@ function AppInner(){
           </div>
         </div>
 
-        {/* ACTIVE JOBS */}
-        <div style={{width:"100%",maxWidth:"600px",padding:"16px 14px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-            <span style={{fontSize:"11px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1.4px"}}>Active Jobs</span>
-            {!activeJobsEditing?<button className="edit-btn" onClick={()=>setPinDialog("activeJobs")}>Edit</button>:<button className="edit-btn" style={{color:t.green,borderColor:t.green}} onClick={()=>{setActiveJobsEditing(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");}}>Done</button>}
-          </div>
-          <div style={{height:"1px",background:`linear-gradient(90deg,transparent,${t.line},transparent)`,marginBottom:"10px"}}/>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
-            <thead><tr>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"24%"}}>Job ID</th>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"22%"}}>Customer</th>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase"}}>Address</th>
-              {activeJobsEditing&&<th style={{width:"36px",borderBottom:`1px solid ${t.line}`}}/>}
-            </tr></thead>
-            <tbody>
-              {(activeJobs||[]).map((job,idx)=>{
-                const linked=getLinkedLockbox(idx);const hasWifi=!!(job.wifiName||job.wifiPassword);const hasGarage=!!job.garageCode;const hasDoor=!!(job.doorType&&job.doorCode);
-                return editingActiveJob===idx?(
-                  <tr key={idx}>
-                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="Job ID (e.g. MYERS)"/></td>
-                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}><input type="text" value={newJobCustomerName} onChange={e=>setNewJobCustomerName(e.target.value)} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="Customer name"/></td>
-                    <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}>
-                      <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"7px 10px",fontSize:"12px",marginBottom:"4px"}}/>
-                      <input value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
-                      <input value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Password" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
-                      <input value={newJobGarageCode} onChange={e=>setNewJobGarageCode(e.target.value)} placeholder="Garage Code" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
-                      <select value={newJobDoorType} onChange={e=>{setNewJobDoorType(e.target.value);if(!e.target.value){setNewJobDoorLocation("");setNewJobDoorCode("");}}} style={{...inputStyle,padding:"5px 10px",fontSize:"11px",appearance:"none",marginBottom:"3px"}}><option value="">Door Code type?</option><option value="garage">Garage</option><option value="door">Main Door</option></select>
-                      {newJobDoorType==="door"&&<input value={newJobDoorLocation} onChange={e=>setNewJobDoorLocation(e.target.value)} placeholder="Door location" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>}
-                      {newJobDoorType&&<input value={newJobDoorCode} onChange={e=>setNewJobDoorCode(e.target.value)} placeholder="Code" style={{...inputStyle,padding:"5px 10px",fontSize:"11px"}}/>}
-                    </td>
-                    <td style={{padding:"4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
-                      <button onClick={()=>saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode,newJobCustomerName,newJobTreadName)} style={{...ghostBtn,padding:"4px",color:t.green}}><CheckIcon/></button>
-                      <button onClick={()=>{setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");}} style={{...ghostBtn,padding:"4px",color:t.danger}}>&times;</button>
-                    </td>
-                  </tr>
-                ):(
-                  <tr key={idx} className="job-row" style={{transition:"background .12s"}}>
-                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase"}}>{job.name}</td>
-                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
-                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap"}}>
-                        <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px"}}>{job.address}</span>
-                        {linked&&<button onClick={()=>setKeyModal(linked)} style={{...baseBtn,padding:"3px 7px",background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.28)",borderRadius:"7px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
-                        {hasWifi&&<button onClick={()=>setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword})} style={{...baseBtn,padding:"3px 7px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
-                        {hasGarage&&<button onClick={()=>setDoorModal({type:"garage",code:job.garageCode})} style={{...baseBtn,padding:"3px 7px",background:"rgba(167,139,250,.1)",border:"1.5px solid rgba(167,139,250,.22)",borderRadius:"7px",color:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}><GarageIcon/> Garage</button>}
-                        {hasDoor&&<button onClick={()=>setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation})} style={{...baseBtn,padding:"3px 7px",background:"rgba(34,211,238,.08)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"7px",color:t.cyan,gap:"3px",fontSize:"11px",fontWeight:700}}><DoorIcon/> Door</button>}
-                      </div>
-                    </td>
-                    {activeJobsEditing&&<td style={{padding:"4px",borderBottom:`1px solid ${t.line}`}}>
-                      <div style={{position:"relative",display:"inline-block"}}>
-                        <button
-                          onClick={e=>{e.stopPropagation();const m=document.getElementById(`job-menu-${idx}`);document.querySelectorAll('.job-ctx-menu').forEach(el=>el.style.display='none');m.style.display=m.style.display==='block'?'none':'block';}}
-                          style={{...ghostBtn,padding:"4px",color:t.muted}}
-                        ><DotsIcon/></button>
-                        <div id={`job-menu-${idx}`} className="job-ctx-menu" style={{display:"none",position:"absolute",right:0,top:"100%",background:t.nav,border:`1px solid ${t.line}`,borderRadius:"10px",boxShadow:"0 4px 20px rgba(0,0,0,.5)",zIndex:999,minWidth:"110px",overflow:"hidden"}}>
-                          <button onClick={()=>{document.getElementById(`job-menu-${idx}`).style.display='none';setEditingActiveJob(idx);setNewJobName(job.name);setNewJobAddress(job.address);setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");setNewJobGarageCode(job.garageCode||"");setNewJobDoorType(job.doorType||"");setNewJobDoorLocation(job.doorLocation||"");setNewJobDoorCode(job.doorCode||"");setNewJobCustomerName(job.customerName||"");setNewJobTreadName(job.jobTreadName||"");}} style={{display:"block",width:"100%",padding:"10px 14px",background:"transparent",border:"none",color:t.blue,fontSize:"13px",fontWeight:600,textAlign:"left",cursor:"pointer",fontFamily:ff}}>✏️ Edit</button>
-                          <button onClick={()=>{document.getElementById(`job-menu-${idx}`).style.display='none';deleteActiveJob(idx);}} style={{display:"block",width:"100%",padding:"10px 14px",background:"transparent",border:"none",color:t.danger,fontSize:"13px",fontWeight:600,textAlign:"left",cursor:"pointer",fontFamily:ff,borderTop:`1px solid ${t.line}`}}>🗑️ Delete</button>
-                        </div>
-                      </div>
-                    </td>}
-                  </tr>
-                );
-              })}
-              {activeJobsEditing&&editingActiveJob===null&&(<tr>
-                <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}><input value={newJobName} onChange={e=>setNewJobName(e.target.value.toUpperCase())} style={{...inputStyle,padding:"8px 10px",fontSize:"12px"}} placeholder="NEW JOB"/></td>
-                <td style={{padding:"6px 5px",borderBottom:`1px solid ${t.line}`}}>
-                  <AddressInput value={newJobAddress} onChange={e=>setNewJobAddress(e.target.value)} style={{...inputStyle,padding:"7px 10px",fontSize:"12px",marginBottom:"4px"}}/>
-                  <input value={newJobWifiName} onChange={e=>setNewJobWifiName(e.target.value)} placeholder="WiFi Name" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
-                  <input value={newJobWifiPass} onChange={e=>setNewJobWifiPass(e.target.value)} placeholder="WiFi Pass" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
-                  <input value={newJobGarageCode} onChange={e=>setNewJobGarageCode(e.target.value)} placeholder="Garage Code" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>
-                  <select value={newJobDoorType} onChange={e=>{setNewJobDoorType(e.target.value);if(!e.target.value){setNewJobDoorLocation("");setNewJobDoorCode("");}}} style={{...inputStyle,padding:"5px 10px",fontSize:"11px",appearance:"none",marginBottom:"3px"}}><option value="">Door Code type?</option><option value="garage">Garage</option><option value="door">Main Door</option></select>
-                  {newJobDoorType==="door"&&<input value={newJobDoorLocation} onChange={e=>setNewJobDoorLocation(e.target.value)} placeholder="Door location" style={{...inputStyle,padding:"5px 10px",fontSize:"11px",marginBottom:"3px"}}/>}
-                  {newJobDoorType&&<input value={newJobDoorCode} onChange={e=>setNewJobDoorCode(e.target.value)} placeholder="Code" style={{...inputStyle,padding:"5px 10px",fontSize:"11px"}}/>}
-                </td>
-                <td style={{padding:"4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
-                  <button onClick={()=>{if(newJobName.trim())saveActiveJob(newJobName,newJobAddress,newJobWifiName,newJobWifiPass,newJobGarageCode,newJobDoorType,newJobDoorLocation,newJobDoorCode,newJobCustomerName,newJobTreadName);}} style={{...ghostBtn,padding:"4px",color:t.green}}><CheckIcon/></button>
-                </td>
-              </tr>)}
-            </tbody>
-          </table>
-          {(activeJobs||[]).length===0&&!activeJobsEditing&&<div style={{textAlign:"center",padding:"24px",color:t.muted,fontSize:"13px"}}>No active jobs</div>}
+        {/* OPS CENTER LINK */}
+        <div style={{width:"100%",padding:"0 14px 14px",background:t.bg}}>
+          <a href="https://icon-operations-center.vercel.app" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",width:"100%",maxWidth:"480px",margin:"0 auto",padding:"10px 14px",background:"rgba(79,127,255,0.08)",border:"1px solid rgba(79,127,255,0.25)",borderRadius:"10px",color:"#7AAEFF",fontSize:"12px",fontWeight:700,letterSpacing:".5px",textTransform:"uppercase",textDecoration:"none",boxSizing:"border-box",fontFamily:ff}}>
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Operations Center Home Page
+          </a>
         </div>
 
+        {/* ACTIVE JOBS */}
+            <div style={{width:"100%",maxWidth:"600px",padding:"16px 14px 80px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+            <span style={{fontSize:"11px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1.4px"}}>Active Jobs</span>
+            <button className="edit-btn" onClick={()=>setPinDialog("addJob")}>+ Add Job</button>
+          </div>
+          <div style={{height:"1px",background:`linear-gradient(90deg,transparent,${t.line},transparent)`,marginBottom:"10px"}}/>
+          {(activeJobs||[]).length===0&&<div style={{textAlign:"center",padding:"24px",color:t.muted,fontSize:"13px"}}>No active jobs</div>}
+          {(activeJobs||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+            {(activeJobs||[]).map((job,idx)=>(
+              <div key={idx} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"12px 14px",display:"flex",alignItems:"flex-start",gap:"10px"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:"13px",fontWeight:700,color:t.text,textTransform:"uppercase"}}>{job.name}</div>
+                  {job.customerName&&<div style={{fontSize:"12px",color:t.muted,marginTop:"2px"}}>{job.customerName}</div>}
+                  {job.address&&<div style={{fontSize:"12px",color:t.blue,marginTop:"1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{job.address}</div>}
+                  <div style={{display:"flex",gap:"5px",marginTop:"6px",flexWrap:"wrap"}}>
+                    {getLinkedLockbox(idx)&&<button onClick={()=>setKeyModal(getLinkedLockbox(idx))} style={{...baseBtn,padding:"2px 8px",background:"rgba(245,158,11,.12)",border:"1px solid rgba(245,158,11,.28)",borderRadius:"6px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
+                    {!!(job.wifiName||job.wifiPassword)&&<button onClick={()=>setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword})} style={{...baseBtn,padding:"2px 8px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.22)",borderRadius:"6px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
+                    {!!job.garageCode&&<button onClick={()=>setDoorModal({type:"garage",code:job.garageCode})} style={{...baseBtn,padding:"2px 8px",background:"rgba(167,139,250,.1)",border:"1px solid rgba(167,139,250,.22)",borderRadius:"6px",color:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}><GarageIcon/> Garage</button>}
+                    {!!(job.doorType&&job.doorCode)&&<button onClick={()=>setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation})} style={{...baseBtn,padding:"2px 8px",background:"rgba(34,211,238,.08)",border:"1px solid rgba(34,211,238,.2)",borderRadius:"6px",color:t.cyan,gap:"3px",fontSize:"11px",fontWeight:700}}><DoorIcon/> Door</button>}
+                  </div>
+                </div>
+                <div style={{position:"relative",flexShrink:0}}>
+                  <button onClick={()=>setJobMenu(jobMenu===idx?null:idx)} style={{...ghostBtn,padding:"6px",color:t.muted,borderRadius:"8px"}}><DotsIcon/></button>
+                  {jobMenu===idx&&<>
+                    <div onClick={()=>setJobMenu(null)} style={{position:"fixed",inset:0,zIndex:998}}/>
+                    <div style={{position:"absolute",right:0,top:"100%",background:t.nav,border:`1px solid ${t.line}`,borderRadius:"10px",boxShadow:"0 4px 20px rgba(0,0,0,.6)",zIndex:999,minWidth:"130px",overflow:"hidden"}}>
+                      <button onClick={()=>{setJobMenu(null);setPinDialog({type:"editJob",index:idx});}} style={{display:"block",width:"100%",padding:"11px 16px",background:"transparent",border:"none",color:t.blue,fontSize:"13px",fontWeight:600,textAlign:"left",cursor:"pointer",fontFamily:ff}}>✏️ Edit</button>
+                      <button onClick={()=>{setJobMenu(null);setPinDialog({type:"deleteJob",index:idx});}} style={{display:"block",width:"100%",padding:"11px 16px",background:"transparent",border:"none",color:t.danger,fontSize:"13px",fontWeight:600,textAlign:"left",cursor:"pointer",fontFamily:ff,borderTop:`1px solid ${t.line}`}}>🗑️ Delete</button>
+                    </div>
+                  </>}
+                </div>
+              </div>
+            ))}
+          </div>}
+        </div>
         {/* Status bar */}
         <div style={{width:"100%",background:t.nav,borderTop:`1px solid ${t.line}`,padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <span style={{fontSize:"11px",color:t.muted,display:"flex",alignItems:"center",gap:"6px"}}>
@@ -538,7 +566,9 @@ function AppInner(){
       </div>
       <OpsHomeBtn/>
       {pinDialog==="manager"&&<PinDialog title="Enter Manager PIN" onSuccess={()=>{setPinDialog(null);setManagerAuth(true);setMode("manager");}} onCancel={()=>setPinDialog(null)}/>}
-      {pinDialog==="activeJobs"&&<PinDialog title="Enter Admin Code" onSuccess={()=>{setPinDialog(null);setActiveJobsEditing(true);}} onCancel={()=>setPinDialog(null)}/>}
+      {pinDialog==="addJob"&&<PinDialog title="Admin Code — Add Job" onSuccess={()=>{setPinDialog(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setEditingActiveJob(null);setShowAddJob(true);}} onCancel={()=>setPinDialog(null)}/>}
+      {pinDialog?.type==="editJob"&&<PinDialog title="Admin Code — Edit Job" onSuccess={()=>{const idx=pinDialog.index;const job=(activeJobs||[])[idx];setNewJobName(job.name||"");setNewJobAddress(job.address||"");setNewJobWifiName(job.wifiName||"");setNewJobWifiPass(job.wifiPassword||"");setNewJobGarageCode(job.garageCode||"");setNewJobDoorType(job.doorType||"");setNewJobDoorLocation(job.doorLocation||"");setNewJobDoorCode(job.doorCode||"");setNewJobCustomerName(job.customerName||"");setNewJobTreadName(job.jobTreadName||"");setEditingActiveJob(idx);setPinDialog(null);setShowAddJob(true);}} onCancel={()=>setPinDialog(null)}/>}
+      {pinDialog?.type==="deleteJob"&&<PinDialog title="Admin Code — Delete Job" onSuccess={()=>{deleteActiveJob(pinDialog.index);setPinDialog(null);}} onCancel={()=>setPinDialog(null)}/>}
     </div>
   );
 
@@ -724,7 +754,7 @@ function AppInner(){
       <Header title="Icon Operations" subtitle={today} onBack={()=>{setShowFieldForm(false);setEditingFieldOrder(null);goHome();}} onHome={goHome}>
         {!showFieldForm&&<button onClick={()=>{setFieldFormData({...emptyFieldOrder});setEditingFieldOrder(null);setShowFieldForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> New</button>}
       </Header>
-      <div style={{padding:"20px"}}>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
         {showFieldForm?(<div>
           <h2 style={{fontSize:"19px",color:t.text,margin:"0 0 18px",fontWeight:700}}>{editingFieldOrder!==null?"Edit":"New"} Field Order</h2>
           <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
@@ -824,7 +854,7 @@ function AppInner(){
         <button onClick={()=>setManageCrews(true)} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Manage Crews"><SettingsIcon/></button>
         {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"8px 14px",fontSize:"13px"}}><PlusIcon/> New</button>}
       </Header>
-      <div style={{padding:"20px"}}>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
         {showForm?(<div>
           <h2 style={{fontSize:"19px",color:t.text,margin:"0 0 18px",fontWeight:700}}>{editingOrder!==null?"Edit":"New"} Work Order</h2>
           <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
