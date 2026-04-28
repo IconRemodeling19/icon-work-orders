@@ -153,6 +153,37 @@ const DoorIcon=()=>ic(<><path d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16"/
 const GarageIcon=()=>ic(<><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/><path d="M9 12h6"/><path d="M9 15h6"/></>,18);
 const DotsIcon=()=>ic(<><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></>,16);
 
+function getFileType(url,name){
+  const ext=(name||url||"").split(".").pop().toLowerCase().split("?")[0];
+  if(["jpg","jpeg","png","gif","webp","svg","heic","heif"].includes(ext))return"image";
+  if(ext==="pdf")return"pdf";
+  return"doc";
+}
+
+function FileViewer({file,onClose}){
+  const url=file.url;const name=file.name||"Attachment";
+  const type=getFileType(url,name);
+  const googleUrl=`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",flexDirection:"column",background:"#000"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#111",flexShrink:0}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,marginRight:"12px"}}>{name}</div>
+        <div style={{display:"flex",gap:"8px",flexShrink:0}}>
+          <a href={url} target="_blank" rel="noopener noreferrer" style={{fontSize:"12px",color:"#7AAEFF",fontWeight:600,padding:"6px 12px",background:"rgba(79,127,255,0.15)",border:"1px solid rgba(79,127,255,0.3)",borderRadius:"8px",textDecoration:"none"}}>Open</a>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"8px",color:"#fff",padding:"6px 12px",fontSize:"13px",fontWeight:700,cursor:"pointer"}}>✕ Close</button>
+        </div>
+      </div>
+      <div style={{flex:1,overflow:"hidden",position:"relative"}}>
+        {type==="image"&&<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px",boxSizing:"border-box",background:"#0a0a0a"}}>
+          <img src={url} alt={name} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",borderRadius:"8px"}}/>
+        </div>}
+        {type==="pdf"&&<iframe src={url} style={{width:"100%",height:"100%",border:"none"}} title={name}/>}
+        {type==="doc"&&<iframe src={googleUrl} style={{width:"100%",height:"100%",border:"none"}} title={name}/>}
+      </div>
+    </div>
+  );
+}
+
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
 
 function BulletTextarea({value,onChange,placeholder,style:s}){
@@ -309,6 +340,7 @@ function AppInner(){
   const[showAddJob,setShowAddJob]=useState(false);
   const[jobMenu,setJobMenu]=useState(null);
   const[deleteJobConfirm,setDeleteJobConfirm]=useState(null);
+  const[fileViewer,setFileViewer]=useState(null);
   const[newJobName,setNewJobName]=useState("");
   const[newJobAddress,setNewJobAddress]=useState("");
   const[newJobWifiName,setNewJobWifiName]=useState("");
@@ -327,7 +359,7 @@ function AppInner(){
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);setFileViewer(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -358,6 +390,8 @@ function AppInner(){
   const allArchived=[...getArchived(orders).map(o=>({...o,_type:"crew"})),...getArchived(fieldOrders).map(o=>({...o,_type:"field"}))].sort((a,b)=>b.date.localeCompare(a.date));
   const todayCrew=activeCrew.filter(o=>o.date===todayStr);
   const crewNames=Object.keys(crews);
+
+  if(fileViewer)return(<FileViewer file={fileViewer} onClose={()=>setFileViewer(null)}/>);
 
   if(loading)return(<div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff}}><OpsHomeBtn/><div style={{color:t.muted,fontSize:"14px"}}>Loading...</div></div>);
 
@@ -704,7 +738,7 @@ function AppInner(){
         <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{[...(fieldNotes||[])].reverse().map((n,i)=>(<div key={i} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"14px"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><span style={{fontSize:"12px",fontWeight:700,color:t.cyan}}>{n.jobRef||"General"}</span><span style={{fontSize:"11px",color:t.muted}}>{n.submittedAt?new Date(n.submittedAt).toLocaleDateString():""}</span></div>
           {n.notes&&<div style={{fontSize:"13px",color:t.text,lineHeight:1.6,whiteSpace:"pre-wrap",marginBottom:"8px"}}>{renderBullet(n.notes)}</div>}
-          {n.attachments?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{n.attachments.map((a,j)=><a key={j} href={a.url} onClick={e=>{e.preventDefault();window.location.href=a.url;}} style={{fontSize:"12px",background:"rgba(34,211,238,.08)",padding:"3px 10px",borderRadius:"6px",color:t.cyan,textDecoration:"none",border:"1px solid rgba(34,211,238,.18)",display:"flex",alignItems:"center",gap:"4px"}}><PaperclipIcon/>{a.name}</a>)}</div>}
+          {n.attachments?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{n.attachments.map((a,j)=><a key={j} href={a.url} onClick={e=>{e.preventDefault();setFileViewer(a);}} style={{fontSize:"12px",background:"rgba(34,211,238,.08)",padding:"3px 10px",borderRadius:"6px",color:t.cyan,textDecoration:"none",border:"1px solid rgba(34,211,238,.18)",display:"flex",alignItems:"center",gap:"4px"}}><PaperclipIcon/>{a.name}</a>)}</div>}
         </div>))}</div>}
       </div>
     </div>);
@@ -730,7 +764,7 @@ function AppInner(){
       <div style={{padding:"20px"}}>
         {allAtts.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No files yet.</div>:
         <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>{allAtts.map((att,i)=>(<div key={i} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"13px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{flex:1,minWidth:0}}><a href={att.url} onClick={e=>{e.preventDefault();window.location.href=att.url;}} style={{fontSize:"13px",fontWeight:600,color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><PaperclipIcon/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a><div style={{fontSize:"11px",color:t.muted}}>{att.source}{att.members?" - "+att.members:""} - {att.date}</div></div>
+          <div style={{flex:1,minWidth:0}}><a href={att.url} onClick={e=>{e.preventDefault();setFileViewer(att);}} style={{fontSize:"13px",fontWeight:600,color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><PaperclipIcon/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a><div style={{fontSize:"11px",color:t.muted}}>{att.source}{att.members?" - "+att.members:""} - {att.date}</div></div>
           <div style={{display:"flex",gap:"2px",flexShrink:0}}><button onClick={()=>handleRenameFile(att)} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button><button onClick={()=>handleDeleteFile(att)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button></div>
         </div>))}</div>}
       </div>
@@ -758,7 +792,7 @@ function AppInner(){
             <div><div style={labelStyle}>Job Description</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.jobDescription)}</div></div>
             <div><div style={labelStyle}>Materials Required</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.materials)}</div></div>
             {sel.specialNotes&&<div style={{background:"rgba(167,139,250,.07)",border:"1.5px solid rgba(167,139,250,.18)",borderRadius:"10px",padding:"14px"}}><div style={{...labelStyle,color:t.purple}}>Special Notes</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.specialNotes)}</div></div>}
-            {sel.attachments?.length>0&&<div><div style={labelStyle}>Attachments</div><div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{sel.attachments.map((a,i)=><a key={i} href={a.url} onClick={e=>{e.preventDefault();window.location.href=a.url;}} style={{fontSize:"13px",color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",padding:"8px 12px",background:t.tag,borderRadius:"8px",border:`1px solid ${t.line}`}}><PaperclipIcon/> {a.name}</a>)}</div></div>}
+            {sel.attachments?.length>0&&<div><div style={labelStyle}>Attachments</div><div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{sel.attachments.map((a,i)=><a key={i} href={a.url} onClick={e=>{e.preventDefault();setFileViewer(a);}} style={{fontSize:"13px",color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",padding:"8px 12px",background:t.tag,borderRadius:"8px",border:`1px solid ${t.line}`}}><PaperclipIcon/> {a.name}</a>)}</div></div>}
           </div>
         </div>):(<>
           <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{"Today's Work Orders"}</div>
