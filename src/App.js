@@ -154,34 +154,120 @@ const GarageIcon=()=>ic(<><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>
 const DotsIcon=()=>ic(<><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></>,16);
 
 function getFileType(url,name){
-  const ext=(name||url||"").split(".").pop().toLowerCase().split("?")[0];
+  // Check name first, then fall back to URL for extension
+  const fromName=(name||"").split(".").pop().toLowerCase();
+  const fromUrl=(url||"").split("?")[0].split(".").pop().toLowerCase();
+  const ext=fromName.length>0&&fromName!==name?fromName:fromUrl;
   if(["jpg","jpeg","png","gif","webp","svg","heic","heif"].includes(ext))return"image";
   if(ext==="pdf")return"pdf";
-  return"doc";
+  if(["doc","docx","xls","xlsx","ppt","pptx","txt","csv"].includes(ext))return"office";
+  return"unknown";
 }
 
 function FileViewer({file,onClose}){
   const url=file.url;const name=file.name||"Attachment";
   const type=getFileType(url,name);
-  const googleUrl=`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  const ff="'DM Sans',sans-serif";
+  const fileIcons={"image":"🖼️","pdf":"📄","office":"📋","unknown":"📎"};
+  const fileLabels={"image":"Image","pdf":"PDF Document","office":"Document","unknown":"File"};
   return(
-    <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",flexDirection:"column",background:"#000"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#111",flexShrink:0}}>
-        <div style={{fontSize:"13px",fontWeight:700,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,marginRight:"12px"}}>{name}</div>
-        <div style={{display:"flex",gap:"8px",flexShrink:0}}>
-          <a href={url} target="_blank" rel="noopener noreferrer" style={{fontSize:"12px",color:"#7AAEFF",fontWeight:600,padding:"6px 12px",background:"rgba(79,127,255,0.15)",border:"1px solid rgba(79,127,255,0.3)",borderRadius:"8px",textDecoration:"none"}}>Open</a>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"8px",color:"#fff",padding:"6px 12px",fontSize:"13px",fontWeight:700,cursor:"pointer"}}>✕ Close</button>
+    <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",flexDirection:"column",background:"#0D0F1A"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"rgba(0,0,0,0.6)",backdropFilter:"blur(10px)",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",flex:1,minWidth:0,marginRight:"12px"}}>
+          <span style={{fontSize:"18px"}}>{fileIcons[type]}</span>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:"13px",fontWeight:700,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
+            <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",marginTop:"1px"}}>{fileLabels[type]}{file.converted&&<span style={{marginLeft:"6px",fontSize:"10px",background:"rgba(74,222,128,0.2)",color:"#4ade80",padding:"1px 6px",borderRadius:"4px",fontWeight:700}}>AUTO-CONVERTED</span>}</div>
+          </div>
         </div>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"10px",color:"#fff",padding:"8px 14px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:ff,flexShrink:0}}>✕ Close</button>
       </div>
+      {/* Content */}
       <div style={{flex:1,overflow:"hidden",position:"relative"}}>
-        {type==="image"&&<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px",boxSizing:"border-box",background:"#0a0a0a"}}>
-          <img src={url} alt={name} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",borderRadius:"8px"}}/>
-        </div>}
-        {type==="pdf"&&<iframe src={url} style={{width:"100%",height:"100%",border:"none"}} title={name}/>}
-        {type==="doc"&&<iframe src={googleUrl} style={{width:"100%",height:"100%",border:"none"}} title={name}/>}
+        {type==="image"&&(
+          <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",background:"#0a0a0a"}}>
+            <img src={url} alt={name} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",borderRadius:"10px",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}/>
+          </div>
+        )}
+        {type==="pdf"&&(
+          <iframe src={url} style={{width:"100%",height:"100%",border:"none",background:"#fff"}} title={name}/>
+        )}
+        {(type==="office"||type==="unknown")&&(
+          <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px",boxSizing:"border-box",textAlign:"center"}}>
+            <div style={{fontSize:"64px",marginBottom:"20px"}}>{fileIcons[type]}</div>
+            <div style={{fontSize:"18px",fontWeight:700,color:"#fff",marginBottom:"8px",fontFamily:ff}}>{name}</div>
+            <div style={{fontSize:"13px",color:"rgba(255,255,255,0.45)",marginBottom:"36px",fontFamily:ff,maxWidth:"280px",lineHeight:1.5}}>
+              {type==="office"?"This file type can't be previewed in the browser.":"This file can't be previewed in the browser."}<br/>Tap below to open it in the appropriate app.
+            </div>
+            <a href={url} onClick={e=>{e.preventDefault();window.location.href=url;}} style={{display:"inline-flex",alignItems:"center",gap:"10px",padding:"16px 28px",background:"linear-gradient(135deg,#4F7FFF,#3A6AE8)",borderRadius:"14px",color:"#fff",fontSize:"16px",fontWeight:700,textDecoration:"none",fontFamily:ff,boxShadow:"0 4px 20px rgba(79,127,255,0.4)"}}>
+              📂 Open in App
+            </a>
+            <div style={{marginTop:"16px",fontSize:"11px",color:"rgba(255,255,255,0.3)",fontFamily:ff}}>Opens in Word, Excel, Files, or another compatible app</div>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+// ── Smart file processor: images pass through, PDFs convert to image, Office files warn ──
+async function processFileForUpload(file,showToastFn){
+  const ext=file.name.split(".").pop().toLowerCase();
+  const imageTypes=["jpg","jpeg","png","gif","webp","svg","heic","heif"];
+  const officeTypes=["doc","docx","xls","xlsx","ppt","pptx"];
+
+  // Images — pass straight through
+  if(imageTypes.includes(ext)||file.type.startsWith("image/"))return{file,warn:null};
+
+  // PDFs — convert first page to image using PDF.js
+  if(ext==="pdf"||file.type==="application/pdf"){
+    try{
+      // Load PDF.js if not already loaded
+      if(!window.pdfjsLib){
+        await new Promise((res,rej)=>{
+          const s=document.createElement("script");
+          s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res();}
+          s.onerror=rej;document.head.appendChild(s);
+        });
+      }
+      const arrayBuffer=await file.arrayBuffer();
+      const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+      const numPages=pdf.numPages;
+      const blobs=[];
+      for(let p=1;p<=numPages;p++){
+        const page=await pdf.getPage(p);
+        const vp=page.getViewport({scale:2.0});
+        const canvas=document.createElement("canvas");
+        canvas.width=vp.width;canvas.height=vp.height;
+        const ctx=canvas.getContext("2d");
+        await page.render({canvasContext:ctx,viewport:vp}).promise;
+        const blob=await new Promise(res=>canvas.toBlob(res,"image/jpeg",0.92));
+        blobs.push(blob);
+      }
+      if(blobs.length===1){
+        const imgFile=new File([blobs[0]],file.name.replace(/\.pdf$/i,".jpg"),{type:"image/jpeg"});
+        return{file:imgFile,warn:null,wasConverted:true};
+      } else {
+        // Multi-page: return array of files
+        const imgFiles=blobs.map((b,i)=>new File([b],file.name.replace(/\.pdf$/i,`_page${i+1}.jpg`),{type:"image/jpeg"}));
+        return{files:imgFiles,warn:null,wasConverted:true,multiPage:true};
+      }
+    }catch(err){
+      console.error("PDF conversion failed:",err);
+      // Fall through — upload original PDF
+      return{file,warn:null};
+    }
+  }
+
+  // Office files — warn and upload original
+  if(officeTypes.includes(ext)){
+    return{file,warn:`"${file.name}" is a ${ext.toUpperCase()} file. For best mobile viewing, save as PDF before uploading. Uploading original.`};
+  }
+
+  // Everything else — pass through
+  return{file,warn:null};
 }
 
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
@@ -369,7 +455,32 @@ function AppInner(){
   const lockboxUpdates=hasUpdate("lockbox",lockboxCodes);
   const managerUpdates=crewUpdates;
 
-  const handleUpload=async(e,fd,setFd)=>{const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);const atts=[...(fd.attachments||[])];for(const f of files){const dn=window.prompt("Name this attachment:",f.name)||f.name;try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`attachments/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);atts.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Upload failed");}}setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";};
+  const handleUpload=async(e,fd,setFd)=>{
+    const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
+    const atts=[...(fd.attachments||[])];
+    for(const f of files){
+      const dn=window.prompt("Name this attachment:",f.name.replace(/\.[^.]+$/,""))||f.name;
+      const result=await processFileForUpload(f,showToast);
+      if(result.warn)showToast(result.warn);
+      try{
+        if(result.multiPage&&result.files){
+          for(let pi=0;pi<result.files.length;pi++){
+            const pf=result.files[pi];
+            const label=result.files.length>1?`${dn} — Page ${pi+1}`:dn;
+            const fn=`${Date.now()}_${pf.name}`;const fr=storageRef(storage,`attachments/${fn}`);
+            await uploadBytes(fr,pf);const url=await getDownloadURL(fr);
+            atts.push({name:label,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:true});
+          }
+        } else {
+          const uf=result.file;const fn=`${Date.now()}_${uf.name}`;
+          const fr=storageRef(storage,`attachments/${fn}`);
+          await uploadBytes(fr,uf);const url=await getDownloadURL(fr);
+          atts.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:!!result.wasConverted});
+        }
+      }catch(err){showToast("Upload failed");}
+    }
+    setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
+  };
   const saveCrew=()=>{if(!formData.crewName||!formData.jobAddress){showToast("Crew and address required");return;}if(!formData.jobTreadName&&!customerManualMode){showToast("Job name required");return;}if(!formData.customerName){showToast("Customer name required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);showToast(editingOrder!==null?"Updated":"Work order created");};
   const deleteCrew=i=>{saveToFB("orders",orders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const addMember=(crew)=>{if(!newMemberName.trim())return;saveToFB("crews",{...crews,[crew]:[...(crews[crew]||[]),newMemberName.trim()]});setNewMemberName("");showToast("Added");};
@@ -715,7 +826,32 @@ function AppInner(){
   if(mode==="fieldnotes"){
     const allJobs=[...activeCrew.map(o=>({label:`${(o.members||[]).join(", ")} - ${o.jobAddress}`,date:o.date})),...activeField.map(o=>({label:`${(o.staffMember||[]).join(", ")} - Field Ops`,date:o.date}))];
     const submitNote=async()=>{if(!noteText.trim()&&noteAtts.length===0){showToast("Add notes or photos first");return;}await addFieldNote({jobRef:selectedJob||"General",notes:noteText,attachments:noteAtts,submittedBy:"Crew"});setNoteText("");setNoteAtts([]);setSelectedJob("");};
-    const handleNoteUpload=async(e)=>{const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);const atts=[...noteAtts];for(const f of files){const dn=window.prompt("Name:",f.name)||f.name;try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`fieldnotes/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);atts.push({name:dn,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Failed");}}setNoteAtts(atts);setUploading(false);showToast("Uploaded");e.target.value="";};
+    const handleNoteUpload=async(e)=>{
+    const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
+    const atts=[...noteAtts];
+    for(const f of files){
+      const dn=window.prompt("Name:",f.name.replace(/\.[^.]+$/,""))||f.name;
+      const result=await processFileForUpload(f,showToast);
+      if(result.warn)showToast(result.warn);
+      try{
+        if(result.multiPage&&result.files){
+          for(let pi=0;pi<result.files.length;pi++){
+            const pf=result.files[pi];
+            const label=result.files.length>1?`${dn} — Page ${pi+1}`:dn;
+            const fn=`${Date.now()}_${pf.name}`;const fr=storageRef(storage,`fieldnotes/${fn}`);
+            await uploadBytes(fr,pf);const url=await getDownloadURL(fr);
+            atts.push({name:label,url,uploadedAt:new Date().toISOString(),converted:true});
+          }
+        } else {
+          const uf=result.file;const fn=`${Date.now()}_${uf.name}`;
+          const fr=storageRef(storage,`fieldnotes/${fn}`);
+          await uploadBytes(fr,uf);const url=await getDownloadURL(fr);
+          atts.push({name:dn,url,uploadedAt:new Date().toISOString(),converted:!!result.wasConverted});
+        }
+      }catch(err){showToast("Failed");}
+    }
+    setNoteAtts(atts);setUploading(false);showToast("Uploaded");e.target.value="";
+  };
     const handleCamera=async(e)=>{const file=e.target.files[0];if(!file)return;setUploading(true);const dn=window.prompt("Name photo:",`Photo`)||file.name;try{const fn=`${Date.now()}_${file.name}`;const fr=storageRef(storage,`fieldnotes/${fn}`);await uploadBytes(fr,file);const url=await getDownloadURL(fr);setNoteAtts([...noteAtts,{name:dn,url,uploadedAt:new Date().toISOString()}]);}catch(err){showToast("Failed");}setUploading(false);e.target.value="";};
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
@@ -754,7 +890,32 @@ function AppInner(){
     allAtts.sort((a,b)=>(b.uploadedAt||b.date||"").localeCompare(a.uploadedAt||a.date||""));
     const handleRenameFile=(att)=>{const nn=window.prompt("Rename:",att.name);if(!nn||!nn.trim())return;if(att.orderType==="crew"){saveToFB("orders",orders.map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).map((a,j)=>j===att.attIdx?{...a,name:nn.trim()}:a)}:o));}else if(att.orderType==="field"){saveToFB("fieldOrders",fieldOrders.map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).map((a,j)=>j===att.attIdx?{...a,name:nn.trim()}:a)}:o));}else if(att.orderType==="note"){saveToFB("fieldNotes",(fieldNotes||[]).map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).map((a,j)=>j===att.attIdx?{...a,name:nn.trim()}:a)}:o));}else if(att.orderType==="standalone"){saveToFB("standaloneFiles",(standaloneFiles||[]).map((a,i)=>i===att.attIdx?{...a,name:nn.trim()}:a));}showToast("Renamed");};
     const handleDeleteFile=(att)=>{if(!window.confirm("Delete?"))return;if(att.orderType==="standalone"){saveToFB("standaloneFiles",(standaloneFiles||[]).filter((_,i)=>i!==att.attIdx));}else if(att.orderType==="crew"){saveToFB("orders",orders.map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).filter((_,j)=>j!==att.attIdx)}:o));}else if(att.orderType==="field"){saveToFB("fieldOrders",fieldOrders.map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).filter((_,j)=>j!==att.attIdx)}:o));}else if(att.orderType==="note"){saveToFB("fieldNotes",(fieldNotes||[]).map((o,i)=>i===att.orderIdx?{...o,attachments:(o.attachments||[]).filter((_,j)=>j!==att.attIdx)}:o));}showToast("Deleted");};
-    const handleDirectUpload=async(e)=>{const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);const nf=[...(standaloneFiles||[])];for(const f of files){const dn=window.prompt("Name:",f.name)||f.name;try{const fn=`${Date.now()}_${f.name}`;const fr=storageRef(storage,`files/${fn}`);await uploadBytes(fr,f);const url=await getDownloadURL(fr);nf.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString()});}catch(err){showToast("Failed");}}saveToFB("standaloneFiles",nf);setUploading(false);showToast("Uploaded");e.target.value="";};
+    const handleDirectUpload=async(e)=>{
+    const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
+    const nf=[...(standaloneFiles||[])];
+    for(const f of files){
+      const dn=window.prompt("Name:",f.name.replace(/\.[^.]+$/,""))||f.name;
+      const result=await processFileForUpload(f,showToast);
+      if(result.warn)showToast(result.warn);
+      try{
+        if(result.multiPage&&result.files){
+          for(let pi=0;pi<result.files.length;pi++){
+            const pf=result.files[pi];
+            const label=result.files.length>1?`${dn} — Page ${pi+1}`:dn;
+            const fn=`${Date.now()}_${pf.name}`;const fr=storageRef(storage,`files/${fn}`);
+            await uploadBytes(fr,pf);const url=await getDownloadURL(fr);
+            nf.push({name:label,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:true});
+          }
+        } else {
+          const uf=result.file;const fn=`${Date.now()}_${uf.name}`;
+          const fr=storageRef(storage,`files/${fn}`);
+          await uploadBytes(fr,uf);const url=await getDownloadURL(fr);
+          nf.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:!!result.wasConverted});
+        }
+      }catch(err){showToast("Failed");}
+    }
+    saveToFB("standaloneFiles",nf);setUploading(false);showToast("Uploaded");e.target.value="";
+  };
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
       <Header title="All Files" subtitle={`${allAtts.length} files`} onBack={goHome} onHome={goHome}>
