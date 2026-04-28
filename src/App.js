@@ -704,7 +704,7 @@ function AppInner(){
         <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{[...(fieldNotes||[])].reverse().map((n,i)=>(<div key={i} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"14px"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><span style={{fontSize:"12px",fontWeight:700,color:t.cyan}}>{n.jobRef||"General"}</span><span style={{fontSize:"11px",color:t.muted}}>{n.submittedAt?new Date(n.submittedAt).toLocaleDateString():""}</span></div>
           {n.notes&&<div style={{fontSize:"13px",color:t.text,lineHeight:1.6,whiteSpace:"pre-wrap",marginBottom:"8px"}}>{renderBullet(n.notes)}</div>}
-          {n.attachments?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{n.attachments.map((a,j)=><a key={j} href={a.url} onClick={e=>{e.preventDefault();window.open(a.url,"_blank");}} style={{fontSize:"12px",background:"rgba(34,211,238,.08)",padding:"3px 10px",borderRadius:"6px",color:t.cyan,textDecoration:"none",border:"1px solid rgba(34,211,238,.18)",display:"flex",alignItems:"center",gap:"4px"}}><PaperclipIcon/>{a.name}</a>)}</div>}
+          {n.attachments?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>{n.attachments.map((a,j)=><a key={j} href={a.url} onClick={e=>{e.preventDefault();openAttachment(a.url,a.name);}} style={{fontSize:"12px",background:"rgba(34,211,238,.08)",padding:"3px 10px",borderRadius:"6px",color:t.cyan,textDecoration:"none",border:"1px solid rgba(34,211,238,.18)",display:"flex",alignItems:"center",gap:"4px"}}><PaperclipIcon/>{a.name}</a>)}</div>}
         </div>))}</div>}
       </div>
     </div>);
@@ -730,7 +730,7 @@ function AppInner(){
       <div style={{padding:"20px"}}>
         {allAtts.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No files yet.</div>:
         <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>{allAtts.map((att,i)=>(<div key={i} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"13px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{flex:1,minWidth:0}}><a href={att.url} onClick={e=>{e.preventDefault();window.open(att.url,"_blank");}} style={{fontSize:"13px",fontWeight:600,color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><PaperclipIcon/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a><div style={{fontSize:"11px",color:t.muted}}>{att.source}{att.members?" - "+att.members:""} - {att.date}</div></div>
+          <div style={{flex:1,minWidth:0}}><a href={att.url} onClick={e=>{e.preventDefault();openAttachment(att.url,att.name);}} style={{fontSize:"13px",fontWeight:600,color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><PaperclipIcon/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a><div style={{fontSize:"11px",color:t.muted}}>{att.source}{att.members?" - "+att.members:""} - {att.date}</div></div>
           <div style={{display:"flex",gap:"2px",flexShrink:0}}><button onClick={()=>handleRenameFile(att)} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button><button onClick={()=>handleDeleteFile(att)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button></div>
         </div>))}</div>}
       </div>
@@ -758,7 +758,7 @@ function AppInner(){
             <div><div style={labelStyle}>Job Description</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.jobDescription)}</div></div>
             <div><div style={labelStyle}>Materials Required</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.materials)}</div></div>
             {sel.specialNotes&&<div style={{background:"rgba(167,139,250,.07)",border:"1.5px solid rgba(167,139,250,.18)",borderRadius:"10px",padding:"14px"}}><div style={{...labelStyle,color:t.purple}}>Special Notes</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.specialNotes)}</div></div>}
-            {sel.attachments?.length>0&&<div><div style={labelStyle}>Attachments</div><div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{sel.attachments.map((a,i)=><a key={i} href={a.url} onClick={e=>{e.preventDefault();window.open(a.url,"_blank");}} style={{fontSize:"13px",color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",padding:"8px 12px",background:t.tag,borderRadius:"8px",border:`1px solid ${t.line}`}}><PaperclipIcon/> {a.name}</a>)}</div></div>}
+            {sel.attachments?.length>0&&<div><div style={labelStyle}>Attachments</div><div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{sel.attachments.map((a,i)=><a key={i} href={a.url} onClick={e=>{e.preventDefault();openAttachment(a.url,a.name);}} style={{fontSize:"13px",color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",padding:"8px 12px",background:t.tag,borderRadius:"8px",border:`1px solid ${t.line}`}}><PaperclipIcon/> {a.name}</a>)}</div></div>}
           </div>
         </div>):(<>
           <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{"Today's Work Orders"}</div>
@@ -1005,4 +1005,18 @@ function AppInner(){
       </div>
     </div>
   );
+const openAttachment=async(url,name)=>{
+  try{
+    const res=await fetch(url);
+    const blob=await res.blob();
+    const blobUrl=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=blobUrl;
+    a.download=name||"attachment";
+    a.target="_blank";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(blobUrl);},1000);
+  }catch(e){window.open(url,"_blank");}
+};
 }
