@@ -338,86 +338,85 @@ function WorkOrderDoc({order,onClose,onFileOpen}){
   const isField=!!(order.staffMember);
   const ff="'DM Sans',sans-serif";
   const[activeTab,setActiveTab]=React.useState(0);
-  const rainbow="linear-gradient(90deg,#E8192C,#FF6B35,#FFD700,#4CAF50,#2196F3,#9C27B0)";
-  const jobColors=[
-    {header:"linear-gradient(135deg,#2196F3,#1565C0)",bg:"#f8faff",emoji:"🔨"},
-    {header:"linear-gradient(135deg,#9C27B0,#6A1B9A)",bg:"#fdf6ff",emoji:"🔨"},
-    {header:"linear-gradient(135deg,#FF6B35,#E65100)",bg:"#fff9f6",emoji:"🔨"},
-  ];
-  const tabColors=["#2196F3","#9C27B0","#FF6B35"];
+
+  // ── BRAND COLORS ──────────────────────────────────────────────
+  const brand={
+    black:"#000000",
+    charcoal:"#1F2329",
+    blue:"#0077C8",
+    lightGray:"#F2F4F6",
+    borderGray:"#D6D9DE",
+    bodyText:"#1F2329",
+    labelText:"#5F6670",
+    white:"#FFFFFF",
+  };
+
+  const tabColors=[brand.blue,"#0055A0","#003D78"];
+
+  const SectionBar=({emoji,title,color})=>(
+    <div style={{background:color||brand.blue,padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px",borderTop:`1px solid ${brand.borderGray}`}}>
+      <span style={{fontSize:"14px"}}>{emoji}</span>
+      <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1.2px",color:brand.white}}>{title}</span>
+    </div>
+  );
+
+  const InfoCell=({label,value,span,borderRight})=>(
+    <div style={{padding:"12px 18px",borderRight:borderRight?`1px solid ${brand.borderGray}`:"none",borderBottom:`1px solid ${brand.borderGray}`,gridColumn:span?"1/-1":"auto"}}>
+      <div style={{fontSize:"10px",fontWeight:700,color:brand.labelText,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>{label}</div>
+      <div style={{fontSize:"14px",fontWeight:600,color:brand.bodyText}}>{value||"—"}</div>
+    </div>
+  );
 
   const JobSection=({job,jobIdx,color})=>(
     <div>
-      {/* Job Header */}
-      {jobs.length>1&&<div style={{background:color.header,padding:"10px 18px",display:"flex",alignItems:"center",gap:"10px"}}>
-        <span style={{fontSize:"18px",background:"rgba(255,255,255,0.2)",borderRadius:"50%",width:"28px",height:"28px",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:"14px",color:"#fff"}}>{jobIdx+1}</span>
+      {/* Job header band (only for multi-job) */}
+      {jobs.length>1&&<div style={{background:color,padding:"10px 18px",display:"flex",alignItems:"center",gap:"10px",borderTop:`2px solid ${brand.borderGray}`}}>
+        <div style={{width:"24px",height:"24px",borderRadius:"50%",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",fontWeight:900,color:brand.white}}>{jobIdx+1}</div>
         <div>
-          <div style={{fontSize:"13px",fontWeight:800,color:"#fff",letterSpacing:"1px",textTransform:"uppercase"}}>Job {jobIdx+1}</div>
-          {job.customerName&&<div style={{fontSize:"11px",color:"rgba(255,255,255,0.7)",marginTop:"1px"}}>{job.customerName}</div>}
+          <div style={{fontSize:"12px",fontWeight:800,color:brand.white,textTransform:"uppercase",letterSpacing:"1px"}}>Job {jobIdx+1}</div>
+          {job.customerName&&<div style={{fontSize:"11px",color:"rgba(255,255,255,0.75)",marginTop:"1px"}}>{job.customerName}</div>}
         </div>
       </div>}
 
-      {/* Job Info */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:"2px solid #e8e8f0"}}>
-        {job.customerName&&<div style={{padding:"12px 18px",borderRight:"1px solid #e8e8f0",borderBottom:"1px solid #e8e8f0"}}>
-          <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"3px"}}>Customer</div>
-          <div style={{fontSize:"14px",fontWeight:700,color:"#1a1a2e"}}>{job.customerName}</div>
-        </div>}
-        {job.customerPhone&&<div style={{padding:"12px 18px",borderBottom:"1px solid #e8e8f0"}}>
-          <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"3px"}}>Phone</div>
-          <div style={{fontSize:"14px",fontWeight:700,color:"#1a1a2e"}}>{job.customerPhone}</div>
-        </div>}
-        {job.jobAddress&&<div style={{padding:"12px 18px",gridColumn:"1/-1",borderBottom:"1px solid #e8e8f0"}}>
-          <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"3px"}}>Job Address</div>
-          <a href={getMapsUrl(job.jobAddress)} style={{fontSize:"14px",fontWeight:600,color:"#2196F3",textDecoration:"none",display:"flex",alignItems:"center",gap:"6px"}}>{job.jobAddress} <MapIcon/></a>
+      {/* Info grid */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",background:brand.white}}>
+        {job.customerName&&<InfoCell label="Customer" value={job.customerName} borderRight/>}
+        {job.customerPhone&&<InfoCell label="Phone" value={job.customerPhone}/>}
+        {job.jobAddress&&<div style={{padding:"12px 18px",borderBottom:`1px solid ${brand.borderGray}`,gridColumn:"1/-1"}}>
+          <div style={{fontSize:"10px",fontWeight:700,color:brand.labelText,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Job Address</div>
+          <a href={getMapsUrl(job.jobAddress)} style={{fontSize:"14px",fontWeight:600,color:brand.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"6px"}}>{job.jobAddress} <MapIcon/></a>
         </div>}
       </div>
 
-      {/* Work */}
-      {job.jobDescription&&<>
-        <div style={{background:color.header,padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
-          <span style={{fontSize:"14px"}}>🔨</span>
-          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Work / Tasks</span>
-        </div>
-        <div style={{padding:"14px 18px",background:color.bg,borderBottom:"1px solid #e8e8f0"}}>
-          <div style={{fontSize:"14px",color:"#1a1a2e",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.jobDescription)}</div>
+      {/* Work / Tasks */}
+      {job.jobDescription&&<><SectionBar emoji="🔨" title="Work / Tasks"/>
+        <div style={{padding:"14px 18px",background:brand.lightGray,borderBottom:`1px solid ${brand.borderGray}`}}>
+          <div style={{fontSize:"14px",color:brand.bodyText,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.jobDescription)}</div>
         </div>
       </>}
 
       {/* Materials */}
-      {job.materials&&<>
-        <div style={{background:"linear-gradient(135deg,#FF6B35,#E65100)",padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
-          <span style={{fontSize:"14px"}}>📦</span>
-          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Materials Required</span>
-        </div>
-        <div style={{padding:"14px 18px",background:"#fff9f6",borderBottom:"1px solid #e8e8f0"}}>
-          <div style={{fontSize:"14px",color:"#1a1a2e",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.materials)}</div>
+      {job.materials&&<><SectionBar emoji="📦" title="Materials Required"/>
+        <div style={{padding:"14px 18px",background:brand.white,borderBottom:`1px solid ${brand.borderGray}`}}>
+          <div style={{fontSize:"14px",color:brand.bodyText,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.materials)}</div>
         </div>
       </>}
 
       {/* Special Notes */}
-      {job.specialNotes&&<>
-        <div style={{background:"linear-gradient(135deg,#E8192C,#B71C1C)",padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
-          <span style={{fontSize:"14px"}}>⚠️</span>
-          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Special Notes</span>
-        </div>
-        <div style={{padding:"14px 18px",background:"#fff5f5",borderBottom:"1px solid #e8e8f0"}}>
-          <div style={{fontSize:"14px",color:"#1a1a2e",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.specialNotes)}</div>
+      {job.specialNotes&&<><SectionBar emoji="⚠️" title="Special Notes"/>
+        <div style={{padding:"14px 18px",background:brand.lightGray,borderBottom:`1px solid ${brand.borderGray}`}}>
+          <div style={{fontSize:"14px",color:brand.bodyText,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.specialNotes)}</div>
         </div>
       </>}
 
       {/* Attachments */}
-      {job.attachments?.length>0&&<>
-        <div style={{background:"linear-gradient(135deg,#4CAF50,#2E7D32)",padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
-          <span style={{fontSize:"14px"}}>📎</span>
-          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Attachments / Files</span>
-        </div>
-        <div style={{padding:"14px 18px",background:"#f6fff6",borderBottom:"1px solid #e8e8f0"}}>
+      {job.attachments?.length>0&&<><SectionBar emoji="📎" title="Attachments / Files"/>
+        <div style={{padding:"14px 18px",background:brand.white,borderBottom:`1px solid ${brand.borderGray}`}}>
           <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
             {job.attachments.map((a,i)=>(
-              <button key={i} onClick={()=>onFileOpen&&onFileOpen(a)} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:"#fff",border:"1.5px solid #C8E6C9",borderRadius:"10px",cursor:"pointer",textAlign:"left",width:"100%",fontFamily:ff}}>
-                <span style={{fontSize:"18px"}}>📄</span>
-                <span style={{fontSize:"14px",fontWeight:600,color:"#2E7D32"}}>{a.name}</span>
+              <button key={i} onClick={()=>onFileOpen&&onFileOpen(a)} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:brand.lightGray,border:`1.5px solid ${brand.borderGray}`,borderRadius:"8px",cursor:"pointer",textAlign:"left",width:"100%",fontFamily:ff}}>
+                <span style={{fontSize:"16px"}}>📄</span>
+                <span style={{fontSize:"14px",fontWeight:600,color:brand.blue}}>{a.name}</span>
               </button>
             ))}
           </div>
@@ -427,63 +426,66 @@ function WorkOrderDoc({order,onClose,onFileOpen}){
   );
 
   return(
-    <div style={{position:"fixed",inset:0,zIndex:2000,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f0f4ff"}}>
-      <div style={{maxWidth:"700px",margin:"0 auto",minHeight:"100vh",background:"#fff",boxShadow:"0 0 40px rgba(0,0,0,0.15)"}}>
+    <div style={{position:"fixed",inset:0,zIndex:2000,overflowY:"auto",WebkitOverflowScrolling:"touch",background:brand.lightGray}}>
+      <div style={{maxWidth:"720px",margin:"0 auto",minHeight:"100vh",background:brand.white,boxShadow:"0 0 40px rgba(0,0,0,0.12)"}}>
 
-        {/* HEADER */}
-        <div style={{background:"linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)",padding:"24px 24px 18px",position:"relative",overflow:"hidden"}}>
-          <div style={{position:"absolute",inset:0,opacity:0.05,backgroundImage:"repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)",backgroundSize:"20px 20px"}}/>
-          <div style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        {/* ── HEADER ── */}
+        <div style={{background:brand.black,padding:"0"}}>
+          {/* Top banner */}
+          <div style={{padding:"20px 24px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
-              <div style={{fontSize:"20px",fontWeight:900,color:"#fff",letterSpacing:"1px",marginBottom:"3px"}}>ICON REMODELING GROUP INC.</div>
-              <div style={{fontSize:"11px",fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"3px",textTransform:"uppercase"}}>Daily Work Order</div>
-              <div style={{marginTop:"12px",display:"inline-block",background:"rgba(232,25,44,0.9)",padding:"3px 12px",borderRadius:"20px",fontSize:"11px",fontWeight:800,color:"#fff",letterSpacing:"1.5px",textTransform:"uppercase"}}>{isField?"Field Operations":"Crew Assignment"}</div>
+              <div style={{fontSize:"22px",fontWeight:900,color:brand.white,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"2px"}}>ICON REMODELING GROUP INC.</div>
+              <div style={{fontSize:"11px",fontWeight:600,color:brand.blue,letterSpacing:"3px",textTransform:"uppercase"}}>Daily Work Order</div>
             </div>
-            {onClose&&<button onClick={onClose} style={{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:"10px",color:"#fff",padding:"8px 14px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:ff,flexShrink:0,marginLeft:"12px"}}>← Back</button>}
+            {onClose&&<button onClick={onClose} style={{background:"rgba(255,255,255,0.1)",border:`1px solid rgba(255,255,255,0.25)`,borderRadius:"8px",color:brand.white,padding:"8px 16px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:ff,flexShrink:0,marginLeft:"16px"}}>← Back</button>}
+          </div>
+          {/* Blue accent bar */}
+          <div style={{height:"4px",background:brand.blue}}/>
+          {/* Badge row */}
+          <div style={{padding:"10px 24px",display:"flex",alignItems:"center",gap:"10px"}}>
+            <span style={{background:brand.blue,color:brand.white,fontSize:"11px",fontWeight:800,padding:"4px 14px",borderRadius:"20px",letterSpacing:"1.5px",textTransform:"uppercase"}}>{isField?"Field Operations":"Crew Assignment"}</span>
           </div>
         </div>
 
-        {/* RAINBOW BAR */}
-        <div style={{height:"4px",background:rainbow}}/>
-
-        {/* DATE + CREW */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:"2px solid #e8e8f0"}}>
-          <div style={{padding:"14px 18px",borderRight:"1px solid #e8e8f0"}}>
-            <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Date</div>
-            <div style={{fontSize:"15px",fontWeight:700,color:"#1a1a2e"}}>{order.date||"—"}</div>
+        {/* ── DATE + CREW ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",background:brand.charcoal}}>
+          <div style={{padding:"14px 18px",borderRight:`1px solid rgba(255,255,255,0.1)`}}>
+            <div style={{fontSize:"10px",fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Date</div>
+            <div style={{fontSize:"15px",fontWeight:700,color:brand.white}}>{order.date||"—"}</div>
           </div>
           <div style={{padding:"14px 18px"}}>
-            <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>{isField?"Staff Member":"Crew / Members"}</div>
-            <div style={{fontSize:"15px",fontWeight:700,color:"#1a1a2e"}}>{members||order.crewName||"—"}</div>
+            <div style={{fontSize:"10px",fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>{isField?"Staff Member":"Crew / Members"}</div>
+            <div style={{fontSize:"15px",fontWeight:700,color:brand.white}}>{members||order.crewName||"—"}</div>
           </div>
         </div>
 
-        {/* JOB TABS (only if multiple jobs) */}
-        {jobs.length>1&&<div style={{display:"flex",borderBottom:"3px solid #e8e8f0",background:"#f8f9ff",overflowX:"auto"}}>
+        {/* Blue divider */}
+        <div style={{height:"3px",background:brand.blue}}/>
+
+        {/* ── JOB TABS (multi-job only) ── */}
+        {jobs.length>1&&<div style={{display:"flex",borderBottom:`2px solid ${brand.borderGray}`,background:brand.lightGray,overflowX:"auto"}}>
           {jobs.map((job,i)=>(
-            <button key={i} onClick={()=>setActiveTab(i)} style={{padding:"12px 20px",border:"none",borderBottom:activeTab===i?`3px solid ${tabColors[i]}`:"3px solid transparent",background:"transparent",fontSize:"13px",fontWeight:700,color:activeTab===i?tabColors[i]:"#9CA3AF",cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-3px",transition:"all 0.15s"}}>
+            <button key={i} onClick={()=>setActiveTab(i)} style={{padding:"11px 20px",border:"none",borderBottom:activeTab===i?`3px solid ${brand.blue}`:"3px solid transparent",background:"transparent",fontSize:"13px",fontWeight:700,color:activeTab===i?brand.blue:brand.labelText,cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-2px",transition:"all 0.15s"}}>
               Job {i+1}{job.customerName?` — ${job.customerName}`:""}
             </button>
           ))}
-          <button onClick={()=>setActiveTab(-1)} style={{padding:"12px 16px",border:"none",borderBottom:activeTab===-1?"3px solid #1a1a2e":"3px solid transparent",background:"transparent",fontSize:"12px",fontWeight:700,color:activeTab===-1?"#1a1a2e":"#9CA3AF",cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-3px"}}>
+          <button onClick={()=>setActiveTab(-1)} style={{padding:"11px 16px",border:"none",borderBottom:activeTab===-1?`3px solid ${brand.charcoal}`:"3px solid transparent",background:"transparent",fontSize:"12px",fontWeight:700,color:activeTab===-1?brand.charcoal:brand.labelText,cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-2px"}}>
             View All
           </button>
         </div>}
 
-        {/* JOB CONTENT */}
+        {/* ── JOB CONTENT ── */}
         {jobs.length===1
-          ?<JobSection job={jobs[0]} jobIdx={0} color={jobColors[0]}/>
+          ?<JobSection job={jobs[0]} jobIdx={0} color={brand.blue}/>
           :activeTab===-1
-            ?jobs.map((job,i)=><div key={i} style={{borderTop:i>0?"4px solid #e8e8f0":""}}><JobSection job={job} jobIdx={i} color={jobColors[i]}/></div>)
-            :<JobSection job={jobs[activeTab]} jobIdx={activeTab} color={jobColors[activeTab]}/>
+            ?jobs.map((job,i)=><div key={i}><JobSection job={job} jobIdx={i} color={tabColors[i]||brand.blue}/></div>)
+            :<JobSection job={jobs[activeTab]} jobIdx={activeTab} color={tabColors[activeTab]||brand.blue}/>
         }
 
-        {/* RAINBOW BAR */}
-        <div style={{height:"4px",background:rainbow}}/>
-
-        {/* FOOTER */}
-        <div style={{background:"linear-gradient(135deg,#1a1a2e,#0f3460)",padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",fontWeight:600,letterSpacing:"1px"}}>ICON REMODELING GROUP INC.</div>
+        {/* ── FOOTER ── */}
+        <div style={{height:"3px",background:brand.blue}}/>
+        <div style={{background:brand.charcoal,padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
           <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",fontWeight:600}}>Designed with Purpose | Built with Pride</div>
         </div>
       </div>
@@ -667,7 +669,7 @@ function AppInner(){
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);setFileViewer(null);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);setFileViewer(null);setDocView(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
