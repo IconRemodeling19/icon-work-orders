@@ -119,7 +119,10 @@ function AppGate({children}){
   );
 }
 
-const emptyCrewOrder={crewName:"",members:[],jobAddress:"",jobDescription:"",materials:"",specialNotes:"",customerName:"",customerPhone:"",jobTreadName:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
+const emptyJob={customerName:"",customerPhone:"",jobTreadName:"",jobAddress:"",jobDescription:"",materials:"",specialNotes:"",attachments:[]};
+const emptyCrewOrder={crewName:"",members:[],date:new Date().toISOString().split("T")[0],jobs:[{...emptyJob}]};
+// Backward compat: convert old flat order to jobs array
+function getJobsForOrder(order){if(order.jobs&&order.jobs.length>0)return order.jobs;return[{customerName:order.customerName||"",customerPhone:order.customerPhone||"",jobTreadName:order.jobTreadName||"",jobAddress:order.jobAddress||"",jobDescription:order.jobDescription||"",materials:order.materials||"",specialNotes:order.specialNotes||"",attachments:order.attachments||[]}];}
 const emptyFieldOrder={staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
 
 function saveToFB(path,data){set(ref(db,path),data).catch(e=>console.error("FB save:",e));}
@@ -168,37 +171,95 @@ function FileViewer({file,onClose}){
   const url=file.url;const name=file.name||"Attachment";
   const type=getFileType(url,name);
   const ff="'DM Sans',sans-serif";
+  const[pdfPages,setPdfPages]=React.useState([]);
+  const[pdfLoading,setPdfLoading]=React.useState(false);
+  const[pdfError,setPdfError]=React.useState(false);
   const fileIcons={"image":"🖼️","pdf":"📄","office":"📋","unknown":"📎"};
   const fileLabels={"image":"Image","pdf":"PDF Document","office":"Document","unknown":"File"};
+
+  React.useEffect(()=>{
+    if(type!=="pdf")return;
+    setPdfLoading(true);setPdfPages([]);setPdfError(false);
+    const load=async()=>{
+      try{
+        if(!window.pdfjsLib){
+          await new Promise((res,rej)=>{
+            const s=document.createElement("script");
+            s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res();}
+            s.onerror=rej;document.head.appendChild(s);
+          });
+        }
+        const pdf=await window.pdfjsLib.getDocument(url).promise;
+        const pages=[];
+        for(let p=1;p<=pdf.numPages;p++){
+          const page=await pdf.getPage(p);
+          const vp=page.getViewport({scale:2.0});
+          const canvas=document.createElement("canvas");
+          canvas.width=vp.width;canvas.height=vp.height;
+          const ctx=canvas.getContext("2d");
+          await page.render({canvasContext:ctx,viewport:vp}).promise;
+          pages.push(canvas.toDataURL("image/jpeg",0.92));
+        }
+        setPdfPages(pages);
+      }catch(e){console.error("PDF render error:",e);setPdfError(true);}
+      finally{setPdfLoading(false);}
+    };
+    load();
+  },[url,type]);
+
   return(
     <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",flexDirection:"column",background:"#0D0F1A"}}>
-      {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"rgba(0,0,0,0.6)",backdropFilter:"blur(10px)",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
         <div style={{display:"flex",alignItems:"center",gap:"8px",flex:1,minWidth:0,marginRight:"12px"}}>
           <span style={{fontSize:"18px"}}>{fileIcons[type]}</span>
           <div style={{minWidth:0}}>
             <div style={{fontSize:"13px",fontWeight:700,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
-            <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",marginTop:"1px"}}>{fileLabels[type]}{file.converted&&<span style={{marginLeft:"6px",fontSize:"10px",background:"rgba(74,222,128,0.2)",color:"#4ade80",padding:"1px 6px",borderRadius:"4px",fontWeight:700}}>AUTO-CONVERTED</span>}</div>
+            <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",marginTop:"1px"}}>
+              {fileLabels[type]}
+              {type==="pdf"&&pdfPages.length>0&&<span style={{marginLeft:"6px"}}>· {pdfPages.length} page{pdfPages.length!==1?"s":""}</span>}
+              {file.converted&&<span style={{marginLeft:"6px",fontSize:"10px",background:"rgba(74,222,128,0.2)",color:"#4ade80",padding:"1px 6px",borderRadius:"4px",fontWeight:700}}>CONVERTED</span>}
+            </div>
           </div>
         </div>
         <button onClick={onClose} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"10px",color:"#fff",padding:"8px 14px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:ff,flexShrink:0}}>✕ Close</button>
       </div>
-      {/* Content */}
-      <div style={{flex:1,overflow:"hidden",position:"relative"}}>
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
         {type==="image"&&(
-          <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",background:"#0a0a0a"}}>
-            <img src={url} alt={name} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",borderRadius:"10px",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}/>
+          <div style={{width:"100%",minHeight:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",background:"#0a0a0a"}}>
+            <img src={url} alt={name} style={{maxWidth:"100%",borderRadius:"10px",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}/>
           </div>
         )}
         {type==="pdf"&&(
-          <iframe src={url} style={{width:"100%",height:"100%",border:"none",background:"#fff"}} title={name}/>
+          <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:"12px",alignItems:"center"}}>
+            {pdfLoading&&(
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"60px 20px",gap:"16px"}}>
+                <div style={{width:"36px",height:"36px",border:"3px solid rgba(255,255,255,0.1)",borderTop:"3px solid #4F7FFF",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+                <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
+                <div style={{color:"rgba(255,255,255,0.5)",fontSize:"13px",fontFamily:ff}}>Loading PDF pages...</div>
+              </div>
+            )}
+            {!pdfLoading&&pdfError&&(
+              <div style={{textAlign:"center",padding:"48px 20px"}}>
+                <div style={{fontSize:"48px",marginBottom:"16px"}}>⚠️</div>
+                <div style={{color:"#fff",fontSize:"16px",fontWeight:700,marginBottom:"8px",fontFamily:ff}}>Could not render PDF</div>
+                <a href={url} onClick={e=>{e.preventDefault();window.location.href=url;}} style={{display:"inline-block",marginTop:"16px",padding:"12px 24px",background:"#4F7FFF",borderRadius:"10px",color:"#fff",fontSize:"14px",fontWeight:700,textDecoration:"none",fontFamily:ff}}>Open in Browser</a>
+              </div>
+            )}
+            {!pdfLoading&&pdfPages.map((src,i)=>(
+              <div key={i} style={{width:"100%",maxWidth:"700px"}}>
+                {pdfPages.length>1&&<div style={{fontSize:"11px",color:"rgba(255,255,255,0.35)",fontFamily:ff,marginBottom:"6px",textAlign:"center",fontWeight:600,letterSpacing:"1px"}}>PAGE {i+1} OF {pdfPages.length}</div>}
+                <img src={src} alt={`Page ${i+1}`} style={{width:"100%",borderRadius:"8px",boxShadow:"0 4px 20px rgba(0,0,0,0.5)",display:"block"}}/>
+              </div>
+            ))}
+          </div>
         )}
         {(type==="office"||type==="unknown")&&(
-          <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px",boxSizing:"border-box",textAlign:"center"}}>
+          <div style={{width:"100%",minHeight:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px",boxSizing:"border-box",textAlign:"center"}}>
             <div style={{fontSize:"64px",marginBottom:"20px"}}>{fileIcons[type]}</div>
             <div style={{fontSize:"18px",fontWeight:700,color:"#fff",marginBottom:"8px",fontFamily:ff}}>{name}</div>
             <div style={{fontSize:"13px",color:"rgba(255,255,255,0.45)",marginBottom:"36px",fontFamily:ff,maxWidth:"280px",lineHeight:1.5}}>
-              {type==="office"?"This file type can't be previewed in the browser.":"This file can't be previewed in the browser."}<br/>Tap below to open it in the appropriate app.
+              This file type can't be previewed in the browser.<br/>Tap below to open it in the appropriate app.
             </div>
             <a href={url} onClick={e=>{e.preventDefault();window.location.href=url;}} style={{display:"inline-flex",alignItems:"center",gap:"10px",padding:"16px 28px",background:"linear-gradient(135deg,#4F7FFF,#3A6AE8)",borderRadius:"14px",color:"#fff",fontSize:"16px",fontWeight:700,textDecoration:"none",fontFamily:ff,boxShadow:"0 4px 20px rgba(79,127,255,0.4)"}}>
               📂 Open in App
@@ -268,6 +329,166 @@ async function processFileForUpload(file,showToastFn){
 
   // Everything else — pass through
   return{file,warn:null};
+}
+
+// ── PROFESSIONAL WORK ORDER DOCUMENT COMPONENT ───────────────────────────────
+function WorkOrderDoc({order,onClose,onFileOpen}){
+  const jobs=getJobsForOrder(order);
+  const members=(order.members||order.staffMember||[]).join(", ");
+  const isField=!!(order.staffMember);
+  const ff="'DM Sans',sans-serif";
+  const[activeTab,setActiveTab]=React.useState(0);
+  const rainbow="linear-gradient(90deg,#E8192C,#FF6B35,#FFD700,#4CAF50,#2196F3,#9C27B0)";
+  const jobColors=[
+    {header:"linear-gradient(135deg,#2196F3,#1565C0)",bg:"#f8faff",emoji:"🔨"},
+    {header:"linear-gradient(135deg,#9C27B0,#6A1B9A)",bg:"#fdf6ff",emoji:"🔨"},
+    {header:"linear-gradient(135deg,#FF6B35,#E65100)",bg:"#fff9f6",emoji:"🔨"},
+  ];
+  const tabColors=["#2196F3","#9C27B0","#FF6B35"];
+
+  const JobSection=({job,jobIdx,color})=>(
+    <div>
+      {/* Job Header */}
+      {jobs.length>1&&<div style={{background:color.header,padding:"10px 18px",display:"flex",alignItems:"center",gap:"10px"}}>
+        <span style={{fontSize:"18px",background:"rgba(255,255,255,0.2)",borderRadius:"50%",width:"28px",height:"28px",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:"14px",color:"#fff"}}>{jobIdx+1}</span>
+        <div>
+          <div style={{fontSize:"13px",fontWeight:800,color:"#fff",letterSpacing:"1px",textTransform:"uppercase"}}>Job {jobIdx+1}</div>
+          {job.customerName&&<div style={{fontSize:"11px",color:"rgba(255,255,255,0.7)",marginTop:"1px"}}>{job.customerName}</div>}
+        </div>
+      </div>}
+
+      {/* Job Info */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:"2px solid #e8e8f0"}}>
+        {job.customerName&&<div style={{padding:"12px 18px",borderRight:"1px solid #e8e8f0",borderBottom:"1px solid #e8e8f0"}}>
+          <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"3px"}}>Customer</div>
+          <div style={{fontSize:"14px",fontWeight:700,color:"#1a1a2e"}}>{job.customerName}</div>
+        </div>}
+        {job.customerPhone&&<div style={{padding:"12px 18px",borderBottom:"1px solid #e8e8f0"}}>
+          <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"3px"}}>Phone</div>
+          <div style={{fontSize:"14px",fontWeight:700,color:"#1a1a2e"}}>{job.customerPhone}</div>
+        </div>}
+        {job.jobAddress&&<div style={{padding:"12px 18px",gridColumn:"1/-1",borderBottom:"1px solid #e8e8f0"}}>
+          <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"3px"}}>Job Address</div>
+          <a href={getMapsUrl(job.jobAddress)} style={{fontSize:"14px",fontWeight:600,color:"#2196F3",textDecoration:"none",display:"flex",alignItems:"center",gap:"6px"}}>{job.jobAddress} <MapIcon/></a>
+        </div>}
+      </div>
+
+      {/* Work */}
+      {job.jobDescription&&<>
+        <div style={{background:color.header,padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:"14px"}}>🔨</span>
+          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Work / Tasks</span>
+        </div>
+        <div style={{padding:"14px 18px",background:color.bg,borderBottom:"1px solid #e8e8f0"}}>
+          <div style={{fontSize:"14px",color:"#1a1a2e",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.jobDescription)}</div>
+        </div>
+      </>}
+
+      {/* Materials */}
+      {job.materials&&<>
+        <div style={{background:"linear-gradient(135deg,#FF6B35,#E65100)",padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:"14px"}}>📦</span>
+          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Materials Required</span>
+        </div>
+        <div style={{padding:"14px 18px",background:"#fff9f6",borderBottom:"1px solid #e8e8f0"}}>
+          <div style={{fontSize:"14px",color:"#1a1a2e",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.materials)}</div>
+        </div>
+      </>}
+
+      {/* Special Notes */}
+      {job.specialNotes&&<>
+        <div style={{background:"linear-gradient(135deg,#E8192C,#B71C1C)",padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:"14px"}}>⚠️</span>
+          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Special Notes</span>
+        </div>
+        <div style={{padding:"14px 18px",background:"#fff5f5",borderBottom:"1px solid #e8e8f0"}}>
+          <div style={{fontSize:"14px",color:"#1a1a2e",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{renderBullet(job.specialNotes)}</div>
+        </div>
+      </>}
+
+      {/* Attachments */}
+      {job.attachments?.length>0&&<>
+        <div style={{background:"linear-gradient(135deg,#4CAF50,#2E7D32)",padding:"9px 18px",display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:"14px"}}>📎</span>
+          <span style={{fontSize:"11px",fontWeight:800,textTransform:"uppercase",letterSpacing:"1px",color:"#fff"}}>Attachments / Files</span>
+        </div>
+        <div style={{padding:"14px 18px",background:"#f6fff6",borderBottom:"1px solid #e8e8f0"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+            {job.attachments.map((a,i)=>(
+              <button key={i} onClick={()=>onFileOpen&&onFileOpen(a)} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:"#fff",border:"1.5px solid #C8E6C9",borderRadius:"10px",cursor:"pointer",textAlign:"left",width:"100%",fontFamily:ff}}>
+                <span style={{fontSize:"18px"}}>📄</span>
+                <span style={{fontSize:"14px",fontWeight:600,color:"#2E7D32"}}>{a.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </>}
+    </div>
+  );
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:2000,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f0f4ff"}}>
+      <div style={{maxWidth:"700px",margin:"0 auto",minHeight:"100vh",background:"#fff",boxShadow:"0 0 40px rgba(0,0,0,0.15)"}}>
+
+        {/* HEADER */}
+        <div style={{background:"linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)",padding:"24px 24px 18px",position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",inset:0,opacity:0.05,backgroundImage:"repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)",backgroundSize:"20px 20px"}}/>
+          <div style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontSize:"20px",fontWeight:900,color:"#fff",letterSpacing:"1px",marginBottom:"3px"}}>ICON REMODELING GROUP INC.</div>
+              <div style={{fontSize:"11px",fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"3px",textTransform:"uppercase"}}>Daily Work Order</div>
+              <div style={{marginTop:"12px",display:"inline-block",background:"rgba(232,25,44,0.9)",padding:"3px 12px",borderRadius:"20px",fontSize:"11px",fontWeight:800,color:"#fff",letterSpacing:"1.5px",textTransform:"uppercase"}}>{isField?"Field Operations":"Crew Assignment"}</div>
+            </div>
+            {onClose&&<button onClick={onClose} style={{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:"10px",color:"#fff",padding:"8px 14px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:ff,flexShrink:0,marginLeft:"12px"}}>← Back</button>}
+          </div>
+        </div>
+
+        {/* RAINBOW BAR */}
+        <div style={{height:"4px",background:rainbow}}/>
+
+        {/* DATE + CREW */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:"2px solid #e8e8f0"}}>
+          <div style={{padding:"14px 18px",borderRight:"1px solid #e8e8f0"}}>
+            <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Date</div>
+            <div style={{fontSize:"15px",fontWeight:700,color:"#1a1a2e"}}>{order.date||"—"}</div>
+          </div>
+          <div style={{padding:"14px 18px"}}>
+            <div style={{fontSize:"10px",fontWeight:800,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>{isField?"Staff Member":"Crew / Members"}</div>
+            <div style={{fontSize:"15px",fontWeight:700,color:"#1a1a2e"}}>{members||order.crewName||"—"}</div>
+          </div>
+        </div>
+
+        {/* JOB TABS (only if multiple jobs) */}
+        {jobs.length>1&&<div style={{display:"flex",borderBottom:"3px solid #e8e8f0",background:"#f8f9ff",overflowX:"auto"}}>
+          {jobs.map((job,i)=>(
+            <button key={i} onClick={()=>setActiveTab(i)} style={{padding:"12px 20px",border:"none",borderBottom:activeTab===i?`3px solid ${tabColors[i]}`:"3px solid transparent",background:"transparent",fontSize:"13px",fontWeight:700,color:activeTab===i?tabColors[i]:"#9CA3AF",cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-3px",transition:"all 0.15s"}}>
+              Job {i+1}{job.customerName?` — ${job.customerName}`:""}
+            </button>
+          ))}
+          <button onClick={()=>setActiveTab(-1)} style={{padding:"12px 16px",border:"none",borderBottom:activeTab===-1?"3px solid #1a1a2e":"3px solid transparent",background:"transparent",fontSize:"12px",fontWeight:700,color:activeTab===-1?"#1a1a2e":"#9CA3AF",cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-3px"}}>
+            View All
+          </button>
+        </div>}
+
+        {/* JOB CONTENT */}
+        {jobs.length===1
+          ?<JobSection job={jobs[0]} jobIdx={0} color={jobColors[0]}/>
+          :activeTab===-1
+            ?jobs.map((job,i)=><div key={i} style={{borderTop:i>0?"4px solid #e8e8f0":""}}><JobSection job={job} jobIdx={i} color={jobColors[i]}/></div>)
+            :<JobSection job={jobs[activeTab]} jobIdx={activeTab} color={jobColors[activeTab]}/>
+        }
+
+        {/* RAINBOW BAR */}
+        <div style={{height:"4px",background:rainbow}}/>
+
+        {/* FOOTER */}
+        <div style={{background:"linear-gradient(135deg,#1a1a2e,#0f3460)",padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",fontWeight:600,letterSpacing:"1px"}}>ICON REMODELING GROUP INC.</div>
+          <div style={{fontSize:"11px",color:"rgba(255,255,255,0.4)",fontWeight:600}}>Designed with Purpose | Built with Pride</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function getMapsUrl(a){const e=encodeURIComponent(a);return/iPad|iPhone|iPod/.test(navigator.userAgent)?`maps://maps.apple.com/?q=${e}`:`https://www.google.com/maps/search/?api=1&query=${e}`;}
@@ -427,6 +648,7 @@ function AppInner(){
   const[jobMenu,setJobMenu]=useState(null);
   const[deleteJobConfirm,setDeleteJobConfirm]=useState(null);
   const[fileViewer,setFileViewer]=useState(null);
+  const[docView,setDocView]=useState(null);
   const[newJobName,setNewJobName]=useState("");
   const[newJobAddress,setNewJobAddress]=useState("");
   const[newJobWifiName,setNewJobWifiName]=useState("");
@@ -481,7 +703,7 @@ function AppInner(){
     }
     setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
   };
-  const saveCrew=()=>{if(!formData.crewName||!formData.jobAddress){showToast("Crew and address required");return;}if(!formData.jobTreadName&&!customerManualMode){showToast("Job name required");return;}if(!formData.customerName){showToast("Customer name required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);showToast(editingOrder!==null?"Updated":"Work order created");};
+  const saveCrew=()=>{if(!formData.crewName){showToast("Crew required");return;}const firstJob=formData.jobs?.[0];if(!firstJob?.jobAddress){showToast("Job 1 address required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);showToast(editingOrder!==null?"Updated":"Work order created");};
   const deleteCrew=i=>{saveToFB("orders",orders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const addMember=(crew)=>{if(!newMemberName.trim())return;saveToFB("crews",{...crews,[crew]:[...(crews[crew]||[]),newMemberName.trim()]});setNewMemberName("");showToast("Added");};
   const removeMember=(crew,i)=>{saveToFB("crews",{...crews,[crew]:crews[crew].filter((_,x)=>x!==i)});showToast("Removed");};
@@ -491,7 +713,7 @@ function AppInner(){
   const toggleFieldMember=n=>{setFieldFormData(p=>({...p,staffMember:p.staffMember.includes(n)?p.staffMember.filter(x=>x!==n):[...p.staffMember,n]}));};
   const addFieldNote=async(note)=>{const now=new Date().toISOString();const n={...note,submittedAt:now,lastModified:now};const u=[...(fieldNotes||[]),n];saveToFB("fieldNotes",u);showToast("Field note saved");};
 
-  const handlePrint=(order)=>{const members=(order.members||order.staffMember||[]).join(", ");const w=window.open("","_blank","width=800,height=600");w.document.write(`<html><head><title>Work Order</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a;}.label{font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}.section{margin-bottom:16px;}.value{font-size:14px;line-height:1.6;white-space:pre-wrap;}</style></head><body>`);w.document.write(`<img src="${window.location.origin}/logo.jpg" style="width:80px;margin-bottom:12px;" crossorigin="anonymous"/>`);w.document.write(`<h1 style="font-size:22px;margin-bottom:4px;">Icon Remodeling Group Inc.</h1><h2 style="font-size:18px;margin-bottom:20px;">${order.crewName||"Field Operations"}</h2>`);if(members)w.document.write(`<h2>${members}</h2>`);w.document.write(`<div class="section"><div class="label">Date</div><div class="value">${order.date}</div></div>`);if(order.customerName)w.document.write(`<div class="section"><div class="label">Customer</div><div class="value">${order.customerName}${order.customerPhone?" - "+order.customerPhone:""}</div></div>`);if(order.jobTreadName)w.document.write(`<div class="section"><div class="label">Job Name</div><div class="value">${order.jobTreadName}</div></div>`);if(order.jobAddress)w.document.write(`<div class="section"><div class="label">Job Address</div><div class="value">${order.jobAddress}</div></div>`);if(order.jobDescription)w.document.write(`<div class="section"><div class="label">Job Description</div><div class="value">${order.jobDescription}</div></div>`);if(order.todaysTasks)w.document.write(`<div class="section"><div class="label">Tasks</div><div class="value">${order.todaysTasks}</div></div>`);if(order.materials)w.document.write(`<div class="section"><div class="label">Materials</div><div class="value">${order.materials}</div></div>`);if(order.jobRequests)w.document.write(`<div class="section"><div class="label">Requests</div><div class="value">${order.jobRequests}</div></div>`);if(order.specialNotes)w.document.write(`<div class="section"><div class="label">Special Notes</div><div class="value">${order.specialNotes}</div></div>`);w.document.write(`</body></html>`);w.document.close();setTimeout(()=>w.print(),500);};
+  const handlePrint=(order)=>{const members=(order.members||order.staffMember||[]).join(", ");const w=window.open("","_blank","width=800,height=600");w.document.write(`<html><head><title>Work Order</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a;}.label{font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}.section{margin-bottom:16px;}.value{font-size:14px;line-height:1.6;white-space:pre-wrap;}</style></head><body>`);w.document.write(`<img src="${window.location.origin}/logo.jpg" style="width:80px;margin-bottom:12px;" crossorigin="anonymous"/>`);w.document.write(`<h1 style="font-size:22px;margin-bottom:4px;">Icon Remodeling Group Inc.</h1><h2 style="font-size:18px;margin-bottom:20px;">${order.crewName||"Field Operations"}</h2>`);if(members)w.document.write(`<h2>${members}</h2>`);w.document.write(`<div class="section"><div class="label">Date</div><div class="value">${order.date}</div></div>`);const pJobs=getJobsForOrder(order);pJobs.forEach((pj,pi)=>{if(pJobs.length>1)w.document.write(`<h3 style="color:#2196F3;margin:16px 0 8px;">Job ${pi+1}</h3>`);if(pj.customerName)w.document.write(`<div class="section"><div class="label">Customer</div><div class="value">${pj.customerName}${pj.customerPhone?" - "+pj.customerPhone:""}</div></div>`);if(pj.jobAddress)w.document.write(`<div class="section"><div class="label">Job Address</div><div class="value">${pj.jobAddress}</div></div>`);if(pj.jobDescription)w.document.write(`<div class="section"><div class="label">Job Description</div><div class="value">${pj.jobDescription}</div></div>`);if(pj.materials)w.document.write(`<div class="section"><div class="label">Materials</div><div class="value">${pj.materials}</div></div>`);if(pj.specialNotes)w.document.write(`<div class="section"><div class="label">Special Notes</div><div class="value">${pj.specialNotes}</div></div>`);});if(order.todaysTasks)w.document.write(`<div class="section"><div class="label">Tasks</div><div class="value">${order.todaysTasks}</div></div>`);if(order.jobRequests)w.document.write(`<div class="section"><div class="label">Requests</div><div class="value">${order.jobRequests}</div></div>`);w.document.write(`</body></html>`);w.document.close();setTimeout(()=>w.print(),500);};
 
   const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");showToast("Manager PIN updated");}else showToast("PIN must be at least 4 digits");};
   const saveNewCrewPin=()=>{if(newCrewPin.length>=4){saveToFB("settings/crewPin",newCrewPin);setNewCrewPin("");showToast("Crew PIN updated");}else showToast("PIN must be at least 4 digits");};
@@ -503,6 +725,7 @@ function AppInner(){
   const crewNames=Object.keys(crews);
 
   if(fileViewer)return(<FileViewer file={fileViewer} onClose={()=>setFileViewer(null)}/>);
+  if(docView)return(<WorkOrderDoc order={docView} onClose={()=>setDocView(null)} onFileOpen={a=>setFileViewer(a)}/>);
 
   if(loading)return(<div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff}}><OpsHomeBtn/><div style={{color:t.muted,fontSize:"14px"}}>Loading...</div></div>);
 
@@ -934,35 +1157,30 @@ function AppInner(){
 
   // ── CREW VIEW ─────────────────────────────────────────────────────────────
   if(mode==="crew"){
-    const allActive=activeCrew;const sel=selectedCrewOrder!==null?allActive[selectedCrewOrder]:null;
+    const allActive=activeCrew;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
-      <Header title={sel?"Work Order":"Icon Field Crews"} subtitle={today} onBack={()=>{if(sel)setSelectedCrewOrder(null);else goHome();}} onHome={goHome}/>
-      <div style={{padding:"20px"}}>
-        {sel?(<div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"20px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"14px"}}>
-            <div style={{borderLeft:`3px solid ${t.green}`,paddingLeft:"14px"}}>
-              {sel.members?.length>0&&<div style={{fontSize:"15px",fontWeight:700,color:t.text,marginBottom:"3px"}}>{sel.members.join(", ")}</div>}
-              <a href={getMapsUrl(sel.jobAddress)} target="_blank" rel="noopener noreferrer" style={{fontSize:"14px",fontWeight:600,color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px"}}>{sel.jobAddress} <MapIcon/></a>
-            </div>
-            <button onClick={()=>handlePrint(sel)} style={{...ghostBtn,padding:"7px",color:t.muted}} className="no-print"><PrintIcon/></button>
-          </div>
-          {sel.customerName&&<div style={{fontSize:"13px",color:t.text,display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><UserIcon/> {sel.customerName}{sel.jobTreadName&&<span style={{fontSize:"11px",color:t.muted,marginLeft:"6px"}}>({sel.jobTreadName})</span>}</div>}
-          {sel.customerPhone&&<div style={{fontSize:"12px",color:t.muted,display:"flex",alignItems:"center",gap:"5px",marginBottom:"12px"}}><PhoneIcon/> {sel.customerPhone}</div>}
-          <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
-            <div><div style={labelStyle}>Job Description</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.jobDescription)}</div></div>
-            <div><div style={labelStyle}>Materials Required</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.materials)}</div></div>
-            {sel.specialNotes&&<div style={{background:"rgba(167,139,250,.07)",border:"1.5px solid rgba(167,139,250,.18)",borderRadius:"10px",padding:"14px"}}><div style={{...labelStyle,color:t.purple}}>Special Notes</div><div style={{color:t.text,fontSize:"13px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{renderBullet(sel.specialNotes)}</div></div>}
-            {sel.attachments?.length>0&&<div><div style={labelStyle}>Attachments</div><div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{sel.attachments.map((a,i)=><a key={i} href={a.url} onClick={e=>{e.preventDefault();setFileViewer(a);}} style={{fontSize:"13px",color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",padding:"8px 12px",background:t.tag,borderRadius:"8px",border:`1px solid ${t.line}`}}><PaperclipIcon/> {a.name}</a>)}</div></div>}
-          </div>
-        </div>):(<>
-          <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{"Today's Work Orders"}</div>
-          {allActive.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No active work orders</div>:
-          <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{allActive.map((order,idx)=>(<button key={idx} onClick={()=>setSelectedCrewOrder(idx)} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,padding:"16px 18px",borderRadius:"12px",flexDirection:"column",alignItems:"flex-start",gap:"4px",color:t.text,width:"100%",textAlign:"left"}}>
-            <div style={{fontSize:"14px",fontWeight:700,color:t.text}}>{order.members?.length>0?order.members.join(", "):order.crewName}</div>
-            <div style={{fontSize:"12px",color:t.blue}}>{order.jobAddress}</div>
-          </button>))}</div>}
-        </>)}
+      <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}/>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
+        <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{"Today's Work Orders"}</div>
+        {allActive.length===0
+          ?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No active work orders for today</div>
+          :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+            {allActive.map((order,idx)=>(
+              <button key={idx} onClick={()=>setDocView(order)} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,padding:"18px",borderRadius:"14px",flexDirection:"column",alignItems:"flex-start",gap:"6px",color:t.text,width:"100%",textAlign:"left"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"8px",width:"100%"}}>
+                  <div style={{width:"4px",height:"40px",background:"linear-gradient(180deg,#E8192C,#FF6B35)",borderRadius:"2px",flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"15px",fontWeight:800,color:t.text,marginBottom:"3px"}}>{order.members?.length>0?order.members.join(", "):order.crewName}</div>
+                    {getJobsForOrder(order).map((j,i)=><div key={i} style={{fontSize:"12px",color:t.blue,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getJobsForOrder(order).length>1&&<span style={{fontWeight:700}}>Job {i+1}: </span>}{j.jobAddress}</div>)}
+                    {order.customerName&&<div style={{fontSize:"11px",color:t.muted,marginTop:"2px"}}>{order.customerName}</div>}
+                  </div>
+                  <div style={{fontSize:"20px",flexShrink:0}}>📋</div>
+                </div>
+                <div style={{marginLeft:"12px",fontSize:"11px",fontWeight:700,color:"rgba(232,25,44,0.8)",textTransform:"uppercase",letterSpacing:"1px"}}>Tap to view work order →</div>
+              </button>
+            ))}
+          </div>}
       </div>
     </div>);
   }
@@ -1078,120 +1296,71 @@ function AppInner(){
         {showForm?(<div>
           <h2 style={{fontSize:"19px",color:t.text,margin:"0 0 18px",fontWeight:700}}>{editingOrder!==null?"Edit":"New"} Work Order</h2>
           <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
-            <div><label style={labelStyle}>Crew</label><select value={formData.crewName} onChange={e=>setFormData({...formData,crewName:e.target.value,members:[]})} style={{...inputStyle,appearance:"none"}}><option value="">Select a crew...</option>{crewNames.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-            {formData.crewName&&(crews[formData.crewName]||[]).length>0&&<div><label style={labelStyle}>Assign Members</label><div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>{(crews[formData.crewName]||[]).map(n=>{const s=formData.members.includes(n);return<button key={n} onClick={()=>toggleMember(n)} style={{...baseBtn,padding:"8px 14px",borderRadius:"20px",fontSize:"13px",background:s?"rgba(74,222,128,.15)":t.card,color:s?t.green:t.text,border:`1.5px solid ${s?"rgba(74,222,128,.4)":t.line}`,gap:"4px"}}>{s&&<CheckIcon/>}{n}</button>;})}</div></div>}
+
+            {/* CREW + DATE (shared) */}
+            <div><label style={labelStyle}>Crew</label><select value={formData.crewName} onChange={e=>setFormData({...formData,crewName:e.target.value,members:[]})} style={{...inputStyle,appearance:"none",cursor:"pointer"}}><option value="">Select a crew...</option>{crewNames.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+            {formData.crewName&&(crews[formData.crewName]||[]).length>0&&<div><label style={labelStyle}>Assign Members</label><div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>{(crews[formData.crewName]||[]).map(n=>{const s=(formData.members||[]).includes(n);return<button key={n} onClick={()=>toggleMember(n)} style={{...baseBtn,padding:"8px 14px",borderRadius:"20px",fontSize:"13px",background:s?t.blue:t.tag,color:s?"#fff":t.text,border:`1px solid ${s?t.blue:t.line}`,gap:"4px"}}>{s&&<CheckIcon/>}{n}</button>;})}</div></div>}
             <div><label style={labelStyle}>Date</label><input type="date" value={formData.date} onChange={e=>setFormData({...formData,date:e.target.value})} style={inputStyle}/></div>
-            {/* ── JOB NAME — dropdown from Active Jobs Job ID list ── */}
-            <div>
-              <label style={labelStyle}>Job Name <span style={{color:t.danger}}>*</span></label>
-              {!customerManualMode?(
-                <div>
-                  <select
-                    value={formData.jobTreadName||""}
-                    onChange={e=>{
-                      if(e.target.value==="__manual__"){
-                        setCustomerManualMode(true);
-                        setFormData({...formData,jobTreadName:"",customerName:"",jobAddress:""});
-                      } else if(e.target.value===""){
-                        setFormData({...formData,jobTreadName:"",customerName:"",jobAddress:""});
-                      } else {
-                        const job=(activeJobs||[]).find(j=>j.name===e.target.value);
-                        setFormData({
-                          ...formData,
-                          jobTreadName:e.target.value,
-                          customerName:job?.customerName||"",
-                          jobAddress:job?.address||"",
-                        });
-                      }
-                    }}
-                    style={{...inputStyle,appearance:"none"}}
-                  >
-                    <option value="">— Select from Active Jobs —</option>
-                    {(activeJobs||[]).map((job,i)=>(
-                      <option key={i} value={job.name}>{job.name}</option>
-                    ))}
-                    <option value="__manual__">✏️ Enter manually (not on list)</option>
-                  </select>
-                  <div style={{fontSize:"11px",color:t.muted,marginTop:"4px"}}>Pulls from Active Jobs list — select or enter manually</div>
-                </div>
-              ):(
-                <div>
-                  <input
-                    value={formData.jobTreadName||""}
-                    onChange={e=>setFormData({...formData,jobTreadName:e.target.value})}
-                    placeholder="Type job name manually"
-                    style={inputStyle}
-                    autoFocus
-                  />
-                  <button
-                    onClick={()=>{setCustomerManualMode(false);setFormData({...formData,jobTreadName:"",customerName:"",jobAddress:""});}}
-                    style={{...ghostBtn,fontSize:"12px",color:t.cyan,padding:"4px 0",marginTop:"4px"}}
-                  >← Back to dropdown</button>
-                </div>
-              )}
-            </div>
 
-            {/* ── CUSTOMER NAME — auto-fills from Job Name selection ── */}
-            <div>
-              <label style={labelStyle}>Customer Name <span style={{color:t.danger}}>*</span></label>
-              {formData.customerName&&!customerManualMode?(
-                <div>
-                  <div style={{...inputStyle,color:t.cyan,background:"rgba(34,211,238,.07)",border:`1.5px solid rgba(34,211,238,.25)`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span>{formData.customerName}</span>
-                    <span style={{fontSize:"11px",opacity:.7}}>✓ Auto-filled</span>
+            {/* PER-JOB SECTIONS */}
+            {(formData.jobs||[{...emptyJob}]).map((job,ji)=>{
+              const jobColors2=["rgba(33,150,243,0.08)","rgba(156,39,176,0.08)","rgba(255,107,53,0.08)"];
+              const jobBorders=["rgba(33,150,243,0.3)","rgba(156,39,176,0.3)","rgba(255,107,53,0.3)"];
+              const jobAccents=["#2196F3","#9C27B0","#FF6B35"];
+              const updateJob=(field,val)=>{const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,[field]:val}:j);setFormData({...formData,jobs:nj});};
+              const updateJobAtts=(atts)=>{const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,attachments:atts}:j);setFormData({...formData,jobs:nj});};
+              return(
+                <div key={ji} style={{background:jobColors2[ji],border:`1.5px solid ${jobBorders[ji]}`,borderRadius:"14px",padding:"16px",display:"flex",flexDirection:"column",gap:"12px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{fontSize:"13px",fontWeight:800,color:jobAccents[ji],textTransform:"uppercase",letterSpacing:"1px"}}>Job #{ji+1}</div>
+                    {ji>0&&<button onClick={()=>{const nj=(formData.jobs||[]).filter((_,i)=>i!==ji);setFormData({...formData,jobs:nj});}} style={{...ghostBtn,padding:"4px 10px",fontSize:"12px",color:t.danger,border:`1px solid ${t.danger}`,borderRadius:"8px"}}>✕ Remove</button>}
                   </div>
-                  <button onClick={()=>setFormData({...formData,customerName:""})} style={{...ghostBtn,fontSize:"11px",color:t.muted,padding:"4px 0",marginTop:"4px"}}>Edit manually</button>
-                </div>
-              ):(
-                <input
-                  value={formData.customerName||""}
-                  onChange={e=>setFormData({...formData,customerName:e.target.value})}
-                  placeholder={customerManualMode?"Type customer name":"Auto-fills when job is selected above"}
-                  style={inputStyle}
-                />
-              )}
-            </div>
 
-            <div style={{display:"flex",gap:"10px"}}><div style={{flex:1}}><label style={labelStyle}>Phone</label><input type="tel" value={formData.customerPhone||""} onChange={e=>setFormData({...formData,customerPhone:e.target.value})} placeholder="(555) 555-5555" style={inputStyle}/></div></div>
-
-            {/* ── JOB ADDRESS — auto-fills from Job Name selection ── */}
-            <div>
-              <label style={labelStyle}>Job Address</label>
-              {formData.jobAddress&&!customerManualMode&&(activeJobs||[]).find(j=>j.name===formData.jobTreadName)?(
-                <div>
-                  <div style={{...inputStyle,color:t.cyan,background:"rgba(34,211,238,.07)",border:`1.5px solid rgba(34,211,238,.25)`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span>{formData.jobAddress}</span>
-                    <span style={{fontSize:"11px",opacity:.7}}>✓ Auto-filled</span>
+                  <div style={{display:"flex",gap:"10px"}}>
+                    <div style={{flex:1}}><label style={labelStyle}>Customer Name</label><input value={job.customerName||""} onChange={e=>updateJob("customerName",e.target.value.toUpperCase())} placeholder="Customer name" style={inputStyle}/></div>
+                    <div style={{flex:1}}><label style={labelStyle}>Customer Phone</label><input type="tel" value={job.customerPhone||""} onChange={e=>updateJob("customerPhone",e.target.value)} placeholder="(555) 555-5555" style={inputStyle}/></div>
                   </div>
-                  <button onClick={()=>setFormData({...formData,jobAddress:""})} style={{...ghostBtn,fontSize:"11px",color:t.muted,padding:"4px 0",marginTop:"4px"}}>Edit address manually</button>
+                  <div><label style={labelStyle}>Job Address {ji===0&&<span style={{color:t.danger}}>*</span>}</label><AddressInput value={job.jobAddress||""} onChange={e=>updateJob("jobAddress",e.target.value)} style={inputStyle}/></div>
+                  <div><label style={labelStyle}>Job Description</label><BulletTextarea value={job.jobDescription||""} onChange={e=>updateJob("jobDescription",e.target.value)} placeholder="Describe the work... (Enter for bullets)" style={inputStyle}/></div>
+                  <div><label style={labelStyle}>Materials Required</label><BulletTextarea value={job.materials||""} onChange={e=>updateJob("materials",e.target.value)} placeholder="List materials... (Enter for bullets)" style={inputStyle}/></div>
+                  <div><label style={labelStyle}>Special Notes</label><BulletTextarea value={job.specialNotes||""} onChange={e=>updateJob("specialNotes",e.target.value)} placeholder="Any special instructions..." style={inputStyle}/></div>
+                  <div>
+                    <label style={labelStyle}>Attachments</label>
+                    <input type="file" multiple style={{display:"none"}} id={`jobfile-${ji}`} onChange={async e=>{
+                      const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
+                      const atts=[...(job.attachments||[])];
+                      for(const f of files){const dn=window.prompt("Name this attachment:",f.name.replace(/\.[^.]+$/,""))||f.name;
+                        const result=await processFileForUpload(f,showToast);if(result.warn)showToast(result.warn);
+                        try{if(result.multiPage&&result.files){for(let pi=0;pi<result.files.length;pi++){const pf=result.files[pi];const label=result.files.length>1?`${dn} — Page ${pi+1}`:dn;const fn=`${Date.now()}_${pf.name}`;const fr=storageRef(storage,`attachments/${fn}`);await uploadBytes(fr,pf);const url=await getDownloadURL(fr);atts.push({name:label,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:true});}}else{const uf=result.file;const fn=`${Date.now()}_${uf.name}`;const fr=storageRef(storage,`attachments/${fn}`);await uploadBytes(fr,uf);const url=await getDownloadURL(fr);atts.push({name:dn,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:!!result.wasConverted});}}catch(err){showToast("Upload failed");}}
+                      updateJobAtts(atts);setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
+                    }}/>
+                    <button onClick={()=>document.getElementById(`jobfile-${ji}`)?.click()} disabled={uploading} style={{...baseBtn,background:t.tag,border:`1px solid ${t.line}`,color:t.text,padding:"11px 16px",fontSize:"14px",width:"100%"}}><PaperclipIcon/> {uploading?"Uploading...":"Add Attachments"}</button>
+                    {(job.attachments||[]).length>0&&<div style={{marginTop:"8px",display:"flex",flexDirection:"column",gap:"6px"}}>{(job.attachments||[]).map((a,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:t.card,padding:"8px 12px",borderRadius:"8px"}}><span style={{fontSize:"13px",color:t.text}}><PaperclipIcon/> {a.name}</span><button onClick={()=>updateJobAtts((job.attachments||[]).filter((_,x)=>x!==i))} style={{...ghostBtn,padding:"4px",color:t.danger}}><TrashIcon/></button></div>)}</div>}
+                  </div>
                 </div>
-              ):(
-                <AddressInput value={formData.jobAddress} onChange={e=>setFormData({...formData,jobAddress:e.target.value})} style={inputStyle}/>
-              )}
-            </div>
-            <div><label style={labelStyle}>Job Description</label><BulletTextarea value={formData.jobDescription} onChange={e=>setFormData({...formData,jobDescription:e.target.value})} placeholder="Describe the work..." style={inputStyle}/></div>
-            <div><label style={labelStyle}>Materials</label><BulletTextarea value={formData.materials} onChange={e=>setFormData({...formData,materials:e.target.value})} placeholder="List materials..." style={inputStyle}/></div>
-            <div><label style={labelStyle}>Special Notes</label><BulletTextarea value={formData.specialNotes} onChange={e=>setFormData({...formData,specialNotes:e.target.value})} placeholder="Special instructions..." style={inputStyle}/></div>
-            <div><label style={labelStyle}>Attachments</label><input ref={fileRef} type="file" multiple onChange={e=>handleUpload(e,formData,setFormData)} style={{display:"none"}}/>
-              <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,color:t.text,padding:"12px",fontSize:"14px",width:"100%"}}><PaperclipIcon/> {uploading?"Uploading...":"Add Attachments"}</button>
-              {formData.attachments?.length>0&&<div style={{marginTop:"8px",display:"flex",flexDirection:"column",gap:"5px"}}>{formData.attachments.map((a,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:t.card,padding:"7px 12px",borderRadius:"8px",border:`1px solid ${t.line}`}}><span style={{fontSize:"13px",color:t.text}}>{a.name}</span><button onClick={()=>setFormData({...formData,attachments:formData.attachments.filter((_,x)=>x!==i)})} style={{...ghostBtn,padding:"4px",color:t.danger}}><TrashIcon/></button></div>)}</div>}
-            </div>
-            <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowForm(false);setEditingOrder(null);setCustomerManualMode(false);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button><button onClick={saveCrew} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingOrder!==null?"Update":"Create Order"}</button></div>
-          </div></div>):(<>
+              );
+            })}
+
+            {/* ADD JOB BUTTON */}
+            {(formData.jobs||[]).length<3&&<button onClick={()=>setFormData({...formData,jobs:[...(formData.jobs||[]),{...emptyJob}]})} style={{...baseBtn,background:"transparent",border:`2px dashed ${t.line}`,color:t.muted,padding:"14px",width:"100%",borderRadius:"12px",fontSize:"13px",fontWeight:700}}>+ Add Job #{(formData.jobs||[]).length+1} Work Order</button>}
+
+            <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowForm(false);setEditingOrder(null);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button><button onClick={saveCrew} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingOrder!==null?"Update":"Create Order"}</button></div>
+          </div></div>)):(<>
           <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"4px"}}>{"Today's Orders"}</div>
           <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{todayCrew.length} active</div>
           {todayCrew.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}><div>No work orders for today</div><div style={{fontSize:"12px",marginTop:"5px"}}>Tap New to create one</div></div>:
           <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{todayCrew.map(order=>{const ri=orders.indexOf(order);return(<div key={ri} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"15px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"7px"}}>
-              <span style={{fontSize:"11px",background:"rgba(74,222,128,.12)",color:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>{order.crewName}</span>
+              <span style={{fontSize:"11px",background:"rgba(74,222,128,.12)",color:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>{order.crewName}</span>{getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700,marginLeft:"6px"}}>{getJobsForOrder(order).length} Jobs</span>}
               <div style={{display:"flex",gap:"3px"}}>
                 <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
-                <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],attachments:order.attachments||[]});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
+                <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><NoteIcon/></button>
+                <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order)});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
                 <button onClick={()=>setDeleteConfirm(ri)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button>
               </div>
             </div>
             {order.members?.length>0&&<div style={{fontSize:"13px",fontWeight:700,color:t.text,marginBottom:"3px"}}>{order.members.join(", ")}</div>}
-            <div style={{fontSize:"12px",color:t.blue,marginBottom:"3px"}}>{order.jobAddress}</div>
+            <div style={{fontSize:"12px",color:t.blue,marginBottom:"3px"}}>{getJobsForOrder(order).map((j,i)=><span key={i} style={{display:"block"}}>{getJobsForOrder(order).length>1&&<span style={{fontWeight:700}}>J{i+1}: </span>}{j.jobAddress}</span>)}</div>
             {order.customerName&&<div style={{fontSize:"12px",color:t.muted,marginBottom:"2px"}}>{order.customerName}{order.jobTreadName&&<span style={{color:t.muted,fontSize:"11px"}}> · {order.jobTreadName}</span>}</div>}
             <div style={{fontSize:"12px",color:t.muted,lineHeight:1.5}}>{order.jobDescription?(order.jobDescription.length>100?order.jobDescription.slice(0,100)+"...":order.jobDescription):"No description"}</div>
           </div>);})}
