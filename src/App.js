@@ -1316,11 +1316,23 @@ function AppInner(){
                     {ji>0&&<button onClick={()=>{const nj=(formData.jobs||[]).filter((_,i)=>i!==ji);setFormData({...formData,jobs:nj});}} style={{...ghostBtn,padding:"4px 10px",fontSize:"12px",color:t.danger,border:`1px solid ${t.danger}`,borderRadius:"8px"}}>✕ Remove</button>}
                   </div>
 
+                  {/* Job selector from Active Jobs */}
+                  <div>
+                    <label style={labelStyle}>Select Active Job</label>
+                    <select value={job.jobTreadName||""} onChange={e=>{
+                      const sel=(activeJobs||[]).find(j=>j.name===e.target.value);
+                      if(sel){const nj=(formData.jobs||[]).map((jb,i)=>i===ji?{...jb,jobTreadName:sel.name,customerName:(sel.customerName||"").toUpperCase(),jobAddress:sel.address||""}:jb);setFormData({...formData,jobs:nj});}
+                      else{const nj=(formData.jobs||[]).map((jb,i)=>i===ji?{...jb,jobTreadName:"",customerName:"",jobAddress:""}:jb);setFormData({...formData,jobs:nj});}
+                    }} style={{...inputStyle,appearance:"none",cursor:"pointer"}}>
+                      <option value="">— Select a job or enter manually below —</option>
+                      {(activeJobs||[]).map((aj,ai)=><option key={ai} value={aj.name}>{aj.name}{aj.customerName?` · ${aj.customerName}`:""}</option>)}
+                    </select>
+                  </div>
                   <div style={{display:"flex",gap:"10px"}}>
                     <div style={{flex:1}}><label style={labelStyle}>Customer Name</label><input value={job.customerName||""} onChange={e=>updateJob("customerName",e.target.value.toUpperCase())} placeholder="Customer name" style={inputStyle}/></div>
                     <div style={{flex:1}}><label style={labelStyle}>Customer Phone</label><input type="tel" value={job.customerPhone||""} onChange={e=>updateJob("customerPhone",e.target.value)} placeholder="(555) 555-5555" style={inputStyle}/></div>
                   </div>
-                  <div><label style={labelStyle}>Job Address {ji===0&&<span style={{color:t.danger}}>*</span>}</label><AddressInput value={job.jobAddress||""} onChange={e=>updateJob("jobAddress",e.target.value)} style={inputStyle}/></div>
+                  <div><label style={labelStyle}>Job Address {ji===0&&<span style={{color:t.danger}}>*</span>}</label><AddressInput value={job.jobAddress||""} onChange={e=>updateJob("jobAddress",e.target.value)} style={inputStyle}/><div style={{fontSize:"11px",color:t.muted,marginTop:"4px"}}>Start typing to search or auto-filled from job selection above</div></div>
                   <div><label style={labelStyle}>Job Description</label><BulletTextarea value={job.jobDescription||""} onChange={e=>updateJob("jobDescription",e.target.value)} placeholder="Describe the work... (Enter for bullets)" style={inputStyle}/></div>
                   <div><label style={labelStyle}>Materials Required</label><BulletTextarea value={job.materials||""} onChange={e=>updateJob("materials",e.target.value)} placeholder="List materials... (Enter for bullets)" style={inputStyle}/></div>
                   <div><label style={labelStyle}>Special Notes</label><BulletTextarea value={job.specialNotes||""} onChange={e=>updateJob("specialNotes",e.target.value)} placeholder="Any special instructions..." style={inputStyle}/></div>
