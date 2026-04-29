@@ -715,7 +715,91 @@ function AppInner(){
   const toggleFieldMember=n=>{setFieldFormData(p=>({...p,staffMember:p.staffMember.includes(n)?p.staffMember.filter(x=>x!==n):[...p.staffMember,n]}));};
   const addFieldNote=async(note)=>{const now=new Date().toISOString();const n={...note,submittedAt:now,lastModified:now};const u=[...(fieldNotes||[]),n];saveToFB("fieldNotes",u);showToast("Field note saved");};
 
-  const handlePrint=(order)=>{const members=(order.members||order.staffMember||[]).join(", ");const w=window.open("","_blank","width=800,height=600");w.document.write(`<html><head><title>Work Order</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a;}.label{font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}.section{margin-bottom:16px;}.value{font-size:14px;line-height:1.6;white-space:pre-wrap;}</style></head><body>`);w.document.write(`<img src="${window.location.origin}/logo.jpg" style="width:80px;margin-bottom:12px;" crossorigin="anonymous"/>`);w.document.write(`<h1 style="font-size:22px;margin-bottom:4px;">Icon Remodeling Group Inc.</h1><h2 style="font-size:18px;margin-bottom:20px;">${order.crewName||"Field Operations"}</h2>`);if(members)w.document.write(`<h2>${members}</h2>`);w.document.write(`<div class="section"><div class="label">Date</div><div class="value">${order.date}</div></div>`);const pJobs=getJobsForOrder(order);pJobs.forEach((pj,pi)=>{if(pJobs.length>1)w.document.write(`<h3 style="color:#2196F3;margin:16px 0 8px;">Job ${pi+1}</h3>`);if(pj.customerName)w.document.write(`<div class="section"><div class="label">Customer</div><div class="value">${pj.customerName}${pj.customerPhone?" - "+pj.customerPhone:""}</div></div>`);if(pj.jobAddress)w.document.write(`<div class="section"><div class="label">Job Address</div><div class="value">${pj.jobAddress}</div></div>`);if(pj.jobDescription)w.document.write(`<div class="section"><div class="label">Job Description</div><div class="value">${pj.jobDescription}</div></div>`);if(pj.materials)w.document.write(`<div class="section"><div class="label">Materials</div><div class="value">${pj.materials}</div></div>`);if(pj.specialNotes)w.document.write(`<div class="section"><div class="label">Special Notes</div><div class="value">${pj.specialNotes}</div></div>`);});if(order.todaysTasks)w.document.write(`<div class="section"><div class="label">Tasks</div><div class="value">${order.todaysTasks}</div></div>`);if(order.jobRequests)w.document.write(`<div class="section"><div class="label">Requests</div><div class="value">${order.jobRequests}</div></div>`);w.document.write(`</body></html>`);w.document.close();setTimeout(()=>w.print(),500);};
+  const handlePrint=(order)=>{
+    const jobs=getJobsForOrder(order);
+    const members=(order.members||order.staffMember||[]).join(", ");
+    const isField=!!(order.staffMember);
+    const rainbow="background:linear-gradient(90deg,#E8192C,#FF6B35,#FFD700,#4CAF50,#2196F3,#9C27B0)";
+
+    const renderBulletHtml=(text)=>{
+      if(!text)return"";
+      return text.split("\n").map(l=>`<div style="margin-bottom:3px">${l}</div>`).join("");
+    };
+
+    const jobHtml=(job,jobIdx,showHeader)=>{
+      let h="";
+      if(showHeader){
+        h+=`<div style="background:#0077C8;padding:9px 18px;display:flex;align-items:center;gap:10px;border-top:2px solid #D6D9DE;margin-top:16px">
+          <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff">${jobIdx+1}</div>
+          <div style="font-size:12px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:1px">Job ${jobIdx+1}${job.customerName?" — "+job.customerName:""}</div>
+        </div>`;
+      }
+      // Info grid
+      h+=`<table style="width:100%;border-collapse:collapse;font-size:13px">`;
+      if(job.customerName||job.customerPhone){
+        h+=`<tr>`;
+        if(job.customerName)h+=`<td style="padding:10px 14px;border:1px solid #D6D9DE;width:50%"><div style="font-size:9px;font-weight:700;color:#5F6670;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Customer</div><div style="font-weight:600;color:#1F2329">${job.customerName||""}</div></td>`;
+        if(job.customerPhone)h+=`<td style="padding:10px 14px;border:1px solid #D6D9DE"><div style="font-size:9px;font-weight:700;color:#5F6670;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Phone</div><div style="font-weight:600;color:#1F2329">${job.customerPhone||""}</div></td>`;
+        if(job.customerName&&!job.customerPhone)h+=`<td style="border:1px solid #D6D9DE"></td>`;
+        h+=`</tr>`;
+      }
+      if(job.jobAddress)h+=`<tr><td colspan="2" style="padding:10px 14px;border:1px solid #D6D9DE"><div style="font-size:9px;font-weight:700;color:#5F6670;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Job Address</div><div style="font-weight:600;color:#0077C8">${job.jobAddress}</div></td></tr>`;
+      h+=`</table>`;
+      if(job.jobDescription)h+=`<div style="background:#0077C8;padding:8px 14px;margin-top:8px"><span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff">🔨 Work / Tasks</span></div><div style="padding:12px 14px;background:#F2F4F6;border:1px solid #D6D9DE;font-size:13px;color:#1F2329;line-height:1.7;white-space:pre-wrap">${renderBulletHtml(job.jobDescription)}</div>`;
+      if(job.materials)h+=`<div style="background:#0077C8;padding:8px 14px;margin-top:8px"><span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff">📦 Materials Required</span></div><div style="padding:12px 14px;background:#fff;border:1px solid #D6D9DE;font-size:13px;color:#1F2329;line-height:1.7;white-space:pre-wrap">${renderBulletHtml(job.materials)}</div>`;
+      if(job.specialNotes)h+=`<div style="background:#0077C8;padding:8px 14px;margin-top:8px"><span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff">⚠️ Special Notes</span></div><div style="padding:12px 14px;background:#F2F4F6;border:1px solid #D6D9DE;font-size:13px;color:#1F2329;line-height:1.7;white-space:pre-wrap">${renderBulletHtml(job.specialNotes)}</div>`;
+      if(job.todaysTasks)h+=`<div style="background:#0077C8;padding:8px 14px;margin-top:8px"><span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff">📋 Today's Tasks</span></div><div style="padding:12px 14px;background:#F2F4F6;border:1px solid #D6D9DE;font-size:13px;color:#1F2329;line-height:1.7;white-space:pre-wrap">${renderBulletHtml(job.todaysTasks)}</div>`;
+      if(job.jobRequests)h+=`<div style="background:#0077C8;padding:8px 14px;margin-top:8px"><span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff">📋 Job Requests</span></div><div style="padding:12px 14px;background:#fff;border:1px solid #D6D9DE;font-size:13px;color:#1F2329;line-height:1.7;white-space:pre-wrap">${renderBulletHtml(job.jobRequests)}</div>`;
+      return h;
+    };
+
+    const w=window.open("","_blank","width=900,height=700");
+    w.document.write(`<!DOCTYPE html><html><head><title>Work Order — ${members||order.crewName||""}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Segoe UI',Arial,sans-serif;background:#F2F4F6;color:#1F2329;}
+      .doc{max-width:720px;margin:0 auto;background:#fff;min-height:100vh;}
+      @media print{
+        body{background:#fff;}
+        .doc{box-shadow:none;max-width:100%;}
+        @page{margin:0.5in;}
+      }
+    </style>
+    </head><body><div class="doc">
+      <div style="background:#000;padding:0">
+        <div style="padding:18px 22px 14px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase">ICON REMODELING GROUP INC.</div>
+            <div style="font-size:10px;font-weight:600;color:#0077C8;letter-spacing:3px;text-transform:uppercase;margin-top:2px">Daily Work Order</div>
+          </div>
+          <div style="background:#0077C8;color:#fff;font-size:11px;font-weight:800;padding:4px 14px;border-radius:20px;letter-spacing:1.5px;text-transform:uppercase">${isField?"Field Operations":"Crew Assignment"}</div>
+        </div>
+        <div style="height:4px;background:#0077C8"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;background:#1F2329">
+        <div style="padding:13px 18px;border-right:1px solid rgba(255,255,255,0.1)">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Date</div>
+          <div style="font-size:14px;font-weight:700;color:#fff">${order.date||"—"}</div>
+        </div>
+        <div style="padding:13px 18px">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${isField?"Staff Member":"Crew / Members"}</div>
+          <div style="font-size:14px;font-weight:700;color:#fff">${members||order.crewName||"—"}</div>
+        </div>
+      </div>
+      <div style="height:3px;background:#0077C8"></div>
+      <div style="padding:16px 18px">
+        ${jobs.map((job,i)=>jobHtml(job,i,jobs.length>1)).join("")}
+        ${order.todaysTasks?jobHtml({todaysTasks:order.todaysTasks,jobRequests:order.jobRequests},0,false):""}
+      </div>
+      <div style="height:3px;background:#0077C8"></div>
+      <div style="background:#1F2329;padding:12px 22px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:1px;text-transform:uppercase">Icon Remodeling Group Inc.</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:600">Designed with Purpose | Built with Pride</div>
+      </div>
+    </div></body></html>`);
+    w.document.close();
+    setTimeout(()=>w.print(),600);
+  }
 
   const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");showToast("Manager PIN updated");}else showToast("PIN must be at least 4 digits");};
   const saveNewCrewPin=()=>{if(newCrewPin.length>=4){saveToFB("settings/crewPin",newCrewPin);setNewCrewPin("");showToast("Crew PIN updated");}else showToast("PIN must be at least 4 digits");};
