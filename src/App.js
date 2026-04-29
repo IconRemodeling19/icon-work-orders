@@ -1354,7 +1354,7 @@ function AppInner(){
               <span style={{fontSize:"11px",background:"rgba(74,222,128,.12)",color:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>{order.crewName}</span>{getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700,marginLeft:"6px"}}>{getJobsForOrder(order).length} Jobs</span>}
               <div style={{display:"flex",gap:"3px"}}>
                 <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
-                <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><NoteIcon/></button>
+                <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
                 <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order)});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
                 <button onClick={()=>setDeleteConfirm(ri)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button>
               </div>
