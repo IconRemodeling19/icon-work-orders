@@ -1345,7 +1345,7 @@ function AppInner(){
             {(formData.jobs||[]).length<3&&<button onClick={()=>setFormData({...formData,jobs:[...(formData.jobs||[]),{...emptyJob}]})} style={{...baseBtn,background:"transparent",border:`2px dashed ${t.line}`,color:t.muted,padding:"14px",width:"100%",borderRadius:"12px",fontSize:"13px",fontWeight:700}}>+ Add Job #{(formData.jobs||[]).length+1} Work Order</button>}
 
             <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowForm(false);setEditingOrder(null);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button><button onClick={saveCrew} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingOrder!==null?"Update":"Create Order"}</button></div>
-          </div></div>)):(<>
+          </div></div>):(<>
           <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"4px"}}>{"Today's Orders"}</div>
           <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{todayCrew.length} active</div>
           {todayCrew.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}><div>No work orders for today</div><div style={{fontSize:"12px",marginTop:"5px"}}>Tap New to create one</div></div>:
