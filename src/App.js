@@ -51,7 +51,8 @@ const labelStyle={display:"block",fontSize:"11px",fontWeight:700,color:t.muted,t
 
 // ── APP GATE ────────────────────────────────────────────────────────────────
 function AppGate({children}){
-  const[authed,setAuthed]=useState(()=>localStorage.getItem(AUTH_KEY)==="true");
+  // Global gate removed - app is open, manager actions protected by individual PinDialogs
+  const[authed,setAuthed]=useState(true);
   const[pin,setPin]=useState("");
   const[err,setErr]=useState(false);
   const[shake,setShake]=useState(false);
