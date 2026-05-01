@@ -88,8 +88,13 @@ function AppGate({children}){
   };
 
   if(authLoading)return(
-    <div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff}}>
-      <div style={{textAlign:"center",color:t.muted}}><img src="/logo.jpg" alt="Icon" style={{width:70,height:"auto",opacity:.4}}/><p style={{marginTop:16,color:t.muted,fontSize:"14px"}}>Loading...</p></div>
+    <div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff,padding:"24px"}}>
+      <style>{`@keyframes wo-spin{to{transform:rotate(360deg);}}`}</style>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:"22px",color:t.red,fontWeight:700,letterSpacing:".5px",textTransform:"uppercase"}}>ICON REMODELING GROUP INC.</div>
+        <div style={{color:"#ffffff",fontSize:"11px",letterSpacing:"4px",textTransform:"uppercase",marginTop:"6px",opacity:.8}}>Work Orders</div>
+        <div style={{width:"22px",height:"22px",border:`2px solid ${t.line}`,borderTop:`2px solid ${t.red}`,borderRadius:"50%",animation:"wo-spin 0.8s linear infinite",margin:"28px auto 0"}}/>
+      </div>
     </div>
   );
 
