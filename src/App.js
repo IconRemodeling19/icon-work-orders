@@ -605,7 +605,343 @@ function OpsHomeBtn(){
   );
 }
 
-export default function App(){return <AppGate><AppInner/></AppGate>;}
+function getSubOrderIdFromHash(){
+  const h=typeof window!=="undefined"?(window.location.hash||""):"";
+  if(h.startsWith("#/sub/")){const id=h.slice(6).split(/[?&#/]/)[0];return id||null;}
+  return null;
+}
+
+export default function App(){
+  const[subOrderId,setSubOrderId]=useState(()=>getSubOrderIdFromHash());
+  useEffect(()=>{
+    const onHash=()=>setSubOrderId(getSubOrderIdFromHash());
+    window.addEventListener("hashchange",onHash);
+    return()=>window.removeEventListener("hashchange",onHash);
+  },[]);
+  if(subOrderId)return <SubOrderPublicView orderId={subOrderId}/>;
+  return <AppGate><AppInner/></AppGate>;
+}
+
+// ── SUBCONTRACTOR PUBLIC ORDER (clean black & white, no login) ───────────────
+function SubOrderPublicView({orderId}){
+  const[order,setOrder]=useState(null);
+  const[loaded,setLoaded]=useState(false);
+  const[copied,setCopied]=useState(false);
+
+  useEffect(()=>{
+    let off=null;
+    const startListen=()=>{
+      off=onValue(ref(db,`subOrders/${orderId}`),s=>{
+        setOrder(s.val()||null);setLoaded(true);
+      },()=>setLoaded(true));
+    };
+    const u=onAuthStateChanged(auth,user=>{
+      if(user){startListen();}
+      else{signInAnonymously(auth).catch(e=>console.error("Anon sign in:",e));}
+    });
+    return()=>{u();if(off)off();};
+  },[orderId]);
+
+  const docFf="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  const url=typeof window!=="undefined"?window.location.href:"";
+
+  const copyLink=async()=>{
+    try{await navigator.clipboard.writeText(url);}
+    catch{
+      const ta=document.createElement("textarea");ta.value=url;document.body.appendChild(ta);
+      ta.select();document.execCommand("copy");document.body.removeChild(ta);
+    }
+    setCopied(true);setTimeout(()=>setCopied(false),1800);
+  };
+  const printDoc=()=>window.print();
+  const mailHref=`mailto:?subject=${encodeURIComponent("Subcontractor Work Order")}&body=${encodeURIComponent("View the order here:\n"+url)}`;
+
+  if(!loaded)return(
+    <div style={{minHeight:"100vh",background:"#fff",color:"#000",fontFamily:docFf,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{fontSize:"14px",color:"#555"}}>Loading…</div>
+    </div>
+  );
+  if(!order)return(
+    <div style={{minHeight:"100vh",background:"#fff",color:"#000",fontFamily:docFf,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"24px"}}>
+      <div>
+        <div style={{fontSize:"22px",fontWeight:900,letterSpacing:"1.5px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
+        <div style={{marginTop:"24px",fontSize:"14px",color:"#444"}}>This work order is unavailable or has been removed.</div>
+      </div>
+    </div>
+  );
+
+  const p=order.privacy||{};
+  const Row=({label,value})=>value?(
+    <div style={{padding:"11px 22px",borderTop:"1px solid #999"}}>
+      <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:"#666",marginBottom:"3px"}}>{label}</div>
+      <div style={{fontSize:"14px",fontWeight:600,color:"#000"}}>{value}</div>
+    </div>
+  ):null;
+  const Section=({title,body})=>body?(
+    <div style={{borderTop:"1px solid #999",padding:"14px 22px"}}>
+      <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:"#666",marginBottom:"6px"}}>{title}</div>
+      <div style={{fontSize:"14px",color:"#000",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{body}</div>
+    </div>
+  ):null;
+
+  const doorValue=order.doorCode?(order.doorLocation?`${order.doorCode}  (${order.doorLocation})`:order.doorCode):"";
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f4f4f4",color:"#000",fontFamily:docFf}}>
+      <style>{`
+        @media print{
+          body{background:#fff !important;}
+          .no-print{display:none !important;}
+          .doc-wrap{box-shadow:none !important;border:none !important;margin:0 !important;max-width:100% !important;}
+          @page{margin:0.5in;}
+        }
+      `}</style>
+      <div className="no-print" style={{display:"flex",justifyContent:"center",flexWrap:"wrap",gap:"10px",padding:"14px 16px",background:"#fff",borderBottom:"1px solid #999"}}>
+        <button onClick={copyLink} style={{padding:"10px 18px",background:"#000",color:"#fff",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>{copied?"Link Copied!":"Copy Link"}</button>
+        <button onClick={printDoc} style={{padding:"10px 18px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>Print / Save as PDF</button>
+        <a href={mailHref} style={{padding:"10px 18px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf,textDecoration:"none",display:"inline-flex",alignItems:"center"}}>Email this order</a>
+      </div>
+      <div className="doc-wrap" style={{maxWidth:"720px",margin:"20px auto 40px",background:"#fff",border:"1px solid #999",boxShadow:"0 0 30px rgba(0,0,0,.1)"}}>
+        <div style={{padding:"24px 24px 18px",borderBottom:"2px solid #000"}}>
+          <div style={{fontSize:"22px",fontWeight:900,letterSpacing:"1.5px",textTransform:"uppercase",color:"#000"}}>Icon Remodeling Group Inc.</div>
+          <div style={{fontSize:"11px",fontWeight:700,letterSpacing:"3px",textTransform:"uppercase",color:"#444",marginTop:"5px"}}>Subcontractor Work Order</div>
+        </div>
+        <Row label="Subcontractor" value={order.subName}/>
+        <Row label="Date of Work" value={order.date}/>
+        <Row label="Job" value={order.jobName}/>
+        {p.customerName&&<Row label="Customer" value={order.customerName}/>}
+        {p.jobAddress&&<Row label="Job Address" value={order.jobAddress}/>}
+        {p.wifiName&&<Row label="WiFi Name" value={order.wifiName}/>}
+        {p.wifiPassword&&<Row label="WiFi Password" value={order.wifiPassword}/>}
+        {p.garageCode&&<Row label="Garage Code" value={order.garageCode}/>}
+        {p.doorCode&&<Row label="Door Code" value={doorValue}/>}
+        <Section title="Scope of Work" body={order.scope}/>
+        <Section title="Materials to Bring" body={order.materials}/>
+        <Section title="Special Instructions" body={order.instructions}/>
+        {(order.attachments||[]).length>0&&(
+          <div style={{borderTop:"1px solid #999",padding:"14px 22px"}}>
+            <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:"#666",marginBottom:"8px"}}>Attachments</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+              {(order.attachments||[]).map((a,i)=>(
+                <a key={i} href={a.url} target="_blank" rel="noreferrer" style={{padding:"9px 12px",border:"1px solid #999",fontSize:"13px",color:"#000",textDecoration:"underline",background:"#fff"}}>{a.name||`Attachment ${i+1}`}</a>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{padding:"16px 24px",borderTop:"2px solid #000",fontSize:"10px",letterSpacing:"1.5px",textTransform:"uppercase",color:"#444",textAlign:"center"}}>
+          Icon Remodeling Group Inc. · Subcontractor Work Order
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SUBCONTRACTOR ORDERS (manager side, dark palette) ───────────────────────
+const subT={bg:"#0d1117",card:"#161b22",line:"#30363d",red:"#E8192C",text:"#e6edf3",muted:"#8b949e"};
+const subInputStyle={width:"100%",padding:"13px 15px",background:"#0d1117",border:`1.5px solid ${subT.line}`,borderRadius:"10px",color:subT.text,fontSize:"15px",fontFamily:ff,outline:"none",boxSizing:"border-box"};
+const subLabelStyle={display:"block",fontSize:"11px",fontWeight:700,color:subT.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"8px"};
+
+const PRIVACY_FIELDS=[
+  ["customerName","Customer Name"],
+  ["jobAddress","Job Address"],
+  ["wifiName","WiFi Name"],
+  ["wifiPassword","WiFi Password"],
+  ["garageCode","Garage Code"],
+  ["doorCode","Door Code"],
+];
+
+function SubOrderManager({onBack,onHome,activeJobs,showToast}){
+  const today=new Date().toISOString().split("T")[0];
+  const empty={subName:"",date:today,jobIndex:"",scope:"",materials:"",instructions:"",attachments:[],
+    privacy:{customerName:false,jobAddress:false,wifiName:false,wifiPassword:false,garageCode:false,doorCode:false}};
+  const[subOrders,setSubOrders]=useState({});
+  const[loaded,setLoaded]=useState(false);
+  const[showForm,setShowForm]=useState(false);
+  const[uploading,setUploading]=useState(false);
+  const[form,setForm]=useState(empty);
+  const[copiedId,setCopiedId]=useState(null);
+
+  useEffect(()=>{
+    const u=onValue(ref(db,"subOrders"),s=>{setSubOrders(s.val()||{});setLoaded(true);},()=>setLoaded(true));
+    return()=>u();
+  },[]);
+
+  const togglePriv=k=>setForm(f=>({...f,privacy:{...f.privacy,[k]:!f.privacy[k]}}));
+  const upload=async e=>{
+    const files=Array.from(e.target.files);if(!files.length)return;
+    setUploading(true);
+    const atts=[...(form.attachments||[])];
+    for(const f of files){
+      try{
+        const fn=`${Date.now()}_${f.name}`;
+        const fr=storageRef(storage,`suborders/${fn}`);
+        await uploadBytes(fr,f);
+        const url=await getDownloadURL(fr);
+        atts.push({name:f.name,url,uploadedAt:new Date().toISOString()});
+      }catch(err){console.error(err);showToast("Upload failed");}
+    }
+    setForm(f=>({...f,attachments:atts}));setUploading(false);
+    showToast(`${files.length} file(s) uploaded`);e.target.value="";
+  };
+  const removeAtt=i=>setForm(f=>({...f,attachments:(f.attachments||[]).filter((_,x)=>x!==i)}));
+
+  const save=()=>{
+    if(!form.subName.trim()){showToast("Subcontractor name required");return;}
+    if(form.jobIndex===""){showToast("Select an active job");return;}
+    const job=(activeJobs||[])[Number(form.jobIndex)];
+    if(!job){showToast("Invalid job");return;}
+    const id=`${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const order={
+      id,createdAt:new Date().toISOString(),
+      subName:form.subName.trim(),date:form.date,
+      jobName:job.name||"",
+      customerName:job.customerName||"",
+      jobAddress:job.address||"",
+      wifiName:job.wifiName||"",
+      wifiPassword:job.wifiPassword||"",
+      garageCode:job.garageCode||"",
+      doorCode:job.doorCode||"",
+      doorLocation:job.doorLocation||"",
+      scope:form.scope,materials:form.materials,instructions:form.instructions,
+      attachments:form.attachments||[],
+      privacy:form.privacy,
+    };
+    saveToFB(`subOrders/${id}`,order);
+    setForm(empty);setShowForm(false);showToast("Subcontractor order created");
+  };
+
+  const SEVEN_DAYS=7*24*60*60*1000;
+  const recent=Object.values(subOrders||{}).filter(o=>{
+    if(!o?.createdAt)return false;
+    return (Date.now()-new Date(o.createdAt).getTime())<=SEVEN_DAYS;
+  }).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+
+  const linkFor=id=>`${window.location.origin}/#/sub/${id}`;
+  const copyLink=async id=>{
+    const link=linkFor(id);
+    try{await navigator.clipboard.writeText(link);}
+    catch{
+      const ta=document.createElement("textarea");ta.value=link;document.body.appendChild(ta);
+      ta.select();document.execCommand("copy");document.body.removeChild(ta);
+    }
+    setCopiedId(id);showToast("Link copied");
+    setTimeout(()=>setCopiedId(c=>c===id?null:c),1800);
+  };
+  const deleteOrder=id=>{
+    if(!window.confirm("Delete this order? The public link will stop working."))return;
+    set(ref(db,`subOrders/${id}`),null).catch(e=>console.error(e));
+    showToast("Deleted");
+  };
+
+  return(
+    <div style={{minHeight:"100vh",background:subT.bg,fontFamily:ff,color:subT.text}}>
+      <div style={{padding:"12px 16px",borderBottom:`1px solid ${subT.line}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:subT.card}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:0}}>
+          <button onClick={onBack} style={{...ghostBtn,padding:"6px",color:subT.text}}><BackIcon/></button>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:"15px",fontWeight:700,color:subT.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>Subcontractor Orders</div>
+            <div style={{fontSize:"11px",color:subT.muted,whiteSpace:"nowrap"}}>{recent.length} active in last 7 days</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+          {!showForm&&<button onClick={()=>{setForm(empty);setShowForm(true);}} style={{...baseBtn,background:subT.red,color:"#fff",padding:"8px 14px",fontSize:"13px"}}><PlusIcon/> New</button>}
+          <button onClick={onHome} style={{...ghostBtn,padding:"6px",color:subT.muted}} title="Home"><HomeIcon/></button>
+        </div>
+      </div>
+
+      <div style={{padding:"20px",maxWidth:"720px",margin:"0 auto",paddingBottom:"100px",boxSizing:"border-box"}}>
+        {showForm?(
+          <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+            <h2 style={{fontSize:"19px",margin:"0 0 4px",fontWeight:700,color:subT.text}}>New Subcontractor Order</h2>
+            <div><label style={subLabelStyle}>Subcontractor / Company</label><input value={form.subName} onChange={e=>setForm({...form,subName:e.target.value})} placeholder="Subcontractor or company name" style={subInputStyle}/></div>
+            <div><label style={subLabelStyle}>Date of Work</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} style={subInputStyle}/></div>
+            <div>
+              <label style={subLabelStyle}>Active Job</label>
+              <select value={form.jobIndex} onChange={e=>setForm({...form,jobIndex:e.target.value})} style={{...subInputStyle,appearance:"none",cursor:"pointer"}}>
+                <option value="">— Select an active job —</option>
+                {(activeJobs||[]).map((j,i)=><option key={i} value={i}>{j.name}{j.customerName?` · ${j.customerName}`:""}</option>)}
+              </select>
+            </div>
+            <div><label style={subLabelStyle}>Scope of Work</label><BulletTextarea value={form.scope} onChange={e=>setForm({...form,scope:e.target.value})} placeholder="What the sub will do… (Enter for bullets)" style={subInputStyle}/></div>
+            <div><label style={subLabelStyle}>Materials to Bring</label><BulletTextarea value={form.materials} onChange={e=>setForm({...form,materials:e.target.value})} placeholder="Materials… (Enter for bullets)" style={subInputStyle}/></div>
+            <div><label style={subLabelStyle}>Special Instructions</label><BulletTextarea value={form.instructions} onChange={e=>setForm({...form,instructions:e.target.value})} placeholder="Notes, access, timing… (Enter for bullets)" style={subInputStyle}/></div>
+
+            <div>
+              <label style={subLabelStyle}>Attachments (PDF / drawings)</label>
+              <input type="file" multiple style={{display:"none"}} id="suborder-file" onChange={upload}/>
+              <button onClick={()=>document.getElementById("suborder-file")?.click()} disabled={uploading} style={{...baseBtn,background:subT.card,border:`1px solid ${subT.line}`,color:subT.text,padding:"11px 16px",fontSize:"14px",width:"100%"}}><PaperclipIcon/> {uploading?"Uploading…":"Add Attachment"}</button>
+              {(form.attachments||[]).length>0&&<div style={{marginTop:"8px",display:"flex",flexDirection:"column",gap:"6px"}}>
+                {form.attachments.map((a,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:subT.card,border:`1px solid ${subT.line}`,padding:"8px 12px",borderRadius:"8px"}}>
+                    <span style={{fontSize:"13px",color:subT.text,display:"inline-flex",alignItems:"center",gap:"6px"}}><PaperclipIcon/> {a.name}</span>
+                    <button onClick={()=>removeAtt(i)} style={{...ghostBtn,padding:"4px",color:subT.red}}><TrashIcon/></button>
+                  </div>
+                ))}
+              </div>}
+            </div>
+
+            <div style={{background:subT.card,border:`1px solid ${subT.line}`,borderRadius:"12px",padding:"16px"}}>
+              <div style={{fontSize:"11px",fontWeight:700,color:subT.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"4px"}}>Privacy — Show on Sub's Document</div>
+              <div style={{fontSize:"12px",color:subT.muted,marginBottom:"6px"}}>All OFF by default. Toggle ON only what the sub should see.</div>
+              {PRIVACY_FIELDS.map(([k,label])=>{
+                const on=!!form.privacy[k];
+                return(
+                  <div key={k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderTop:`1px solid ${subT.line}`}}>
+                    <span style={{fontSize:"14px",color:subT.text}}>{label}</span>
+                    <button type="button" onClick={()=>togglePriv(k)} style={{width:"44px",height:"24px",borderRadius:"14px",background:on?subT.red:subT.line,border:"none",position:"relative",cursor:"pointer",padding:0}}>
+                      <span style={{position:"absolute",top:"2px",left:on?"22px":"2px",width:"20px",height:"20px",background:"#fff",borderRadius:"50%",transition:"left .15s"}}/>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{display:"flex",gap:"10px"}}>
+              <button onClick={()=>setShowForm(false)} style={{...baseBtn,flex:1,background:subT.card,border:`1px solid ${subT.line}`,color:subT.muted,padding:"14px"}}>Cancel</button>
+              <button onClick={save} style={{...baseBtn,flex:2,background:subT.red,color:"#fff",padding:"14px",fontWeight:700,borderRadius:"10px",justifyContent:"center"}}>Create Order</button>
+            </div>
+          </div>
+        ):(
+          <>
+            <div style={{fontSize:"17px",fontWeight:700,color:subT.text,marginBottom:"4px"}}>Recent Subcontractor Orders</div>
+            <div style={{fontSize:"12px",color:subT.muted,marginBottom:"14px"}}>Showing orders from the last 7 days. Older orders are hidden but their public links keep working.</div>
+            {!loaded?(
+              <div style={{textAlign:"center",padding:"48px",color:subT.muted}}>Loading…</div>
+            ):recent.length===0?(
+              <div style={{textAlign:"center",padding:"48px",color:subT.muted}}>
+                <div>No subcontractor orders yet</div>
+                <div style={{fontSize:"12px",marginTop:"5px"}}>Tap New to create one</div>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                {recent.map(o=>{
+                  const sharedCount=Object.values(o.privacy||{}).filter(Boolean).length;
+                  return(
+                    <div key={o.id} style={{background:subT.card,border:`1px solid ${subT.line}`,borderRadius:"12px",padding:"15px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px"}}>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div style={{fontSize:"15px",fontWeight:700,color:subT.text,marginBottom:"3px"}}>{o.subName}</div>
+                          <div style={{fontSize:"12px",color:subT.muted}}>{o.date} · {o.jobName||"—"}</div>
+                        </div>
+                        <span style={{fontSize:"10px",background:"rgba(232,25,44,0.15)",color:subT.red,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",whiteSpace:"nowrap"}}>{sharedCount} field{sharedCount===1?"":"s"} shared</span>
+                      </div>
+                      <div style={{fontSize:"11px",color:subT.muted,marginTop:"8px",wordBreak:"break-all"}}>{linkFor(o.id)}</div>
+                      <div style={{display:"flex",gap:"8px",marginTop:"12px",flexWrap:"wrap"}}>
+                        <button onClick={()=>copyLink(o.id)} style={{...baseBtn,flex:"1 1 120px",background:subT.red,color:"#fff",padding:"9px 12px",fontSize:"12px",borderRadius:"8px",fontWeight:700}}>{copiedId===o.id?"Copied!":"Copy Link"}</button>
+                        <a href={`#/sub/${o.id}`} target="_blank" rel="noreferrer" style={{...baseBtn,flex:"1 1 80px",background:subT.bg,border:`1px solid ${subT.line}`,color:subT.text,padding:"9px 12px",fontSize:"12px",borderRadius:"8px",fontWeight:700,textDecoration:"none"}}>Open</a>
+                        <button onClick={()=>deleteOrder(o.id)} style={{...baseBtn,background:subT.bg,border:`1px solid ${subT.line}`,color:subT.red,padding:"9px 12px",fontSize:"12px",borderRadius:"8px",fontWeight:700}}><TrashIcon/></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function AppInner(){
   const[mode,setMode]=useState(null);
@@ -1367,6 +1703,8 @@ function AppInner(){
     </div>
   </div>);
 
+  if(mode==="subOrders")return(<SubOrderManager onBack={()=>setMode("manager")} onHome={goHome} activeJobs={activeJobs} showToast={showToast}/>);
+
   // ── MANAGER ───────────────────────────────────────────────────────────────
   return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
@@ -1377,6 +1715,7 @@ function AppInner(){
         <button onClick={()=>setShowPinSettings(true)} style={{...ghostBtn,padding:"6px",color:t.amber}} title="PIN Settings"><LockIcon/></button>
         <button onClick={()=>setMode("manageLockbox")} style={{...ghostBtn,padding:"6px",color:t.amber}} title="Lock Box Codes"><KeyIcon/></button>
         <button onClick={()=>setManageCrews(true)} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Manage Crews"><SettingsIcon/></button>
+        <button onClick={()=>setMode("subOrders")} style={{...baseBtn,background:t.tag,border:`1px solid ${t.line}`,color:t.text,padding:"7px 12px",fontSize:"12px",fontWeight:700}} title="Subcontractor Orders">👷 Subs</button>
         {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"8px 14px",fontSize:"13px"}}><PlusIcon/> New</button>}
       </Header>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
