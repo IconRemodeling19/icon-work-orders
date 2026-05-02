@@ -608,20 +608,59 @@ function InfoModal({title,icon,children,onClose}){
 function Header({title,subtitle,onBack,onHome,children}){
   return(
     <div className="no-print">
-      <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.line}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.nav}}>
+      <style>{`
+        @media (max-width:359px){.header-back-text{display:none;}.header-back-btn{padding:6px 8px !important;}}
+      `}</style>
+      <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.line}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.nav,gap:"8px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:0,flex:"0 1 auto"}}>
-          {onBack&&<button onClick={onBack} style={{...ghostBtn,padding:"6px 10px",flexShrink:0,color:t.blue,display:"inline-flex",alignItems:"center",gap:"4px",fontSize:"13px",fontWeight:600}}><BackIcon/>Previous Page</button>}
+          {onBack&&<button className="header-back-btn" onClick={onBack} style={{...ghostBtn,padding:"6px 10px",flexShrink:0,color:t.blue,display:"inline-flex",alignItems:"center",gap:"4px",fontSize:"13px",fontWeight:600}}><BackIcon/><span className="header-back-text">Previous Page</span></button>}
           <div style={{minWidth:0}}>
             <div style={{fontSize:"15px",fontWeight:700,color:t.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</div>
             {subtitle&&<div style={{fontSize:"11px",color:t.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subtitle}</div>}
           </div>
         </div>
-        <div style={{display:"flex",gap:"4px",alignItems:"center",flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+        <div style={{display:"flex",gap:"4px",alignItems:"center",flexShrink:0,justifyContent:"flex-end"}}>
           {children}
           {onHome&&<button onClick={onHome} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Home"><HomeIcon/></button>}
         </div>
       </div>
     </div>);
+}
+
+// ── OVERFLOW MENU (⋮) — collapses overflow header actions on small screens ──
+function OverflowMenu({items,color}){
+  const[open,setOpen]=useState(false);
+  const wrapRef=useRef(null);
+  useEffect(()=>{
+    if(!open)return;
+    const onDown=e=>{if(wrapRef.current&&!wrapRef.current.contains(e.target))setOpen(false);};
+    const onEsc=e=>{if(e.key==="Escape")setOpen(false);};
+    document.addEventListener("mousedown",onDown);
+    document.addEventListener("touchstart",onDown);
+    document.addEventListener("keydown",onEsc);
+    return()=>{
+      document.removeEventListener("mousedown",onDown);
+      document.removeEventListener("touchstart",onDown);
+      document.removeEventListener("keydown",onEsc);
+    };
+  },[open]);
+  return(
+    <div ref={wrapRef} style={{position:"relative"}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{...ghostBtn,padding:"6px 8px",color:color||t.text,borderRadius:"8px",background:open?t.tag:"transparent",border:`1px solid ${open?t.line:"transparent"}`}} title="More options" aria-label="More options" aria-expanded={open}>
+        <DotsIcon/>
+      </button>
+      {open&&<div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#161b22",border:"1px solid #30363d",borderRadius:"12px",boxShadow:"0 8px 28px rgba(0,0,0,.7)",zIndex:1500,minWidth:"220px",overflow:"hidden"}}>
+        {items.map((item,i)=>(
+          <button key={i} onClick={()=>{setOpen(false);item.onClick&&item.onClick();}} style={{display:"flex",alignItems:"center",gap:"12px",width:"100%",padding:"13px 16px",background:"transparent",border:"none",borderTop:i===0?"none":"1px solid #30363d",color:item.color||t.text,fontSize:"14px",fontWeight:600,textAlign:"left",cursor:"pointer",fontFamily:ff}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.05)";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+            <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"22px",flexShrink:0,color:item.color||t.muted}}>{item.icon}</span>
+            <span style={{flex:1}}>{item.label}</span>
+          </button>
+        ))}
+      </div>}
+    </div>
+  );
 }
 
 
@@ -1396,15 +1435,23 @@ function AppInner(){
   // Returns the number of SMS links triggered (0 = silent skip per spec).
   const triggerCrewSms=useCallback((order)=>{
     const members=order.members||[];
-    const date=order.date||"today";
-    const firstJob=getJobsForOrder(order)[0]||{};
-    const address=firstJob.jobAddress||"see app";
+    const jobs=getJobsForOrder(order);
+    const smsDate=order.date
+      ?new Date(order.date+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric"})
+      :"today";
     const recipients=members
       .map(name=>({name,phone:String(memberPhones[name]||"").replace(/\D/g,"")}))
       .filter(r=>r.phone.length>=10);
     recipients.forEach((r,i)=>{
       setTimeout(()=>{
-        const message=`Icon Remodeling Group: Hi ${r.name}, you have a new work order for ${date}. Job: ${address}. Open your assignments at icon-work-orders.vercel.app`;
+        let message;
+        if(jobs.length<=1){
+          const address=jobs[0]?.jobAddress||"see app";
+          message=`Icon Remodeling Group: Hi ${r.name}, you have a new work order for ${smsDate}. Job: ${address}. Open your assignments at icon-work-orders.vercel.app`;
+        } else {
+          const lines=jobs.map((j,idx)=>`J${idx+1}: ${j.jobAddress||"see app"}`).join("\n");
+          message=`Icon Remodeling Group: Hi ${r.name}, you have ${jobs.length} jobs scheduled for ${smsDate}:\n${lines}\nOpen your assignments at icon-work-orders.vercel.app`;
+        }
         const link=`sms:${r.phone}&body=${encodeURIComponent(message)}`;
         const a=document.createElement("a");
         a.href=link;a.style.display="none";
@@ -2223,12 +2270,14 @@ function AppInner(){
         showToast={showToast}
       />}
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
-        <button onClick={()=>setShowArchive(true)} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Archive"><ArchiveIcon/></button>
-        <button onClick={()=>setShowPinSettings(true)} style={{...ghostBtn,padding:"6px",color:t.amber}} title="PIN Settings"><LockIcon/></button>
-        <button onClick={()=>setMode("manageLockbox")} style={{...ghostBtn,padding:"6px",color:t.amber}} title="Lock Box Codes"><KeyIcon/></button>
-        <button onClick={()=>setManageCrews(true)} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Manage Crews"><SettingsIcon/></button>
-        <button onClick={()=>setMode("subOrders")} style={{...baseBtn,background:t.tag,border:`1px solid ${t.line}`,color:t.text,padding:"7px 12px",fontSize:"12px",fontWeight:700}} title="Subcontractor Orders">👷 Subs</button>
-        {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"8px 14px",fontSize:"13px"}}><PlusIcon/> New</button>}
+        <button onClick={()=>setMode("subOrders")} style={{...baseBtn,background:t.tag,border:`1px solid ${t.line}`,color:t.text,padding:"7px 10px",fontSize:"12px",fontWeight:700}} title="Subcontractor Orders">👷 Subs</button>
+        {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"7px 12px",fontSize:"13px"}}><PlusIcon/> New</button>}
+        <OverflowMenu items={[
+          {icon:<ArchiveIcon/>,label:"Archive",onClick:()=>setShowArchive(true)},
+          {icon:<LockIcon/>,label:"Change PIN",color:t.amber,onClick:()=>setShowPinSettings(true)},
+          {icon:<KeyIcon/>,label:"Lock Box Codes",color:t.amber,onClick:()=>setMode("manageLockbox")},
+          {icon:<SettingsIcon/>,label:"Manage Crews",onClick:()=>setManageCrews(true)},
+        ]}/>
       </Header>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         {showForm?(<div>
