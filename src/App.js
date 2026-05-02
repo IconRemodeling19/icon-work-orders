@@ -671,8 +671,66 @@ function SubOrderPublicView({orderId}){
     }
     setCopied(true);setTimeout(()=>setCopied(false),1800);
   };
-  const printDoc=()=>window.print();
-  const mailHref=`mailto:?subject=${encodeURIComponent("Subcontractor Work Order")}&body=${encodeURIComponent("View the order here:\n"+url)}`;
+  const downloadPdf=()=>{
+    if(!order)return;
+    const pp=order.privacy||{};
+    const dv=order.doorCode?(order.doorLocation?`${order.doorCode}  (${order.doorLocation})`:order.doorCode):"";
+    const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    const row=(label,value)=>value?`<tr><td style="padding:10px 14px;border-top:1px solid #000;width:36%;font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#000;vertical-align:top">${esc(label)}</td><td style="padding:10px 14px;border-top:1px solid #000;font-size:13px;font-weight:600;color:#000;vertical-align:top">${esc(value)}</td></tr>`:"";
+    const section=(title,body)=>body?`<div style="border-top:1px solid #000;padding:12px 14px"><div style="font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#000;margin-bottom:6px">${esc(title)}</div><div style="font-size:13px;color:#000;line-height:1.6;white-space:pre-wrap">${esc(body)}</div></div>`:"";
+    const isImage=n=>/\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff?)(\?|#|$)/i.test(n||"");
+    const isPdfFile=n=>/\.pdf(\?|#|$)/i.test(n||"");
+    const atts=order.attachments||[];
+    const imgAtts=atts.filter(a=>isImage(a.name||a.url));
+    const pdfAtts=atts.filter(a=>isPdfFile(a.name||a.url));
+    const otherAtts=atts.filter(a=>!isImage(a.name||a.url)&&!isPdfFile(a.name||a.url));
+    const attNotice=atts.length>0?`<div style="border:2px solid #000;padding:10px 14px;margin:14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#000;text-align:center">⚠ This order has ${atts.length} attachment${atts.length===1?"":"s"} — see pages below</div>`:"";
+    const pdfList=pdfAtts.length>0?`<div style="border-top:1px solid #000;padding:12px 14px"><div style="font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#000;margin-bottom:8px">PDF Attachments</div>${pdfAtts.map(a=>`<div style="margin-bottom:10px;padding:10px;border:1px solid #000"><div style="font-size:12px;font-weight:700;color:#000;margin-bottom:4px">PDF Attachment: ${esc(a.name||"PDF")}</div><a href="${esc(a.url)}" style="font-size:11px;color:#000;text-decoration:underline;word-break:break-all">${esc(a.url)}</a><div style="font-size:11px;color:#000;margin-top:4px;font-style:italic">Open this link to view the PDF attachment</div></div>`).join("")}</div>`:"";
+    const otherList=otherAtts.length>0?`<div style="border-top:1px solid #000;padding:12px 14px"><div style="font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#000;margin-bottom:8px">Other Attachments</div>${otherAtts.map(a=>`<div style="margin-bottom:6px"><a href="${esc(a.url)}" style="font-size:12px;color:#000;text-decoration:underline">${esc(a.name||a.url)}</a></div>`).join("")}</div>`:"";
+    const imgPages=imgAtts.map(a=>`<div style="page-break-before:always;padding:14px"><div style="font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#000;margin-bottom:8px">Attachment: ${esc(a.name||"Image")}</div><img src="${esc(a.url)}" alt="${esc(a.name||"")}" style="width:100%;border:1px solid #000;display:block"/></div>`).join("");
+    const w=window.open("","_blank","width=900,height=700");
+    if(!w)return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Subcontractor Work Order — ${esc(order.jobName||order.subName||"")}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Helvetica Neue',Arial,sans-serif;background:#fff;color:#000}
+      .doc{max-width:720px;margin:0 auto;background:#fff;border:1px solid #000}
+      a{color:#000}
+      @media print{
+        body{background:#fff}
+        .doc{border:none;max-width:100%}
+        @page{margin:0.5in}
+      }
+    </style>
+    </head><body><div class="doc">
+      <div style="padding:20px 18px 14px;border-bottom:2px solid #000">
+        <div style="font-size:20px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#000">Icon Remodeling Group Inc.</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#000;margin-top:4px">Subcontractor Work Order</div>
+      </div>
+      ${attNotice}
+      <table style="width:100%;border-collapse:collapse">
+        ${row("Subcontractor",order.subName)}
+        ${row("Date of Work",order.date)}
+        ${row("Job",order.jobName)}
+        ${pp.customerName?row("Customer",order.customerName):""}
+        ${pp.jobAddress?row("Job Address",order.jobAddress):""}
+        ${pp.wifiName?row("WiFi Name",order.wifiName):""}
+        ${pp.wifiPassword?row("WiFi Password",order.wifiPassword):""}
+        ${pp.garageCode?row("Garage Code",order.garageCode):""}
+        ${pp.doorCode?row("Door Code",dv):""}
+      </table>
+      ${section("Scope of Work",order.scope)}
+      ${section("Materials to Bring",order.materials)}
+      ${section("Special Instructions",order.instructions)}
+      ${pdfList}
+      ${otherList}
+      <div style="padding:14px 18px;border-top:2px solid #000;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#000;text-align:center">Icon Remodeling Group Inc. · Subcontractor Work Order</div>
+      ${imgPages}
+    </div></body></html>`);
+    w.document.close();
+    setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
+  };
+  const mailHref=`mailto:?subject=${encodeURIComponent(`Icon Remodeling Group — Subcontractor Work Order ${order?.jobName||order?.id||""}`.trim())}&body=${encodeURIComponent(`Please find your work order details at the following link: ${url}\n\nIf there are attachments included, you will be notified at the top of the work order page.`)}`;
 
   if(!loaded)return(
     <div style={{minHeight:"100vh",background:"#fff",color:"#000",fontFamily:docFf,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -719,10 +777,11 @@ function SubOrderPublicView({orderId}){
       <div className="no-print" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",padding:"10px 16px",background:"#fff",borderBottom:"1px solid #999"}}>
         <button onClick={goAppHome} style={{padding:"8px 14px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>← Home</button>
       </div>
-      <div className="no-print" style={{display:"flex",justifyContent:"center",flexWrap:"wrap",gap:"10px",padding:"14px 16px",background:"#fff",borderBottom:"1px solid #999"}}>
-        <button onClick={copyLink} style={{padding:"10px 18px",background:"#000",color:"#fff",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>{copied?"Link Copied!":"Copy Link"}</button>
-        <button onClick={printDoc} style={{padding:"10px 18px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>Print / Save as PDF</button>
-        <a href={mailHref} style={{padding:"10px 18px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf,textDecoration:"none",display:"inline-flex",alignItems:"center"}}>Email this order</a>
+      <style>{`@media (max-width:560px){.sub-actions{flex-direction:column !important}.sub-actions>*{width:100% !important;flex:1 1 100% !important}}`}</style>
+      <div className="no-print sub-actions" style={{display:"flex",justifyContent:"center",flexWrap:"wrap",gap:"10px",padding:"14px 16px",background:"#fff",borderBottom:"1px solid #999"}}>
+        <button onClick={copyLink} style={{padding:"12px 18px",background:"#000",color:"#fff",border:"1px solid #000",borderRadius:"6px",fontSize:"14px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>{copied?"Link Copied!":"Copy Link"}</button>
+        <button onClick={downloadPdf} style={{padding:"12px 18px",background:"#000",color:"#fff",border:"1px solid #000",borderRadius:"6px",fontSize:"14px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>🖨️ Download / Print PDF</button>
+        <a href={mailHref} style={{padding:"12px 18px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"14px",fontWeight:700,cursor:"pointer",fontFamily:docFf,textDecoration:"none",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>📧 Email this Order</a>
       </div>
       <div className="doc-wrap" style={{maxWidth:"720px",margin:"20px auto 40px",background:"#fff",border:"1px solid #999",boxShadow:"0 0 30px rgba(0,0,0,.1)"}}>
         <div style={{padding:"24px 24px 18px",borderBottom:"2px solid #000"}}>
@@ -1058,6 +1117,8 @@ function AppInner(){
   const[aiMatsDialog,setAiMatsDialog]=useState(null); // {jobIdx, jobDescription}
   const[aiVoiceDialog,setAiVoiceDialog]=useState(false);
   const[unreadCount,setUnreadCount]=useState(0);
+  const[expandedSummaries,setExpandedSummaries]=useState({});
+  const[summaryCardOpen,setSummaryCardOpen]=useState(false);
   const fileRef=useRef(null);const fieldFileRef=useRef(null);const noteFileRef=useRef(null);const cameraRef=useRef(null);const filesUploadRef=useRef(null);
 
   // Subscribe to recurring templates / activity log / daily summaries / materials
@@ -2248,24 +2309,64 @@ function AppInner(){
           {mgrTab==="history"&&(()=>{
             const yesterday=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
             const ySummary=dailySummaries[yesterday];
+            const findOrderByRef=refId=>(orders||[]).find(o=>o.referenceId===refId);
+            const extractDate=text=>{const m=(text||"").match(/\d{4}-\d{2}-\d{2}/);return m?m[0]:null;};
+            const handleActivityClick=e=>{
+              if(!e||!e.type)return;
+              if(e.type==="order_created"||e.type==="order_viewed"||e.type==="recurring_generated"){
+                const found=findOrderByRef(e.refId);
+                if(found)setDocView(found);
+                else showToast("This order is no longer available");
+                return;
+              }
+              if(e.type==="field_note"){setMode("fieldnotes");return;}
+              if(e.type==="materials_request"){
+                if(e.materialsId&&materialsRequests[e.materialsId])setMaterialsDetail(e.materialsId);
+                else showToast("This order is no longer available");
+                return;
+              }
+              if(e.type&&e.type.startsWith("sub_order")){setMode("subOrders");return;}
+              if(e.type==="summary"){setExpandedSummaries(p=>({...p,[e.id]:!p[e.id]}));return;}
+            };
             return(<div>
-              {/* Daily summary card */}
-              {ySummary&&<div style={{background:"rgba(34,211,238,.05)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"12px",padding:"16px",marginBottom:"16px"}}>
-                <div style={{fontSize:"11px",fontWeight:700,color:t.cyan,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"6px"}}>📊 Yesterday — {ySummary.date}</div>
-                <div style={{fontSize:"14px",color:t.text,lineHeight:1.5}}>{ySummary.text}</div>
+              <style>{`.history-row{transition:background 0.15s ease}.history-row:hover{background:${t.nav} !important}.history-row:active{background:${t.tag} !important;transform:scale(0.997)}.summary-card:hover{background:rgba(34,211,238,.09) !important}.summary-card:active{transform:scale(0.997)}`}</style>
+              {/* Daily summary card — clickable, toggles inline expansion */}
+              {ySummary&&<div className="summary-card" onClick={()=>setSummaryCardOpen(o=>!o)} style={{background:"rgba(34,211,238,.05)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"12px",padding:"16px",marginBottom:"16px",cursor:"pointer",transition:"background 0.15s ease"}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"10px"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"11px",fontWeight:700,color:t.cyan,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"6px"}}>📊 Yesterday — {ySummary.date}</div>
+                    <div style={{fontSize:"14px",color:t.text,lineHeight:1.5}}>{ySummary.text}</div>
+                  </div>
+                  <span style={{fontSize:"18px",color:t.cyan,flexShrink:0,transform:summaryCardOpen?"rotate(90deg)":"rotate(0deg)",transition:"transform 0.18s ease"}}>→</span>
+                </div>
+                {summaryCardOpen&&<div style={{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid rgba(34,211,238,.2)",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"10px"}}>
+                  <div><div style={{fontSize:"10px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"3px"}}>Orders</div><div style={{fontSize:"18px",fontWeight:700,color:t.text}}>{ySummary.ordersCount||0}</div></div>
+                  <div><div style={{fontSize:"10px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"3px"}}>Crews</div><div style={{fontSize:"18px",fontWeight:700,color:t.text}}>{ySummary.crewCount||0}</div></div>
+                  <div><div style={{fontSize:"10px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"3px"}}>Field Notes</div><div style={{fontSize:"18px",fontWeight:700,color:t.text}}>{ySummary.fieldNotesCount||0}</div></div>
+                  <div><div style={{fontSize:"10px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"3px"}}>Materials</div><div style={{fontSize:"18px",fontWeight:700,color:t.text}}>{ySummary.materialsCount||0}</div></div>
+                </div>}
               </div>}
               <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"4px"}}>Activity Log</div>
               <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{activityEntries.length} event{activityEntries.length===1?"":"s"}</div>
               {activityEntries.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No activity yet</div>:
               <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{activityEntries.slice(0,200).map(e=>{
                 const d=new Date(e.ts);const time=d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});const day=d.toLocaleDateString([],{month:"short",day:"numeric"});
-                const clickable=e.type==="materials_request"&&e.materialsId;
-                return(<div key={e.id} onClick={clickable?()=>setMaterialsDetail(e.materialsId):undefined} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"10px 14px",display:"flex",alignItems:"flex-start",gap:"10px",cursor:clickable?"pointer":"default"}}>
+                const isExpanded=e.type==="summary"&&expandedSummaries[e.id];
+                const summaryDate=e.type==="summary"?extractDate(e.text):null;
+                const summaryData=summaryDate?dailySummaries[summaryDate]:null;
+                return(<div key={e.id} className="history-row" onClick={()=>handleActivityClick(e)} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"10px 14px",display:"flex",alignItems:"flex-start",gap:"10px",cursor:"pointer"}}>
                   <div style={{fontSize:"16px",flexShrink:0}}>{activityIcon(e.type)}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:"13px",color:t.text,lineHeight:1.4}}>{e.text}</div>
+                    <div style={{fontSize:"13px",color:t.text,lineHeight:1.4,whiteSpace:isExpanded?"pre-wrap":"normal"}}>{e.text}</div>
                     <div style={{fontSize:"11px",color:t.muted,marginTop:"2px"}}>{day} · {time}{e.who?` · ${e.who}`:""}</div>
+                    {isExpanded&&summaryData&&<div style={{marginTop:"10px",paddingTop:"10px",borderTop:`1px solid ${t.line}`,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:"8px"}}>
+                      <div><div style={{fontSize:"10px",color:t.muted,textTransform:"uppercase",letterSpacing:"1px"}}>Orders</div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{summaryData.ordersCount||0}</div></div>
+                      <div><div style={{fontSize:"10px",color:t.muted,textTransform:"uppercase",letterSpacing:"1px"}}>Crews</div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{summaryData.crewCount||0}</div></div>
+                      <div><div style={{fontSize:"10px",color:t.muted,textTransform:"uppercase",letterSpacing:"1px"}}>Notes</div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{summaryData.fieldNotesCount||0}</div></div>
+                      <div><div style={{fontSize:"10px",color:t.muted,textTransform:"uppercase",letterSpacing:"1px"}}>Materials</div><div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{summaryData.materialsCount||0}</div></div>
+                    </div>}
                   </div>
+                  <span style={{fontSize:"15px",color:t.muted,flexShrink:0,alignSelf:"center",transform:isExpanded?"rotate(90deg)":"rotate(0deg)",transition:"transform 0.18s ease"}}>→</span>
                 </div>);
               })}</div>}
             </div>);
