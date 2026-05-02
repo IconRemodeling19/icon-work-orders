@@ -1,5 +1,25 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { db, ref, set, onValue, storage, storageRef, uploadBytes, getDownloadURL, auth, signInAnonymously, onAuthStateChanged } from "./firebase";
+import { SkeletonScreen, SkeletonOrderList, SkeletonStyles, OfflineBanner } from "./Skeletons";
+import { generateReferenceId, ensureReferenceId } from "./refId";
+import { FREQUENCIES, nextDate, todayStr as recurringTodayStr, dueTemplates, orderFromTemplate } from "./recurring";
+import MiniCalendar from "./MiniCalendar";
+import { logActivity, logConfirmation, iconFor as activityIcon } from "./historyLog";
+import { requestPermissionAndRegisterToken, localNotify } from "./notifications";
+import MaterialsRequestForm from "./MaterialsRequestForm";
+import MaterialsManagerPanel from "./MaterialsManagerPanel";
+import { AIPillButton, GenerateDescriptionDialog, SuggestMaterialsDialog, VoiceToOrderDialog } from "./AIControls";
+
+// ── ONLINE/OFFLINE HOOK ─────────────────────────────────────────────────────
+function useOnline(){
+  const[online,setOnline]=useState(typeof navigator==="undefined"?true:navigator.onLine);
+  useEffect(()=>{
+    const on=()=>setOnline(true);const off=()=>setOnline(false);
+    window.addEventListener("online",on);window.addEventListener("offline",off);
+    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
+  },[]);
+  return online;
+}
 
 const GOOGLE_API_KEY = "AIzaSyDP9N998QacTADs3UaDYBohltD3rfflMmE";
 const LOGO_SRC = "/logo.jpg";
@@ -87,16 +107,7 @@ function AppGate({children}){
     }
   };
 
-  if(authLoading)return(
-    <div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff,padding:"24px"}}>
-      <style>{`@keyframes wo-spin{to{transform:rotate(360deg);}}`}</style>
-      <div style={{textAlign:"center"}}>
-        <div style={{fontSize:"22px",color:t.red,fontWeight:700,letterSpacing:".5px",textTransform:"uppercase"}}>ICON REMODELING GROUP INC.</div>
-        <div style={{color:"#ffffff",fontSize:"11px",letterSpacing:"4px",textTransform:"uppercase",marginTop:"6px",opacity:.8}}>Work Orders</div>
-        <div style={{width:"22px",height:"22px",border:`2px solid ${t.line}`,borderTop:`2px solid ${t.red}`,borderRadius:"50%",animation:"wo-spin 0.8s linear infinite",margin:"28px auto 0"}}/>
-      </div>
-    </div>
-  );
+  if(authLoading)return(<SkeletonScreen rows={4}/>);
 
   if(authed)return children;
 
@@ -126,7 +137,7 @@ function AppGate({children}){
 }
 
 const emptyJob={customerName:"",customerPhone:"",jobTreadName:"",jobAddress:"",jobDescription:"",materials:"",specialNotes:"",attachments:[]};
-const emptyCrewOrder={crewName:"",members:[],date:new Date().toISOString().split("T")[0],jobs:[{...emptyJob}]};
+const emptyCrewOrder={crewName:"",members:[],date:new Date().toISOString().split("T")[0],jobs:[{...emptyJob}],recurring:{enabled:false,frequency:"Weekly",until:""}};
 // Backward compat: convert old flat order to jobs array
 function getJobsForOrder(order){if(order.jobs&&order.jobs.length>0)return order.jobs;return[{customerName:order.customerName||"",customerPhone:order.customerPhone||"",jobTreadName:order.jobTreadName||"",jobAddress:order.jobAddress||"",jobDescription:order.jobDescription||"",materials:order.materials||"",specialNotes:order.specialNotes||"",attachments:order.attachments||[]}];}
 const emptyFieldOrder={staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
@@ -448,8 +459,9 @@ function WorkOrderDoc({order,onClose,onFileOpen}){
           {/* Blue accent bar */}
           <div style={{height:"4px",background:brand.blue}}/>
           {/* Badge row */}
-          <div style={{padding:"10px 24px",display:"flex",alignItems:"center",gap:"10px"}}>
+          <div style={{padding:"10px 24px",display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}}>
             <span style={{background:brand.blue,color:brand.white,fontSize:"11px",fontWeight:800,padding:"4px 14px",borderRadius:"20px",letterSpacing:"1.5px",textTransform:"uppercase"}}>{isField?"Field Operations":"Crew Assignment"}</span>
+            {order.referenceId&&<span style={{background:"rgba(255,255,255,0.12)",color:brand.white,fontSize:"11px",fontWeight:700,padding:"4px 12px",borderRadius:"6px",letterSpacing:".5px",fontFamily:"monospace",border:"1px solid rgba(255,255,255,0.2)"}}>{order.referenceId}</span>}
           </div>
         </div>
 
@@ -618,13 +630,14 @@ function getSubOrderIdFromHash(){
 
 export default function App(){
   const[subOrderId,setSubOrderId]=useState(()=>getSubOrderIdFromHash());
+  const online=useOnline();
   useEffect(()=>{
     const onHash=()=>setSubOrderId(getSubOrderIdFromHash());
     window.addEventListener("hashchange",onHash);
     return()=>window.removeEventListener("hashchange",onHash);
   },[]);
-  if(subOrderId)return <SubOrderPublicView orderId={subOrderId}/>;
-  return <AppGate><AppInner/></AppGate>;
+  if(subOrderId)return(<><OfflineBanner online={online}/><SubOrderPublicView orderId={subOrderId}/></>);
+  return(<><OfflineBanner online={online}/><SkeletonStyles/><AppGate><AppInner/></AppGate></>);
 }
 
 // ── SUBCONTRACTOR PUBLIC ORDER (clean black & white, no login) ───────────────
@@ -757,7 +770,8 @@ const PRIVACY_FIELDS=[
 
 function SubOrderManager({onBack,onHome,activeJobs,showToast}){
   const today=new Date().toISOString().split("T")[0];
-  const empty={subName:"",date:today,jobIndex:"",scope:"",materials:"",instructions:"",attachments:[],
+  const defaultExpiry=(()=>{const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().split("T")[0];})();
+  const empty={subName:"",date:today,jobIndex:"",scope:"",materials:"",instructions:"",attachments:[],expiresAt:defaultExpiry,
     privacy:{customerName:false,jobAddress:false,wifiName:false,wifiPassword:false,garageCode:false,doorCode:false}};
   const[subOrders,setSubOrders]=useState({});
   const[loaded,setLoaded]=useState(false);
@@ -799,6 +813,7 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
     const order={
       id,createdAt:new Date().toISOString(),
       subName:form.subName.trim(),date:form.date,
+      expiresAt:form.expiresAt||defaultExpiry,
       jobName:job.name||"",
       customerName:job.customerName||"",
       jobAddress:job.address||"",
@@ -815,10 +830,15 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
     setForm(empty);setShowForm(false);showToast("Subcontractor order created");
   };
 
-  const SEVEN_DAYS=7*24*60*60*1000;
+  // Filter recent orders by expiration date (legacy orders without expiresAt fall back to 7 days from createdAt)
   const recent=Object.values(subOrders||{}).filter(o=>{
     if(!o?.createdAt)return false;
-    return (Date.now()-new Date(o.createdAt).getTime())<=SEVEN_DAYS;
+    let exp=o.expiresAt;
+    if(!exp){
+      const d=new Date(o.createdAt);d.setDate(d.getDate()+7);
+      exp=d.toISOString().split("T")[0];
+    }
+    return new Date(exp+"T23:59:59")>=new Date();
   }).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
 
   const linkFor=id=>`${window.location.origin}/#/sub/${id}`;
@@ -860,6 +880,11 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
             <h2 style={{fontSize:"19px",margin:"0 0 4px",fontWeight:700,color:subT.text}}>New Subcontractor Order</h2>
             <div><label style={subLabelStyle}>Subcontractor / Company</label><input value={form.subName} onChange={e=>setForm({...form,subName:e.target.value})} placeholder="Subcontractor or company name" style={subInputStyle}/></div>
             <div><label style={subLabelStyle}>Date of Work</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} style={subInputStyle}/></div>
+            <div>
+              <label style={subLabelStyle}>Link Expires On</label>
+              <MiniCalendar value={form.expiresAt} onChange={v=>setForm({...form,expiresAt:v})} minDate={today} theme="dark"/>
+              <div style={{fontSize:"11px",color:subT.muted,marginTop:"5px"}}>The public link always works — expiration only controls visibility in this list. Default: 7 days from today.</div>
+            </div>
             <div>
               <label style={subLabelStyle}>Active Job</label>
               <select value={form.jobIndex} onChange={e=>setForm({...form,jobIndex:e.target.value})} style={{...subInputStyle,appearance:"none",cursor:"pointer"}}>
@@ -921,12 +946,18 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
               <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
                 {recent.map(o=>{
                   const sharedCount=Object.values(o.privacy||{}).filter(Boolean).length;
+                  const exp=o.expiresAt||(()=>{const d=new Date(o.createdAt||Date.now());d.setDate(d.getDate()+7);return d.toISOString().split("T")[0];})();
+                  const hoursToExp=(new Date(exp+"T23:59:59")-new Date())/3600000;
+                  const expiringSoon=hoursToExp<=24&&hoursToExp>0;
                   return(
                     <div key={o.id} style={{background:subT.card,border:`1px solid ${subT.line}`,borderRadius:"12px",padding:"15px"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px"}}>
                         <div style={{minWidth:0,flex:1}}>
                           <div style={{fontSize:"15px",fontWeight:700,color:subT.text,marginBottom:"3px"}}>{o.subName}</div>
                           <div style={{fontSize:"12px",color:subT.muted}}>{o.date} · {o.jobName||"—"}</div>
+                          <div style={{fontSize:"11px",color:expiringSoon?"#F59E0B":subT.muted,marginTop:"3px",fontWeight:expiringSoon?700:500}}>
+                            {expiringSoon?"⚠ Expires within 24h · ":"Expires "}{exp}
+                          </div>
                         </div>
                         <span style={{fontSize:"10px",background:"rgba(232,25,44,0.15)",color:subT.red,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",whiteSpace:"nowrap"}}>{sharedCount} field{sharedCount===1?"":"s"} shared</span>
                       </div>
@@ -1007,10 +1038,125 @@ function AppInner(){
   const[newJobDoorType,setNewJobDoorType]=useState("");
   const[newJobDoorLocation,setNewJobDoorLocation]=useState("");
   const[newJobDoorCode,setNewJobDoorCode]=useState("");
+  const[recurringTemplates,setRecurringTemplates]=useState({});
+  const[mgrTab,setMgrTab]=useState("today"); // today | recurring | history
+  const[mgrSearch,setMgrSearch]=useState("");
+  const[mgrFilter,setMgrFilter]=useState("today"); // today | week | all | crew:<name>
+  const[archiveSearch,setArchiveSearch]=useState("");
+  const[activityEntries,setActivityEntries]=useState([]);
+  const[dailySummaries,setDailySummaries]=useState({});
+  const[materialsRequests,setMaterialsRequests]=useState({});
+  const[materialsDetail,setMaterialsDetail]=useState(null);
+  const[showMaterialsForm,setShowMaterialsForm]=useState(false);
+  const[aiSettings,setAiSettings]=useState({aiDescriptionGenerator:false,aiMaterialsSuggest:false,aiVoiceToOrder:false,aiMaterials:true});
+  const[aiDescDialog,setAiDescDialog]=useState(null); // {jobIdx}
+  const[aiMatsDialog,setAiMatsDialog]=useState(null); // {jobIdx, jobDescription}
+  const[aiVoiceDialog,setAiVoiceDialog]=useState(false);
+  const[unreadCount,setUnreadCount]=useState(0);
   const fileRef=useRef(null);const fieldFileRef=useRef(null);const noteFileRef=useRef(null);const cameraRef=useRef(null);const filesUploadRef=useRef(null);
+
+  // Subscribe to recurring templates / activity log / daily summaries / materials
+  useEffect(()=>{
+    const u1=onValue(ref(db,"recurringTemplates"),s=>setRecurringTemplates(s.val()||{}));
+    const u2=onValue(ref(db,"activityLog"),s=>{
+      const v=s.val()||{};
+      const arr=Object.values(v).sort((a,b)=>(b.ts||"").localeCompare(a.ts||""));
+      setActivityEntries(arr);
+    });
+    const u3=onValue(ref(db,"dailySummaries"),s=>setDailySummaries(s.val()||{}));
+    const u4=onValue(ref(db,"materialsRequests"),s=>setMaterialsRequests(s.val()||{}));
+    const u5=onValue(ref(db,"settings/ai"),s=>{const v=s.val();if(v&&typeof v==="object")setAiSettings(prev=>({...prev,...v}));});
+    const u6=onValue(ref(db,"settings/aiMaterials"),s=>{const v=s.val();if(v!==null&&v!==undefined)setAiSettings(prev=>({...prev,aiMaterials:v}));});
+    return()=>{u1();u2();u3();u4();u5();u6();};
+  },[]);
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
+
+  // Backfill missing reference IDs once orders are loaded
+  useEffect(()=>{
+    if(!ordersL||!orders||orders.length===0)return;
+    let changed=false;
+    const next=orders.map(o=>{
+      if(o&&!o.referenceId){changed=true;return{...o,referenceId:generateReferenceId(o)};}
+      return o;
+    });
+    if(changed)saveToFB("orders",next);
+  },[ordersL]);
+
+  // First-time manager-permission prompt for notifications
+  const askedPermRef=useRef(false);
+  useEffect(()=>{
+    if(!managerAuth||askedPermRef.current)return;
+    askedPermRef.current=true;
+    if(localStorage.getItem("wo-notif-asked")==="1")return;
+    localStorage.setItem("wo-notif-asked","1");
+    requestPermissionAndRegisterToken().then(token=>{
+      if(token)showToast("Notifications enabled");
+    });
+  },[managerAuth,showToast]);
+
+  // Generate yesterday's daily summary on first manager open of the day
+  const ranSummaryRef=useRef(false);
+  useEffect(()=>{
+    if(!managerAuth||ranSummaryRef.current)return;
+    if(!ordersL||!fieldNotesL)return;
+    ranSummaryRef.current=true;
+    const yesterday=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+    if(dailySummaries[yesterday])return;
+    const yOrders=(orders||[]).filter(o=>o.date===yesterday);
+    const yField=(fieldOrders||[]).filter(o=>o.date===yesterday);
+    const yNotes=(fieldNotes||[]).filter(n=>(n.submittedAt||"").startsWith(yesterday));
+    const yMats=Object.values(materialsRequests||{}).filter(m=>(m.submittedAt||"").startsWith(yesterday));
+    const crews=new Set(yOrders.map(o=>o.crewName).filter(Boolean));
+    const total=yOrders.length+yField.length;
+    if(total===0&&yNotes.length===0&&yMats.length===0)return;
+    const summary={
+      date:yesterday,
+      ordersCount:total,
+      crewCount:crews.size,
+      fieldNotesCount:yNotes.length,
+      materialsCount:yMats.length,
+      text:`${total} order${total===1?"":"s"} completed across ${crews.size} crew${crews.size===1?"":"s"}. ${yNotes.length} field note${yNotes.length===1?"":"s"} submitted. ${yMats.length===0?"No materials requests.":`${yMats.length} materials request${yMats.length===1?"":"s"}.`}`,
+      generatedAt:new Date().toISOString()
+    };
+    saveToFB(`dailySummaries/${yesterday}`,summary);
+    logActivity({type:"summary",who:"System",text:`Daily summary for ${yesterday}: ${summary.text}`});
+    // Trim summaries older than 30 days
+    const cutoff=(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().split("T")[0];})();
+    Object.keys(dailySummaries||{}).forEach(k=>{if(k<cutoff)saveToFB(`dailySummaries/${k}`,null);});
+  },[managerAuth,ordersL,fieldNotesL,dailySummaries,orders,fieldOrders,fieldNotes,materialsRequests]);
+
+  // Auto-generate due recurring orders when manager view opens
+  const ranAutoGenRef=useRef(false);
+  useEffect(()=>{
+    if(mode!=="manager"||!managerAuth)return;
+    if(ranAutoGenRef.current)return;
+    if(!ordersL)return;
+    const due=dueTemplates(recurringTemplates,recurringTodayStr());
+    if(due.length===0){ranAutoGenRef.current=true;return;}
+    let next=[...orders];
+    const now=new Date().toISOString();
+    const updates={};
+    let count=0;
+    due.forEach(({id,tpl})=>{
+      const dateToUse=tpl.nextScheduledDate||recurringTodayStr();
+      const newOrder=orderFromTemplate({...tpl,id},dateToUse,generateReferenceId);
+      newOrder.lastModified=now;
+      next.push(newOrder);
+      count++;
+      const nd=nextDate(dateToUse,tpl.recurring?.frequency);
+      const stoppedByUntil=tpl.recurring?.until&&nd&&nd>tpl.recurring.until;
+      updates[`recurringTemplates/${id}`]={...tpl,id,lastGeneratedDate:dateToUse,nextScheduledDate:stoppedByUntil?null:nd,stopped:!!stoppedByUntil,lastModified:now};
+      logActivity({type:"recurring_generated",who:"System",text:`Auto-generated ${newOrder.referenceId} from recurring template`,refId:newOrder.referenceId});
+    });
+    if(count>0){
+      saveToFB("orders",next);
+      Object.entries(updates).forEach(([p,v])=>saveToFB(p,v));
+      showToast(`Auto-generated ${count} recurring order${count===1?"":"s"}`);
+    }
+    ranAutoGenRef.current=true;
+  },[mode,managerAuth,ordersL,recurringTemplates]);
   const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);setFileViewer(null);setDocView(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
@@ -1019,7 +1165,10 @@ function AppInner(){
   const crewUpdates=hasUpdate("crew",orders);
   const fieldUpdates=hasUpdate("fieldops",fieldOrders);
   const lockboxUpdates=hasUpdate("lockbox",lockboxCodes);
-  const managerUpdates=crewUpdates;
+  // Unread = activity entries newer than the manager's last view of the History tab.
+  const lastSeenManager=lastSeen.managerHistory||"";
+  const unreadActivity=activityEntries.filter(e=>e.ts>lastSeenManager&&["materials_request","field_note","order_viewed","recurring_generated"].includes(e.type)).length;
+  const managerUpdates=crewUpdates||unreadActivity>0;
 
   const handleUpload=async(e,fd,setFd)=>{
     const files=Array.from(e.target.files);if(!files.length)return;setUploading(true);
@@ -1047,7 +1196,40 @@ function AppInner(){
     }
     setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
   };
-  const saveCrew=()=>{if(!formData.crewName){showToast("Crew required");return;}const firstJob=formData.jobs?.[0];if(!firstJob?.jobAddress){showToast("Job 1 address required");return;}const now=new Date().toISOString();const d={...formData,lastModified:now};let u;if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}else{u=[...orders,d];}saveToFB("orders",u);setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);showToast(editingOrder!==null?"Updated":"Work order created");};
+  const saveCrew=()=>{
+    if(!formData.crewName){showToast("Crew required");return;}
+    const firstJob=formData.jobs?.[0];
+    if(!firstJob?.jobAddress){showToast("Job 1 address required");return;}
+    const now=new Date().toISOString();
+    const d={...formData,lastModified:now};
+    if(!d.referenceId)d.referenceId=generateReferenceId(d);
+    let u;
+    if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}
+    else{u=[...orders,d];}
+    saveToFB("orders",u);
+
+    // Recurring → store/update the template
+    if(d.recurring?.enabled){
+      const tplId=d.recurringTemplateId||`tpl_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const tpl={
+        id:tplId,
+        crewName:d.crewName,
+        members:d.members||[],
+        jobs:d.jobs||[],
+        recurring:{frequency:d.recurring.frequency,until:d.recurring.until||""},
+        nextScheduledDate:nextDate(d.date,d.recurring.frequency),
+        lastGeneratedDate:d.date,
+        lastModified:now,
+        stopped:false,
+      };
+      saveToFB(`recurringTemplates/${tplId}`,tpl);
+      logActivity({type:"order_created",who:"Manager",text:`Work Order ${d.referenceId} created (recurring ${d.recurring.frequency})`,refId:d.referenceId});
+    } else {
+      logActivity({type:"order_created",who:"Manager",text:`Work Order ${d.referenceId} created`,refId:d.referenceId});
+    }
+    setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);
+    showToast(editingOrder!==null?"Updated":"Work order created");
+  };
   const deleteCrew=i=>{saveToFB("orders",orders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const addMember=(crew)=>{if(!newMemberName.trim())return;saveToFB("crews",{...crews,[crew]:[...(crews[crew]||[]),newMemberName.trim()]});setNewMemberName("");showToast("Added");};
   const removeMember=(crew,i)=>{saveToFB("crews",{...crews,[crew]:crews[crew].filter((_,x)=>x!==i)});showToast("Removed");};
@@ -1055,7 +1237,7 @@ function AppInner(){
   const saveField=()=>{const now=new Date().toISOString();const d={...fieldFormData,lastModified:now};let u;if(editingFieldOrder!==null){u=fieldOrders.map((o,i)=>i===editingFieldOrder?d:o);}else{u=[...fieldOrders,d];}saveToFB("fieldOrders",u);setShowFieldForm(false);setEditingFieldOrder(null);setFieldFormData({...emptyFieldOrder});showToast(editingFieldOrder!==null?"Updated":"Field order created");};
   const deleteField=i=>{saveToFB("fieldOrders",fieldOrders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const toggleFieldMember=n=>{setFieldFormData(p=>({...p,staffMember:p.staffMember.includes(n)?p.staffMember.filter(x=>x!==n):[...p.staffMember,n]}));};
-  const addFieldNote=async(note)=>{const now=new Date().toISOString();const n={...note,submittedAt:now,lastModified:now};const u=[...(fieldNotes||[]),n];saveToFB("fieldNotes",u);showToast("Field note saved");};
+  const addFieldNote=async(note)=>{const now=new Date().toISOString();const n={...note,submittedAt:now,lastModified:now};const u=[...(fieldNotes||[]),n];saveToFB("fieldNotes",u);logActivity({type:"field_note",who:n.submittedBy||"Crew",text:`Field note submitted${n.jobRef?` for ${n.jobRef}`:""}${n.notes?": "+(n.notes.length>60?n.notes.slice(0,60)+"…":n.notes):""}`});localNotify("New field note",n.jobRef||"Crew submitted a field note");showToast("Field note saved");};
 
   const handlePrint=(order)=>{
     const jobs=getJobsForOrder(order);
@@ -1114,7 +1296,10 @@ function AppInner(){
             <div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase">ICON REMODELING GROUP INC.</div>
             <div style="font-size:10px;font-weight:600;color:#0077C8;letter-spacing:3px;text-transform:uppercase;margin-top:2px">Daily Work Order</div>
           </div>
-          <div style="background:#0077C8;color:#fff;font-size:11px;font-weight:800;padding:4px 14px;border-radius:20px;letter-spacing:1.5px;text-transform:uppercase">${isField?"Field Operations":"Crew Assignment"}</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="background:#0077C8;color:#fff;font-size:11px;font-weight:800;padding:4px 14px;border-radius:20px;letter-spacing:1.5px;text-transform:uppercase">${isField?"Field Operations":"Crew Assignment"}</div>
+            ${order.referenceId?`<div style="background:rgba(255,255,255,0.12);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;letter-spacing:.5px;font-family:monospace;border:1px solid rgba(255,255,255,0.2)">${order.referenceId}</div>`:""}
+          </div>
         </div>
         <div style="height:4px;background:#0077C8"></div>
       </div>
@@ -1154,8 +1339,10 @@ function AppInner(){
 
   if(fileViewer)return(<FileViewer file={fileViewer} onClose={()=>setFileViewer(null)}/>);
   if(docView)return(<WorkOrderDoc order={docView} onClose={()=>setDocView(null)} onFileOpen={a=>setFileViewer(a)}/>);
+  if(showMaterialsForm)return(<MaterialsRequestForm activeJobs={activeJobs||[]} members={[...ALL_MEMBERS,...FIELD_OPS_MEMBERS]} onClose={()=>setShowMaterialsForm(false)} onSubmitted={()=>setShowMaterialsForm(false)} showToast={showToast}/>);
+  if(materialsDetail&&materialsRequests[materialsDetail])return(<MaterialsManagerPanel request={materialsRequests[materialsDetail]} aiEnabled={aiSettings.aiMaterials!==false} onSetAiEnabled={v=>{setAiSettings(p=>({...p,aiMaterials:v}));saveToFB("settings/aiMaterials",v);}} onClose={()=>setMaterialsDetail(null)} showToast={showToast}/>);
 
-  if(loading)return(<div style={{minHeight:"100vh",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff}}><OpsHomeBtn/><div style={{color:t.muted,fontSize:"14px"}}>Loading...</div></div>);
+  if(loading)return(<><SkeletonScreen rows={5}/><OpsHomeBtn/></>);
 
   const Toast=()=>toast?<div style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg,#0891B2,#22D3EE)",color:"#fff",padding:"12px 24px",borderRadius:"10px",fontSize:"14px",fontWeight:600,zIndex:1001,boxShadow:"0 4px 20px rgba(34,211,238,.4)"}}>{toast}</div>:null;
   const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
@@ -1282,7 +1469,7 @@ function AppInner(){
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" fill="#F59E0B"/></svg>
               </div>
               <span className="nav-label">Manager</span>
-              {managerUpdates&&<span style={{position:"absolute",top:"8px",right:"8px",width:"7px",height:"7px",background:t.danger,borderRadius:"50%"}}/>}
+              {unreadActivity>0?<span style={{position:"absolute",top:"6px",right:"6px",minWidth:"18px",height:"18px",padding:"0 5px",background:t.danger,borderRadius:"9px",fontSize:"10px",fontWeight:800,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(244,63,94,.6)"}}>{unreadActivity>99?"99+":unreadActivity}</span>:managerUpdates&&<span style={{position:"absolute",top:"8px",right:"8px",width:"7px",height:"7px",background:t.danger,borderRadius:"50%"}}/>}
             </button>
             <button className="nav-btn" onClick={()=>setMode("crew")} style={{position:"relative"}}>
               <div className="icon-wrap" style={{background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)"}}>
@@ -1588,14 +1775,21 @@ function AppInner(){
     const allActive=activeCrew;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
-      <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}/>
+      <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}>
+        <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"rgba(245,158,11,.12)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>🔧 Materials</button>
+      </Header>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{"Today's Work Orders"}</div>
         {allActive.length===0
           ?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No active work orders for today</div>
           :<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
             {allActive.map((order,idx)=>(
-              <button key={idx} onClick={()=>setDocView(order)} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,padding:"18px",borderRadius:"14px",flexDirection:"column",alignItems:"flex-start",gap:"6px",color:t.text,width:"100%",textAlign:"left"}}>
+              <button key={idx} onClick={()=>{
+                const refId=order.referenceId||generateReferenceId(order);
+                logConfirmation({orderId:order.referenceId||refId,refId,crewName:order.crewName,members:order.members||[]});
+                logActivity({type:"order_viewed",who:(order.members||[]).join(", ")||order.crewName||"Crew",text:`${(order.members||[]).join(", ")||order.crewName||"Crew"} viewed Work Order ${refId}`,refId});
+                setDocView(order);
+              }} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,padding:"18px",borderRadius:"14px",flexDirection:"column",alignItems:"flex-start",gap:"6px",color:t.text,width:"100%",textAlign:"left"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"8px",width:"100%"}}>
                   <div style={{width:"4px",height:"40px",background:"linear-gradient(180deg,#E8192C,#FF6B35)",borderRadius:"2px",flexShrink:0}}/>
                   <div style={{flex:1,minWidth:0}}>
@@ -1618,6 +1812,7 @@ function AppInner(){
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
       <Header title="Icon Operations" subtitle={today} onBack={()=>{setShowFieldForm(false);setEditingFieldOrder(null);goHome();}} onHome={goHome}>
+        <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"rgba(245,158,11,.12)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>🔧 Materials</button>
         {!showFieldForm&&<button onClick={()=>{setFieldFormData({...emptyFieldOrder});setEditingFieldOrder(null);setShowFieldForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> New</button>}
       </Header>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
@@ -1667,20 +1862,36 @@ function AppInner(){
   </div>);
 
   // ── ARCHIVE ───────────────────────────────────────────────────────────────
-  if(showArchive)return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
-    <Header title="Archived Orders" onBack={()=>setShowArchive(false)} onHome={goHome}/>
-    <div style={{padding:"20px"}}>
-      {allArchived.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No archived orders.</div>:
-      <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{allArchived.map((order,idx)=>(<div key={idx} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"15px",opacity:0.78}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
-          <span style={{fontSize:"11px",background:order._type==="field"?"rgba(167,139,250,.15)":"rgba(74,222,128,.12)",color:order._type==="field"?t.purple:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>{order._type==="field"?"Field Ops":order.crewName}</span>
-          <span style={{fontSize:"11px",color:t.muted}}>{order.date}</span>
+  if(showArchive){
+    const lc=archiveSearch.trim().toLowerCase();
+    const filteredArchive=lc?allArchived.filter(o=>{
+      const fields=[o.crewName,(o.members||o.staffMember||[]).join(" "),o.referenceId,o.customerName,o.jobAddress,o.jobDescription,...(getJobsForOrder(o).flatMap(j=>[j.customerName,j.jobAddress,j.jobDescription,j.jobTreadName]))].filter(Boolean).join(" ").toLowerCase();
+      return fields.includes(lc);
+    }):allArchived;
+    return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
+      <Header title="Archived Orders" onBack={()=>setShowArchive(false)} onHome={goHome}/>
+      <div style={{padding:"20px"}}>
+        <div style={{position:"relative",marginBottom:"14px"}}>
+          <input value={archiveSearch} onChange={e=>setArchiveSearch(e.target.value)} placeholder="Search archive — crew, member, address, ref ID..." style={{...inputStyle,paddingLeft:"38px"}}/>
+          <span style={{position:"absolute",left:"12px",top:"50%",transform:"translateY(-50%)",color:t.muted,pointerEvents:"none"}}><SearchIcon/></span>
         </div>
-        <div style={{fontSize:"13px",fontWeight:600,color:t.text}}>{(order.members||order.staffMember||[]).join(", ")}</div>
-        {order.jobAddress&&<div style={{fontSize:"12px",color:t.muted,marginTop:"2px"}}>{order.jobAddress}</div>}
-      </div>))}</div>}
-    </div>
-  </div>);
+        <div style={{fontSize:"12px",color:t.muted,marginBottom:"12px"}}>{filteredArchive.length} of {allArchived.length}</div>
+        {filteredArchive.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>{lc?"No matches.":"No archived orders."}</div>:
+        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{filteredArchive.map((order,idx)=>(<div key={idx} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"15px",opacity:0.78}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px",flexWrap:"wrap",gap:"6px"}}>
+            <div style={{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{fontSize:"11px",background:order._type==="field"?"rgba(167,139,250,.15)":"rgba(74,222,128,.12)",color:order._type==="field"?t.purple:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>{order._type==="field"?"Field Ops":order.crewName}</span>
+              {order.referenceId&&<span style={{fontSize:"10px",background:"rgba(34,211,238,.12)",color:t.cyan,padding:"3px 8px",borderRadius:"6px",fontWeight:700,fontFamily:"monospace"}}>{order.referenceId}</span>}
+            </div>
+            <span style={{fontSize:"11px",color:t.muted}}>{order.date}</span>
+          </div>
+          <div style={{fontSize:"13px",fontWeight:600,color:t.text}}>{(order.members||order.staffMember||[]).join(", ")}</div>
+          {order.jobAddress&&<div style={{fontSize:"12px",color:t.muted,marginTop:"2px"}}>{order.jobAddress}</div>}
+          {!order.jobAddress&&getJobsForOrder(order)[0]?.jobAddress&&<div style={{fontSize:"12px",color:t.muted,marginTop:"2px"}}>{getJobsForOrder(order)[0].jobAddress}</div>}
+        </div>))}</div>}
+      </div>
+    </div>);
+  }
 
   // ── PIN SETTINGS ──────────────────────────────────────────────────────────
   if(showPinSettings)return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
@@ -1700,6 +1911,28 @@ function AppInner(){
         <input type="password" inputMode="numeric" value={newCrewPin} onChange={e=>setNewCrewPin(e.target.value)} placeholder="Enter new crew PIN" style={{...inputStyle,marginBottom:"12px"}}/>
         <button onClick={saveNewCrewPin} style={{...baseBtn,width:"100%",padding:"12px",justifyContent:"center",background:"linear-gradient(135deg,#16A34A,#4ADE80)",color:"#051009",fontWeight:700,fontSize:"14px",borderRadius:"10px"}}>Update Crew PIN</button>
       </div>
+      <div style={{background:"rgba(167,139,250,.07)",border:"1.5px solid rgba(167,139,250,.2)",borderRadius:"14px",padding:"18px"}}>
+        <div style={{fontSize:"11px",fontWeight:700,color:t.purple,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>✨ AI Features</div>
+        <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px"}}>Manager-only. AI calls are proxied through /api/anthropic — set <code style={{background:t.tag,padding:"1px 5px",borderRadius:"4px",fontSize:"11px"}}>ANTHROPIC_API_KEY</code> in Vercel.</div>
+        {[
+          {k:"aiDescriptionGenerator",label:"Smart Job Description Generator",hint:"✨ button next to Job Description"},
+          {k:"aiMaterialsSuggest",label:"Materials Auto-Suggest",hint:"✨ button next to Materials Required"},
+          {k:"aiVoiceToOrder",label:"Voice → Work Order",hint:"🎤 mic in form header"}
+        ].map(s=>{
+          const on=!!aiSettings[s.k];
+          return(
+            <div key={s.k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderTop:`1px solid ${t.line}`}}>
+              <div style={{flex:1,minWidth:0,marginRight:"10px"}}>
+                <div style={{fontSize:"13px",color:t.text,fontWeight:600}}>{s.label}</div>
+                <div style={{fontSize:"11px",color:t.muted}}>{s.hint}</div>
+              </div>
+              <button type="button" onClick={()=>{const next={...aiSettings,[s.k]:!on};setAiSettings(next);saveToFB("settings/ai",{aiDescriptionGenerator:next.aiDescriptionGenerator,aiMaterialsSuggest:next.aiMaterialsSuggest,aiVoiceToOrder:next.aiVoiceToOrder});}} style={{width:"44px",height:"24px",borderRadius:"14px",background:on?t.purple:t.line,border:"none",position:"relative",cursor:"pointer",padding:0,flexShrink:0}}>
+                <span style={{position:"absolute",top:"2px",left:on?"22px":"2px",width:"20px",height:"20px",background:"#fff",borderRadius:"50%",transition:"left .15s"}}/>
+              </button>
+            </div>
+          );
+        })}
+      </div>
       <div style={{background:"rgba(244,63,94,.07)",border:"1.5px solid rgba(244,63,94,.18)",borderRadius:"14px",padding:"18px"}}>
         <div style={{fontSize:"11px",fontWeight:700,color:t.danger,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Reset Device</div>
         <div style={{fontSize:"12px",color:t.muted,marginBottom:"12px"}}>Clear saved login on this device.</div>
@@ -1715,6 +1948,36 @@ function AppInner(){
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
       {deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"26px",maxWidth:"300px",width:"100%",textAlign:"center"}}><div style={{fontSize:"16px",fontWeight:700,marginBottom:"8px",color:t.text}}>Delete Order?</div><div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>{"This can't be undone."}</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px",fontWeight:700,borderRadius:"10px"}}>Delete</button></div></div></div>}
+      {aiDescDialog&&<GenerateDescriptionDialog
+        onUse={(text)=>{const ji=aiDescDialog.jobIdx;const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,jobDescription:text}:j);setFormData({...formData,jobs:nj});}}
+        onEditAndUse={(text)=>{const ji=aiDescDialog.jobIdx;const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,jobDescription:text}:j);setFormData({...formData,jobs:nj});}}
+        onClose={()=>setAiDescDialog(null)}
+      />}
+      {aiMatsDialog&&<SuggestMaterialsDialog
+        jobDescription={aiMatsDialog.jobDescription}
+        onUse={(text)=>{const ji=aiMatsDialog.jobIdx;const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,materials:text}:j);setFormData({...formData,jobs:nj});}}
+        onEditAndUse={(text)=>{const ji=aiMatsDialog.jobIdx;const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,materials:text}:j);setFormData({...formData,jobs:nj});}}
+        onClose={()=>setAiMatsDialog(null)}
+      />}
+      {aiVoiceDialog&&<VoiceToOrderDialog
+        onApply={(fields)=>{
+          const f={...formData};
+          if(fields.crewName)f.crewName=fields.crewName;
+          if(Array.isArray(fields.members)&&fields.members.length>0)f.members=fields.members;
+          if(fields.date)f.date=fields.date;
+          const j0={...(f.jobs?.[0]||{...emptyJob})};
+          if(fields.customerName)j0.customerName=fields.customerName;
+          if(fields.customerPhone)j0.customerPhone=fields.customerPhone;
+          if(fields.jobAddress)j0.jobAddress=fields.jobAddress;
+          if(fields.jobDescription)j0.jobDescription=fields.jobDescription;
+          if(fields.materials)j0.materials=fields.materials;
+          if(fields.specialNotes)j0.specialNotes=fields.specialNotes;
+          f.jobs=[j0,...(f.jobs?.slice(1)||[])];
+          setFormData(f);
+        }}
+        onClose={()=>setAiVoiceDialog(false)}
+        showToast={showToast}
+      />}
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
         <button onClick={()=>setShowArchive(true)} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Archive"><ArchiveIcon/></button>
         <button onClick={()=>setShowPinSettings(true)} style={{...ghostBtn,padding:"6px",color:t.amber}} title="PIN Settings"><LockIcon/></button>
@@ -1725,7 +1988,10 @@ function AppInner(){
       </Header>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         {showForm?(<div>
-          <h2 style={{fontSize:"19px",color:t.text,margin:"0 0 18px",fontWeight:700}}>{editingOrder!==null?"Edit":"New"} Work Order</h2>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"0 0 18px"}}>
+            <h2 style={{fontSize:"19px",color:t.text,margin:0,fontWeight:700}}>{editingOrder!==null?"Edit":"New"} Work Order</h2>
+            {aiSettings.aiVoiceToOrder&&<button onClick={()=>setAiVoiceDialog(true)} style={{...baseBtn,background:"rgba(167,139,250,.12)",border:"1px solid rgba(167,139,250,.3)",color:t.purple,padding:"8px 14px",fontSize:"12px",fontWeight:700,borderRadius:"8px"}}>🎤 Voice Input</button>}
+          </div>
           <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
 
             {/* CREW + DATE (shared) */}
@@ -1764,8 +2030,20 @@ function AppInner(){
                     <div style={{flex:1}}><label style={labelStyle}>Customer Phone</label><input type="tel" value={job.customerPhone||""} onChange={e=>updateJob("customerPhone",e.target.value)} placeholder="(555) 555-5555" style={inputStyle}/></div>
                   </div>
                   <div><label style={labelStyle}>Job Address {ji===0&&<span style={{color:t.danger}}>*</span>}</label><AddressInput value={job.jobAddress||""} onChange={e=>updateJob("jobAddress",e.target.value)} style={inputStyle}/><div style={{fontSize:"11px",color:t.muted,marginTop:"4px"}}>Start typing to search or auto-filled from job selection above</div></div>
-                  <div><label style={labelStyle}>Job Description</label><BulletTextarea value={job.jobDescription||""} onChange={e=>updateJob("jobDescription",e.target.value)} placeholder="Describe the work... (Enter for bullets)" style={inputStyle}/></div>
-                  <div><label style={labelStyle}>Materials Required</label><BulletTextarea value={job.materials||""} onChange={e=>updateJob("materials",e.target.value)} placeholder="List materials... (Enter for bullets)" style={inputStyle}/></div>
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
+                      <label style={{...labelStyle,marginBottom:0}}>Job Description</label>
+                      {aiSettings.aiDescriptionGenerator&&<AIPillButton label="Generate" onClick={()=>setAiDescDialog({jobIdx:ji})}/>}
+                    </div>
+                    <BulletTextarea value={job.jobDescription||""} onChange={e=>updateJob("jobDescription",e.target.value)} placeholder="Describe the work... (Enter for bullets)" style={inputStyle}/>
+                  </div>
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
+                      <label style={{...labelStyle,marginBottom:0}}>Materials Required</label>
+                      {aiSettings.aiMaterialsSuggest&&(job.jobDescription||"").trim().length>0&&<AIPillButton label="Suggest Materials" onClick={()=>setAiMatsDialog({jobIdx:ji,jobDescription:job.jobDescription})}/>}
+                    </div>
+                    <BulletTextarea value={job.materials||""} onChange={e=>updateJob("materials",e.target.value)} placeholder="List materials... (Enter for bullets)" style={inputStyle}/>
+                  </div>
                   <div><label style={labelStyle}>Special Notes</label><BulletTextarea value={job.specialNotes||""} onChange={e=>updateJob("specialNotes",e.target.value)} placeholder="Any special instructions..." style={inputStyle}/></div>
                   <div>
                     <label style={labelStyle}>Attachments</label>
@@ -1787,27 +2065,206 @@ function AppInner(){
             {/* ADD JOB BUTTON */}
             {(formData.jobs||[]).length<3&&<button onClick={()=>setFormData({...formData,jobs:[...(formData.jobs||[]),{...emptyJob}]})} style={{...baseBtn,background:"transparent",border:`2px dashed ${t.line}`,color:t.muted,padding:"14px",width:"100%",borderRadius:"12px",fontSize:"13px",fontWeight:700}}>+ Add Job #{(formData.jobs||[]).length+1} Work Order</button>}
 
+            {/* ── RECURRING ── */}
+            <div style={{background:"rgba(167,139,250,.05)",border:"1.5px solid rgba(167,139,250,.18)",borderRadius:"12px",padding:"16px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:formData.recurring?.enabled?"14px":"0"}}>
+                <div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:t.purple,marginBottom:"3px"}}>🔁 Recurring Work Order</div>
+                  <div style={{fontSize:"11px",color:t.muted}}>Auto-generate this order on a schedule</div>
+                </div>
+                <button type="button" onClick={()=>setFormData(f=>({...f,recurring:{...(f.recurring||{frequency:"Weekly",until:""}),enabled:!(f.recurring?.enabled)}}))}
+                  style={{width:"44px",height:"24px",borderRadius:"14px",background:formData.recurring?.enabled?t.purple:t.line,border:"none",position:"relative",cursor:"pointer",padding:0,flexShrink:0}}>
+                  <span style={{position:"absolute",top:"2px",left:formData.recurring?.enabled?"22px":"2px",width:"20px",height:"20px",background:"#fff",borderRadius:"50%",transition:"left .15s"}}/>
+                </button>
+              </div>
+              {formData.recurring?.enabled&&<div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+                <div>
+                  <label style={labelStyle}>Frequency</label>
+                  <select value={formData.recurring?.frequency||"Weekly"} onChange={e=>setFormData(f=>({...f,recurring:{...f.recurring,frequency:e.target.value}}))} style={{...inputStyle,appearance:"none",cursor:"pointer"}}>
+                    {FREQUENCIES.map(f=><option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Recurring Until</label>
+                  <MiniCalendar value={formData.recurring?.until||""} onChange={v=>setFormData(f=>({...f,recurring:{...f.recurring,until:v}}))} minDate={formData.date}/>
+                  <div style={{fontSize:"11px",color:t.muted,marginTop:"5px"}}>Stops auto-generating after this date. Leave blank for no end.</div>
+                </div>
+              </div>}
+            </div>
+
             <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowForm(false);setEditingOrder(null);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button><button onClick={saveCrew} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingOrder!==null?"Update":"Create Order"}</button></div>
           </div></div>):(<>
-          <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"4px"}}>{"Today's Orders"}</div>
-          <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{todayCrew.length} active</div>
-          {todayCrew.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}><div>No work orders for today</div><div style={{fontSize:"12px",marginTop:"5px"}}>Tap New to create one</div></div>:
-          <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{todayCrew.map(order=>{const ri=orders.indexOf(order);return(<div key={ri} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"15px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"7px"}}>
-              <span style={{fontSize:"11px",background:"rgba(74,222,128,.12)",color:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>{order.crewName}</span>{getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700,marginLeft:"6px"}}>{getJobsForOrder(order).length} Jobs</span>}
-              <div style={{display:"flex",gap:"3px"}}>
-                <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
-                <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
-                <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order)});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
-                <button onClick={()=>setDeleteConfirm(ri)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button>
+          {/* TABS: Today / Recurring / History */}
+          <div style={{display:"flex",gap:"6px",marginBottom:"14px",borderBottom:`1px solid ${t.line}`,overflowX:"auto"}}>
+            {[
+              {k:"today",label:"Today"},
+              {k:"recurring",label:"🔁 Recurring"},
+              {k:"materials",label:"🔧 Materials",badge:Object.values(materialsRequests||{}).filter(r=>r.status==="pending").length},
+              {k:"history",label:"📜 History",badge:unreadActivity}
+            ].map(tab=>(
+              <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}}}} style={{padding:"10px 14px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
+            ))}
+          </div>
+
+          {mgrTab==="today"&&(()=>{
+            const lc=mgrSearch.trim().toLowerCase();
+            const matches=(o)=>{
+              if(!lc)return true;
+              const fields=[o.crewName,(o.members||[]).join(" "),o.referenceId,...(getJobsForOrder(o).flatMap(j=>[j.customerName,j.jobAddress,j.jobDescription,j.jobTreadName]))].filter(Boolean).join(" ").toLowerCase();
+              return fields.includes(lc);
+            };
+            const inFilter=(o)=>{
+              if(mgrFilter==="all")return true;
+              if(mgrFilter==="today")return o.date===todayStr;
+              if(mgrFilter==="week"){
+                const od=new Date(o.date+"T00:00:00");const now=new Date();const diff=(now-od)/86400000;
+                return diff>=-1&&diff<=7;
+              }
+              if(mgrFilter.startsWith("crew:"))return o.crewName===mgrFilter.slice(5);
+              return true;
+            };
+            const filtered=activeCrew.filter(o=>matches(o)&&inFilter(o));
+            return(<>
+              {/* Search bar */}
+              <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
+                <div style={{flex:1,position:"relative"}}>
+                  <input value={mgrSearch} onChange={e=>setMgrSearch(e.target.value)} placeholder="Search crew, member, address, ref ID..." style={{...inputStyle,paddingLeft:"38px"}}/>
+                  <span style={{position:"absolute",left:"12px",top:"50%",transform:"translateY(-50%)",color:t.muted,pointerEvents:"none"}}><SearchIcon/></span>
+                </div>
               </div>
-            </div>
-            {order.members?.length>0&&<div style={{fontSize:"13px",fontWeight:700,color:t.text,marginBottom:"3px"}}>{order.members.join(", ")}</div>}
-            <div style={{fontSize:"12px",color:t.blue,marginBottom:"3px"}}>{getJobsForOrder(order).map((j,i)=><span key={i} style={{display:"block"}}>{getJobsForOrder(order).length>1&&<span style={{fontWeight:700}}>J{i+1}: </span>}{j.jobAddress}</span>)}</div>
-            {order.customerName&&<div style={{fontSize:"12px",color:t.muted,marginBottom:"2px"}}>{order.customerName}{order.jobTreadName&&<span style={{color:t.muted,fontSize:"11px"}}> · {order.jobTreadName}</span>}</div>}
-            <div style={{fontSize:"12px",color:t.muted,lineHeight:1.5}}>{order.jobDescription?(order.jobDescription.length>100?order.jobDescription.slice(0,100)+"...":order.jobDescription):"No description"}</div>
-          </div>);})}
-          </div>}
+              <div style={{display:"flex",gap:"6px",marginBottom:"14px",flexWrap:"wrap",alignItems:"center"}}>
+                {[{k:"today",label:"Today"},{k:"week",label:"This Week"},{k:"all",label:"All"}].map(p=>(
+                  <button key={p.k} onClick={()=>setMgrFilter(p.k)} style={{...baseBtn,padding:"6px 12px",fontSize:"12px",borderRadius:"20px",background:mgrFilter===p.k?t.blue:t.tag,color:mgrFilter===p.k?"#fff":t.text,border:`1px solid ${mgrFilter===p.k?t.blue:t.line}`}}>{p.label}</button>
+                ))}
+                <select value={mgrFilter.startsWith("crew:")?mgrFilter:""} onChange={e=>setMgrFilter(e.target.value?`crew:${e.target.value}`:"today")} style={{padding:"6px 10px",fontSize:"12px",borderRadius:"20px",background:mgrFilter.startsWith("crew:")?t.blue:t.tag,color:mgrFilter.startsWith("crew:")?"#fff":t.text,border:`1px solid ${mgrFilter.startsWith("crew:")?t.blue:t.line}`,fontFamily:ff,cursor:"pointer"}}>
+                  <option value="">By Crew…</option>
+                  {crewNames.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{filtered.length} {filtered.length===1?"order":"orders"}</div>
+              {filtered.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}><div>No matching work orders</div><div style={{fontSize:"12px",marginTop:"5px"}}>Try a different search or filter</div></div>:
+              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{filtered.map(order=>{const ri=orders.indexOf(order);return(<div key={ri} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"15px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"7px"}}>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"6px",alignItems:"center"}}>
+                    <span style={{fontSize:"11px",background:"rgba(74,222,128,.12)",color:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>{order.crewName}</span>
+                    {order.referenceId&&<span style={{fontSize:"10px",background:"rgba(34,211,238,.12)",color:t.cyan,padding:"3px 8px",borderRadius:"6px",fontWeight:700,fontFamily:"monospace",letterSpacing:".5px"}}>{order.referenceId}</span>}
+                    {order.recurring?.enabled&&<span style={{fontSize:"10px",background:"rgba(167,139,250,.15)",color:t.purple,padding:"3px 8px",borderRadius:"6px",fontWeight:700}}>🔁 {order.recurring.frequency}</span>}
+                    {getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700}}>{getJobsForOrder(order).length} Jobs</span>}
+                  </div>
+                  <div style={{display:"flex",gap:"3px"}}>
+                    <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
+                    <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
+                    <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
+                    <button onClick={()=>setDeleteConfirm(ri)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button>
+                  </div>
+                </div>
+                {order.members?.length>0&&<div style={{fontSize:"13px",fontWeight:700,color:t.text,marginBottom:"3px"}}>{order.members.join(", ")}</div>}
+                <div style={{fontSize:"12px",color:t.blue,marginBottom:"3px"}}>{getJobsForOrder(order).map((j,i)=><span key={i} style={{display:"block"}}>{getJobsForOrder(order).length>1&&<span style={{fontWeight:700}}>J{i+1}: </span>}{j.jobAddress}</span>)}</div>
+                {order.date!==todayStr&&<div style={{fontSize:"11px",color:t.muted,marginBottom:"2px"}}>{order.date}</div>}
+                {order.customerName&&<div style={{fontSize:"12px",color:t.muted,marginBottom:"2px"}}>{order.customerName}{order.jobTreadName&&<span style={{color:t.muted,fontSize:"11px"}}> · {order.jobTreadName}</span>}</div>}
+                <div style={{fontSize:"12px",color:t.muted,lineHeight:1.5}}>{getJobsForOrder(order)[0]?.jobDescription?(getJobsForOrder(order)[0].jobDescription.length>100?getJobsForOrder(order)[0].jobDescription.slice(0,100)+"...":getJobsForOrder(order)[0].jobDescription):"No description"}</div>
+              </div>);})}
+              </div>}
+            </>);
+          })()}
+
+          {mgrTab==="recurring"&&(()=>{
+            const tpls=Object.values(recurringTemplates||{}).filter(tpl=>!tpl.stopped&&tpl.recurring?.frequency);
+            const generateNow=(tpl)=>{
+              const dateToUse=recurringTodayStr();
+              const newOrder=orderFromTemplate({...tpl},dateToUse,generateReferenceId);
+              newOrder.lastModified=new Date().toISOString();
+              saveToFB("orders",[...orders,newOrder]);
+              const nd=nextDate(dateToUse,tpl.recurring?.frequency);
+              saveToFB(`recurringTemplates/${tpl.id}`,{...tpl,lastGeneratedDate:dateToUse,nextScheduledDate:nd,lastModified:newOrder.lastModified});
+              logActivity({type:"recurring_generated",who:"Manager",text:`Manually generated ${newOrder.referenceId} from recurring template`,refId:newOrder.referenceId});
+              showToast(`Generated ${newOrder.referenceId}`);
+            };
+            const stopRecurring=(tpl)=>{
+              if(!window.confirm("Stop this recurring template? Existing orders will not be deleted."))return;
+              saveToFB(`recurringTemplates/${tpl.id}`,{...tpl,stopped:true,lastModified:new Date().toISOString()});
+              showToast("Recurring stopped");
+            };
+            return(<div>
+              <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"4px"}}>Recurring Templates</div>
+              <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{tpls.length} active template{tpls.length===1?"":"s"}</div>
+              {tpls.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}><div>No recurring templates yet</div><div style={{fontSize:"12px",marginTop:"5px"}}>Toggle "Recurring" when creating a work order</div></div>:
+              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{tpls.map(tpl=>{
+                const firstJob=(tpl.jobs||[])[0]||{};
+                return(<div key={tpl.id} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"15px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px",flexWrap:"wrap",gap:"6px"}}>
+                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap",alignItems:"center"}}>
+                      <span style={{fontSize:"11px",background:"rgba(74,222,128,.12)",color:t.green,padding:"3px 10px",borderRadius:"20px",fontWeight:700}}>{tpl.crewName}</span>
+                      <span style={{fontSize:"10px",background:"rgba(167,139,250,.15)",color:t.purple,padding:"3px 8px",borderRadius:"6px",fontWeight:700}}>🔁 {tpl.recurring?.frequency}</span>
+                    </div>
+                  </div>
+                  {(tpl.members||[]).length>0&&<div style={{fontSize:"13px",fontWeight:700,color:t.text,marginBottom:"3px"}}>{(tpl.members||[]).join(", ")}</div>}
+                  <div style={{fontSize:"12px",color:t.blue,marginBottom:"3px"}}>{firstJob.jobAddress||""}</div>
+                  {firstJob.customerName&&<div style={{fontSize:"12px",color:t.muted,marginBottom:"3px"}}>{firstJob.customerName}</div>}
+                  <div style={{fontSize:"11px",color:t.muted,marginBottom:"10px"}}>
+                    Next: <span style={{color:t.text,fontWeight:600}}>{tpl.nextScheduledDate||"—"}</span>
+                    {tpl.recurring?.until&&<span> · Until: {tpl.recurring.until}</span>}
+                  </div>
+                  <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+                    <button onClick={()=>generateNow(tpl)} style={{...baseBtn,background:t.blue,color:"#fff",padding:"8px 14px",fontSize:"12px",borderRadius:"8px",fontWeight:700}}>⚡ Generate Now</button>
+                    <button onClick={()=>stopRecurring(tpl)} style={{...baseBtn,background:"transparent",border:`1px solid ${t.danger}`,color:t.danger,padding:"8px 14px",fontSize:"12px",borderRadius:"8px",fontWeight:700}}>⏹ Stop Recurring</button>
+                  </div>
+                </div>);
+              })}</div>}
+            </div>);
+          })()}
+
+          {mgrTab==="materials"&&(()=>{
+            const list=Object.values(materialsRequests||{}).sort((a,b)=>(b.submittedAt||"").localeCompare(a.submittedAt||""));
+            return(<div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+                <div style={{fontSize:"17px",fontWeight:700,color:t.text}}>Materials Requests</div>
+                <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:t.amber,color:"#1F2329",padding:"8px 14px",fontSize:"12px",fontWeight:700,borderRadius:"8px"}}>+ New Request</button>
+              </div>
+              {list.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No materials requests yet</div>:
+              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{list.map(r=>(
+                <button key={r.id} onClick={()=>setMaterialsDetail(r.id)} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,padding:"15px",borderRadius:"12px",flexDirection:"column",alignItems:"flex-start",gap:"6px",color:t.text,width:"100%",textAlign:"left"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",width:"100%",alignItems:"center",flexWrap:"wrap",gap:"6px"}}>
+                    <div style={{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap"}}>
+                      <span style={{fontSize:"11px",background:"rgba(245,158,11,.15)",color:t.amber,padding:"3px 10px",borderRadius:"20px",fontWeight:700}}>{r.requestedBy||"Crew"}</span>
+                      {r.status==="approved"&&<span style={{fontSize:"10px",background:"rgba(74,222,128,.15)",color:t.green,padding:"3px 8px",borderRadius:"6px",fontWeight:700}}>✓ Approved</span>}
+                      {r.status==="pending"&&<span style={{fontSize:"10px",background:"rgba(244,63,94,.12)",color:t.danger,padding:"3px 8px",borderRadius:"6px",fontWeight:700}}>● Pending</span>}
+                      {r.aiGeneratedList&&<span style={{fontSize:"10px",background:"rgba(167,139,250,.15)",color:t.purple,padding:"3px 8px",borderRadius:"6px",fontWeight:700}}>✨ AI ready</span>}
+                    </div>
+                    <span style={{fontSize:"11px",color:t.muted}}>{(r.submittedAt||"").split("T")[0]}</span>
+                  </div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:t.text}}>{r.jobName||"—"} · {(r.lineItems||[]).length} item{(r.lineItems||[]).length===1?"":"s"}</div>
+                  {r.overallNotes&&<div style={{fontSize:"12px",color:t.muted,lineHeight:1.4}}>{r.overallNotes.length>120?r.overallNotes.slice(0,120)+"…":r.overallNotes}</div>}
+                </button>
+              ))}</div>}
+            </div>);
+          })()}
+
+          {mgrTab==="history"&&(()=>{
+            const yesterday=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+            const ySummary=dailySummaries[yesterday];
+            return(<div>
+              {/* Daily summary card */}
+              {ySummary&&<div style={{background:"rgba(34,211,238,.05)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"12px",padding:"16px",marginBottom:"16px"}}>
+                <div style={{fontSize:"11px",fontWeight:700,color:t.cyan,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"6px"}}>📊 Yesterday — {ySummary.date}</div>
+                <div style={{fontSize:"14px",color:t.text,lineHeight:1.5}}>{ySummary.text}</div>
+              </div>}
+              <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"4px"}}>Activity Log</div>
+              <div style={{fontSize:"12px",color:t.muted,marginBottom:"14px",fontWeight:600}}>{activityEntries.length} event{activityEntries.length===1?"":"s"}</div>
+              {activityEntries.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No activity yet</div>:
+              <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{activityEntries.slice(0,200).map(e=>{
+                const d=new Date(e.ts);const time=d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});const day=d.toLocaleDateString([],{month:"short",day:"numeric"});
+                const clickable=e.type==="materials_request"&&e.materialsId;
+                return(<div key={e.id} onClick={clickable?()=>setMaterialsDetail(e.materialsId):undefined} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"10px 14px",display:"flex",alignItems:"flex-start",gap:"10px",cursor:clickable?"pointer":"default"}}>
+                  <div style={{fontSize:"16px",flexShrink:0}}>{activityIcon(e.type)}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"13px",color:t.text,lineHeight:1.4}}>{e.text}</div>
+                    <div style={{fontSize:"11px",color:t.muted,marginTop:"2px"}}>{day} · {time}{e.who?` · ${e.who}`:""}</div>
+                  </div>
+                </div>);
+              })}</div>}
+            </div>);
+          })()}
         </>)}
       </div>
     </div>

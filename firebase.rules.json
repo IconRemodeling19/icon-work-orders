@@ -1,0 +1,31 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+
+    "subOrders": {
+      "$orderId": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    },
+
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "notificationTokens": {
+      ".read": "auth != null",
+      "$token": {
+        ".write": "auth != null"
+      }
+    },
+
+    "activityLog":     { ".read": "auth != null", ".write": "auth != null" },
+    "confirmations":   { ".read": "auth != null", ".write": "auth != null" },
+    "dailySummaries":  { ".read": "auth != null", ".write": "auth != null" },
+    "materialsRequests": { ".read": "auth != null", ".write": "auth != null" },
+    "recurringTemplates": { ".read": "auth != null", ".write": "auth != null" }
+  }
+}
