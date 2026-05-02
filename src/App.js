@@ -66,7 +66,7 @@ const ff = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 const baseBtn={border:"none",borderRadius:"10px",cursor:"pointer",fontFamily:ff,fontWeight:600,transition:"all 0.15s ease",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"};
 const primaryBtn={...baseBtn,background:`linear-gradient(135deg,#3B6FEF 0%,#5B9BFF 100%)`,color:"#fff",padding:"14px 24px",fontSize:"15px",boxShadow:"0 0 20px rgba(79,127,255,.3)"};
 const ghostBtn={...baseBtn,background:"transparent",color:t.muted,padding:"10px 16px",fontSize:"14px"};
-const inputStyle={width:"100%",padding:"14px 16px",background:t.inputBg,border:`1.5px solid ${t.line}`,borderRadius:"10px",color:t.text,fontSize:"15px",fontFamily:ff,outline:"none",boxSizing:"border-box",transition:"border-color 0.15s"};
+const inputStyle={width:"100%",padding:"14px 16px",background:t.inputBg,border:`1.5px solid ${t.line}`,borderRadius:"10px",color:t.text,fontSize:"16px",fontFamily:ff,outline:"none",boxSizing:"border-box",transition:"border-color 0.15s"};
 const labelStyle={display:"block",fontSize:"11px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"8px"};
 
 // ── APP GATE ────────────────────────────────────────────────────────────────
@@ -982,7 +982,7 @@ function SubOrderPublicView({orderId}){
 
 // ── SUBCONTRACTOR ORDERS (manager side, dark palette) ───────────────────────
 const subT={bg:"#0d1117",card:"#161b22",line:"#30363d",red:"#E8192C",text:"#e6edf3",muted:"#8b949e"};
-const subInputStyle={width:"100%",padding:"13px 15px",background:"#0d1117",border:`1.5px solid ${subT.line}`,borderRadius:"10px",color:subT.text,fontSize:"15px",fontFamily:ff,outline:"none",boxSizing:"border-box"};
+const subInputStyle={width:"100%",padding:"13px 15px",background:"#0d1117",border:`1.5px solid ${subT.line}`,borderRadius:"10px",color:subT.text,fontSize:"16px",fontFamily:ff,outline:"none",boxSizing:"border-box"};
 const subLabelStyle={display:"block",fontSize:"11px",fontWeight:700,color:subT.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"8px"};
 
 const PRIVACY_FIELDS=[
@@ -1235,7 +1235,6 @@ function AppInner(){
   const[newCrewPin,setNewCrewPin]=useState("");
   const[editingFieldOrder,setEditingFieldOrder]=useState(null);
   const[showFieldForm,setShowFieldForm]=useState(false);
-  const[selectedCrewOrder,setSelectedCrewOrder]=useState(null);
   const[noteText,setNoteText]=useState("");
   const[noteAtts,setNoteAtts]=useState([]);
   const[selectedJob,setSelectedJob]=useState("");
@@ -1244,7 +1243,6 @@ function AppInner(){
   const[editingLockbox,setEditingLockbox]=useState(null);
   const[showLockboxForm,setShowLockboxForm]=useState(false);
   const[editingActiveJob,setEditingActiveJob]=useState(null);
-  const[activeJobsEditing,setActiveJobsEditing]=useState(false);
   const[showAddJob,setShowAddJob]=useState(false);
   const[jobMenu,setJobMenu]=useState(null);
   const[deleteJobConfirm,setDeleteJobConfirm]=useState(null);
@@ -1256,7 +1254,6 @@ function AppInner(){
   const[newJobWifiPass,setNewJobWifiPass]=useState("");
   const[newJobCustomerName,setNewJobCustomerName]=useState("");
   const[newJobTreadName,setNewJobTreadName]=useState("");
-  const[customerManualMode,setCustomerManualMode]=useState(false);
   const[keyModal,setKeyModal]=useState(null);
   const[wifiModal,setWifiModal]=useState(null);
   const[doorModal,setDoorModal]=useState(null);
@@ -1278,7 +1275,6 @@ function AppInner(){
   const[aiDescDialog,setAiDescDialog]=useState(null); // {jobIdx}
   const[aiMatsDialog,setAiMatsDialog]=useState(null); // {jobIdx, jobDescription}
   const[aiVoiceDialog,setAiVoiceDialog]=useState(false);
-  const[unreadCount,setUnreadCount]=useState(0);
   const[expandedSummaries,setExpandedSummaries]=useState({});
   const[summaryCardOpen,setSummaryCardOpen]=useState(false);
   const[memberPhones,setMemberPhones]=useState({});
@@ -1392,7 +1388,7 @@ function AppInner(){
     }
     ranAutoGenRef.current=true;
   },[mode,managerAuth,ordersL,recurringTemplates]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setSelectedCrewOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setActiveJobsEditing(false);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setCustomerManualMode(false);setFileViewer(null);setDocView(null);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -1495,7 +1491,7 @@ function AppInner(){
     } else {
       logActivity({type:"order_created",who:"Manager",text:`Work Order ${d.referenceId} created`,refId:d.referenceId});
     }
-    setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);
+    setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});
 
     // Auto SMS notification (silent skip if no members have phone numbers)
     const smsCount=triggerCrewSms(d);
@@ -1518,7 +1514,6 @@ function AppInner(){
     const jobs=getJobsForOrder(order);
     const members=(order.members||order.staffMember||[]).join(", ");
     const isField=!!(order.staffMember);
-    const rainbow="background:linear-gradient(90deg,#E8192C,#FF6B35,#FFD700,#4CAF50,#2196F3,#9C27B0)";
 
     const renderBulletHtml=(text)=>{
       if(!text)return"";
@@ -1609,7 +1604,6 @@ function AppInner(){
   const todayStr=new Date().toISOString().split("T")[0];
   const activeCrew=getActive(orders);const activeField=getActive(fieldOrders);
   const allArchived=[...getArchived(orders).map(o=>({...o,_type:"crew"})),...getArchived(fieldOrders).map(o=>({...o,_type:"field"}))].sort((a,b)=>b.date.localeCompare(a.date));
-  const todayCrew=activeCrew.filter(o=>o.date===todayStr);
   const crewNames=Object.keys(crews);
 
   if(fileViewer)return(<FileViewer file={fileViewer} onClose={()=>setFileViewer(null)}/>);
@@ -1793,7 +1787,7 @@ function AppInner(){
               <th style={{width:"36px",borderBottom:`1px solid ${t.line}`}}/>
             </tr></thead>
             <tbody>
-              {(activeJobs||[]).map((job,idx)=>{
+              {(activeJobs||[]).map((job,idx)=>({job,idx})).sort((a,b)=>(a.job.name||"").localeCompare(b.job.name||"")).map(({job,idx})=>{
                 const linked=getLinkedLockbox(idx);const hasWifi=!!(job.wifiName||job.wifiPassword);const hasGarage=!!job.garageCode;const hasDoor=!!(job.doorType&&job.doorCode);
                 return(
                   <tr key={idx} className="job-row">
@@ -1867,7 +1861,7 @@ function AppInner(){
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
       <Header title={selected?"Access Code Details":"Job Access Codes"} subtitle={`${allEntries.length} locations`} onBack={()=>{if(selected)setSelectedLockbox(null);else goHome();}} onHome={goHome}/>
-      <div style={{padding:"20px"}}>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
         {selected?(<div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"22px"}}>
           <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"18px"}}>
             <span style={{color:entryColor(selected)}}>{entryIcon(selected)}</span>
@@ -1911,7 +1905,7 @@ function AppInner(){
       <Header title="Manage Lock Box Codes" onBack={()=>{setShowLockboxForm(false);setEditingLockbox(null);setMode("manager");}} onHome={goHome}>
         {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> Add</button>}
       </Header>
-      <div style={{padding:"20px"}}>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
         {showLockboxForm?(<div>
           <h2 style={{fontSize:"19px",color:t.text,margin:"0 0 18px",fontWeight:700,fontFamily:ff}}>{editingLockbox!==null?"Edit":"New"} Lock Box</h2>
           <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
@@ -1969,7 +1963,7 @@ function AppInner(){
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
       <Header title="Field Notes & Photos" subtitle={today} onBack={goHome} onHome={goHome}/>
-      <div style={{padding:"20px"}}>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
         <div style={{display:"flex",flexDirection:"column",gap:"14px",marginBottom:"24px"}}>
           <div><label style={labelStyle}>Link to Work Order</label><select value={selectedJob} onChange={e=>setSelectedJob(e.target.value)} style={{...inputStyle,appearance:"none"}}><option value="">General</option>{allJobs.map((j,i)=><option key={i} value={j.label}>{j.label} ({j.date})</option>)}</select></div>
           <div><label style={labelStyle}>Notes</label><BulletTextarea value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Type field notes..." style={inputStyle}/></div>
@@ -2035,7 +2029,7 @@ function AppInner(){
         <input ref={filesUploadRef} type="file" multiple onChange={handleDirectUpload} style={{display:"none"}}/>
         <button onClick={()=>filesUploadRef.current?.click()} disabled={uploading} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> Upload</button>
       </Header>
-      <div style={{padding:"20px"}}>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
         {allAtts.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No files yet.</div>:
         <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>{allAtts.map((att,i)=>(<div key={i} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"13px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{flex:1,minWidth:0}}><a href={att.url} onClick={e=>{e.preventDefault();setFileViewer(att);}} style={{fontSize:"13px",fontWeight:600,color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><PaperclipIcon/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a><div style={{fontSize:"11px",color:t.muted}}>{att.source}{att.members?" - "+att.members:""} - {att.date}</div></div>
@@ -2131,7 +2125,7 @@ function AppInner(){
     const allMemberNames=Array.from(new Set(crewNames.flatMap(c=>crews[c]||[]))).sort();
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
     <Header title="Manage Crew Rosters" onBack={()=>{setManageCrews(false);setEditingCrewName(null);setNewMemberName("");}} onHome={goHome}/>
-    <div style={{padding:"20px"}}>
+    <div style={{padding:"20px",paddingBottom:"100px"}}>
       <div style={{marginBottom:"24px",background:t.card,border:`1px solid rgba(245,158,11,.25)`,borderRadius:"12px",padding:"16px"}}>
         <div style={{fontSize:"13px",fontWeight:700,color:t.amber,marginBottom:"4px"}}>📱 SMS Auto-Notify</div>
         <div style={{fontSize:"11px",color:t.muted,marginBottom:"14px",lineHeight:1.5}}>Add a phone number for each member. When a work order is saved or you tap the 📱 button on a card, the native SMS app opens for each member with a pre-filled message. Members without a number are silently skipped.</div>
@@ -2161,7 +2155,7 @@ function AppInner(){
     }):allArchived;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
       <Header title="Archived Orders" onBack={()=>setShowArchive(false)} onHome={goHome}/>
-      <div style={{padding:"20px"}}>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
         <div style={{position:"relative",marginBottom:"14px"}}>
           <input value={archiveSearch} onChange={e=>setArchiveSearch(e.target.value)} placeholder="Search archive — crew, member, address, ref ID..." style={{...inputStyle,paddingLeft:"38px"}}/>
           <span style={{position:"absolute",left:"12px",top:"50%",transform:"translateY(-50%)",color:t.muted,pointerEvents:"none"}}><SearchIcon/></span>
@@ -2187,7 +2181,7 @@ function AppInner(){
   // ── PIN SETTINGS ──────────────────────────────────────────────────────────
   if(showPinSettings)return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
     <Header title="PIN & Access Settings" onBack={()=>setShowPinSettings(false)} onHome={goHome}/>
-    <div style={{padding:"20px",maxWidth:"400px",display:"flex",flexDirection:"column",gap:"16px"}}>
+    <div style={{padding:"20px",paddingBottom:"100px",maxWidth:"400px",display:"flex",flexDirection:"column",gap:"16px"}}>
       <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"18px"}}>
         <div style={{fontSize:"11px",fontWeight:700,color:t.amber,textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:"4px"}}>Manager PIN</div>
         <div style={{fontSize:"12px",color:t.muted,marginBottom:"12px"}}>Current: <strong style={{color:t.text}}>{managerPin}</strong></div>

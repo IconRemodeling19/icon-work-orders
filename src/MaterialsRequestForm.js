@@ -14,7 +14,7 @@ const UNITS = ["each", "box", "bag", "sheet", "LF", "SF", "gallon", "lb", "other
 
 const inputStyle = {
   width: "100%", padding: "12px 14px", background: t.inputBg, border: `1.5px solid ${t.line}`,
-  borderRadius: "10px", color: t.text, fontSize: "14px", fontFamily: ff, outline: "none",
+  borderRadius: "10px", color: t.text, fontSize: "16px", fontFamily: ff, outline: "none",
   boxSizing: "border-box"
 };
 const labelStyle = {

@@ -18,7 +18,7 @@ const modalStyle = {
 };
 const inputStyle = {
   width: "100%", padding: "12px 14px", background: t.inputBg, border: `1.5px solid ${t.line}`,
-  borderRadius: "10px", color: t.text, fontSize: "14px", fontFamily: ff, outline: "none", boxSizing: "border-box"
+  borderRadius: "10px", color: t.text, fontSize: "16px", fontFamily: ff, outline: "none", boxSizing: "border-box"
 };
 
 function ErrorMsg({ msg }) {
