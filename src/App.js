@@ -570,7 +570,7 @@ function Header({title,subtitle,onBack,onHome,children}){
     <div className="no-print">
       <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.line}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.nav}}>
         <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:0,flex:"0 1 auto"}}>
-          {onBack&&<button onClick={onBack} style={{...ghostBtn,padding:"6px",flexShrink:0,color:t.blue}}><BackIcon/></button>}
+          {onBack&&<button onClick={onBack} style={{...ghostBtn,padding:"6px 10px",flexShrink:0,color:t.blue,display:"inline-flex",alignItems:"center",gap:"4px",fontSize:"13px",fontWeight:600}}><BackIcon/>Previous Page</button>}
           <div style={{minWidth:0}}>
             <div style={{fontSize:"15px",fontWeight:700,color:t.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</div>
             {subtitle&&<div style={{fontSize:"11px",color:t.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subtitle}</div>}
@@ -704,6 +704,8 @@ function SubOrderPublicView({orderId}){
 
   const doorValue=order.doorCode?(order.doorLocation?`${order.doorCode}  (${order.doorLocation})`:order.doorCode):"";
 
+  const goAppHome=()=>{window.location.href=window.location.origin;};
+
   return(
     <div style={{minHeight:"100vh",background:"#f4f4f4",color:"#000",fontFamily:docFf}}>
       <style>{`
@@ -714,6 +716,9 @@ function SubOrderPublicView({orderId}){
           @page{margin:0.5in;}
         }
       `}</style>
+      <div className="no-print" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",padding:"10px 16px",background:"#fff",borderBottom:"1px solid #999"}}>
+        <button onClick={goAppHome} style={{padding:"8px 14px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>← Home</button>
+      </div>
       <div className="no-print" style={{display:"flex",justifyContent:"center",flexWrap:"wrap",gap:"10px",padding:"14px 16px",background:"#fff",borderBottom:"1px solid #999"}}>
         <button onClick={copyLink} style={{padding:"10px 18px",background:"#000",color:"#fff",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>{copied?"Link Copied!":"Copy Link"}</button>
         <button onClick={printDoc} style={{padding:"10px 18px",background:"#fff",color:"#000",border:"1px solid #000",borderRadius:"6px",fontSize:"13px",fontWeight:700,cursor:"pointer",fontFamily:docFf}}>Print / Save as PDF</button>
@@ -862,7 +867,7 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
     <div style={{minHeight:"100vh",background:subT.bg,fontFamily:ff,color:subT.text}}>
       <div style={{padding:"12px 16px",borderBottom:`1px solid ${subT.line}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:subT.card}}>
         <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:0}}>
-          <button onClick={onBack} style={{...ghostBtn,padding:"6px",color:subT.text}}><BackIcon/></button>
+          <button onClick={onBack} style={{...ghostBtn,padding:"6px 10px",color:subT.text,display:"inline-flex",alignItems:"center",gap:"4px",fontSize:"13px",fontWeight:600}}><BackIcon/>Previous Page</button>
           <div style={{minWidth:0}}>
             <div style={{fontSize:"15px",fontWeight:700,color:subT.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>Subcontractor Orders</div>
             <div style={{fontSize:"11px",color:subT.muted,whiteSpace:"nowrap"}}>{recent.length} active in last 7 days</div>
