@@ -271,19 +271,62 @@ function FileViewer({file,onClose}){
             ))}
           </div>
         )}
-        {(type==="office"||type==="unknown")&&(
-          <div style={{width:"100%",minHeight:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px",boxSizing:"border-box",textAlign:"center"}}>
-            <div style={{fontSize:"64px",marginBottom:"20px"}}>{fileIcons[type]}</div>
-            <div style={{fontSize:"18px",fontWeight:700,color:"#fff",marginBottom:"8px",fontFamily:ff}}>{name}</div>
-            <div style={{fontSize:"13px",color:"rgba(255,255,255,0.45)",marginBottom:"36px",fontFamily:ff,maxWidth:"280px",lineHeight:1.5}}>
-              This file type can't be previewed in the browser.<br/>Tap below to open it in the appropriate app.
+        {(type==="office"||type==="unknown")&&(()=>{
+          const ext=((name||"").split(".").pop()||"").toUpperCase();
+          return(
+            <div style={{width:"100%",minHeight:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px",boxSizing:"border-box",textAlign:"center"}}>
+              <div style={{fontSize:"64px",marginBottom:"20px"}}>{fileIcons[type]}</div>
+              <div style={{fontSize:"18px",fontWeight:700,color:"#fff",marginBottom:"16px",fontFamily:ff,wordBreak:"break-word",maxWidth:"320px"}}>{name}</div>
+              <div style={{fontSize:"14px",color:"rgba(255,255,255,0.7)",fontFamily:ff,maxWidth:"320px",lineHeight:1.6,padding:"16px 20px",background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:"12px"}}>
+                This file was uploaded as a {ext||"document"} document. For best viewing, ask your manager to re-upload it as a PDF or image.
+              </div>
             </div>
-            <a href={url} onClick={e=>{e.preventDefault();window.location.href=url;}} style={{display:"inline-flex",alignItems:"center",gap:"10px",padding:"16px 28px",background:"linear-gradient(135deg,#4F7FFF,#3A6AE8)",borderRadius:"14px",color:"#fff",fontSize:"16px",fontWeight:700,textDecoration:"none",fontFamily:ff,boxShadow:"0 4px 20px rgba(79,127,255,0.4)"}}>
-              📂 Open in App
-            </a>
-            <div style={{marginTop:"16px",fontSize:"11px",color:"rgba(255,255,255,0.3)",fontFamily:ff}}>Opens in Word, Excel, Files, or another compatible app</div>
-          </div>
-        )}
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
+// ── Reusable attachment card: image thumbnail (if image), file icon, name, View button ──
+// theme="dark" for the in-app dark UI; theme="light" for WorkOrderDoc / printed-style surfaces.
+function AttachmentCard({attachment,onOpen,theme="dark"}){
+  const url=attachment.url;
+  const name=attachment.name||"Attachment";
+  const type=getFileType(url,name);
+  const ext=((name||"").split(".").pop()||"").toUpperCase();
+  const ffLocal="'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+  const icons={image:"🖼️",pdf:"📄",office:"📋",unknown:"📎"};
+  const dark=theme==="dark";
+  const colors=dark
+    ?{bg:"#131929",border:"#1E2845",text:"#F0F4FF",muted:"#8B96B0",btn:"#4F7FFF",btnText:"#fff",noticeBg:"rgba(245,158,11,0.08)",noticeBorder:"rgba(245,158,11,0.25)",noticeText:"#F5C77E"}
+    :{bg:"#F2F4F6",border:"#D6D9DE",text:"#1F2329",muted:"#5F6670",btn:"#0077C8",btnText:"#fff",noticeBg:"#FFF8E6",noticeBorder:"#E6C57A",noticeText:"#7A5A00"};
+
+  if(type==="office"){
+    return(
+      <div style={{background:colors.bg,border:`1px solid ${colors.border}`,borderRadius:"10px",padding:"12px 14px",display:"flex",flexDirection:"column",gap:"8px",fontFamily:ffLocal}}>
+        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+          <span style={{fontSize:"18px"}}>{icons.office}</span>
+          <span style={{flex:1,minWidth:0,fontSize:"13px",fontWeight:600,color:colors.text,wordBreak:"break-word"}}>{name}</span>
+        </div>
+        <div style={{fontSize:"12px",color:colors.noticeText,lineHeight:1.5,padding:"10px 12px",background:colors.noticeBg,border:`1px solid ${colors.noticeBorder}`,borderRadius:"8px"}}>
+          This file was uploaded as a {ext||"document"} document. For best viewing, ask your manager to re-upload it as a PDF or image.
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{background:colors.bg,border:`1px solid ${colors.border}`,borderRadius:"10px",padding:"10px",display:"flex",flexDirection:"column",gap:"8px",fontFamily:ffLocal}}>
+      {type==="image"&&(
+        <button type="button" onClick={onOpen} style={{padding:0,border:"none",background:"#000",borderRadius:"8px",overflow:"hidden",cursor:"pointer",display:"block",width:"100%"}}>
+          <img src={url} alt={name} style={{width:"100%",maxHeight:"80px",objectFit:"cover",display:"block"}}/>
+        </button>
+      )}
+      <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+        <span style={{fontSize:"18px",flexShrink:0}}>{icons[type]||icons.unknown}</span>
+        <span style={{flex:1,minWidth:0,fontSize:"13px",fontWeight:600,color:colors.text,wordBreak:"break-word"}}>{name}</span>
+        <button type="button" onClick={onOpen} style={{background:colors.btn,color:colors.btnText,border:"none",borderRadius:"6px",padding:"6px 14px",fontSize:"12px",fontWeight:700,cursor:"pointer",fontFamily:ffLocal,flexShrink:0}}>View</button>
       </div>
     </div>
   );
@@ -431,10 +474,7 @@ function WorkOrderDoc({order,onClose,onFileOpen}){
         <div style={{padding:"14px 18px",background:brand.white,borderBottom:`1px solid ${brand.borderGray}`}}>
           <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
             {job.attachments.map((a,i)=>(
-              <button key={i} onClick={()=>onFileOpen&&onFileOpen(a)} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:brand.lightGray,border:`1.5px solid ${brand.borderGray}`,borderRadius:"8px",cursor:"pointer",textAlign:"left",width:"100%",fontFamily:ff}}>
-                <span style={{fontSize:"16px"}}>📄</span>
-                <span style={{fontSize:"14px",fontWeight:600,color:brand.blue}}>{a.name}</span>
-              </button>
+              <AttachmentCard key={i} attachment={a} onOpen={()=>onFileOpen&&onFileOpen(a)} theme="light"/>
             ))}
           </div>
         </div>
@@ -640,6 +680,91 @@ export default function App(){
   return(<><OfflineBanner online={online}/><SkeletonStyles/><AppGate><AppInner/></AppGate></>);
 }
 
+// ── Inline attachment renderer for the subcontractor public page (no FileViewer modal). ──
+// Images render as full-width imgs; PDFs render every page via PDF.js as scrollable images;
+// office files show the same "ask manager to re-upload" message inline.
+function SubAttachmentInline({attachment}){
+  const url=attachment.url;
+  const name=attachment.name||"Attachment";
+  const type=getFileType(url,name);
+  const ext=((name||"").split(".").pop()||"").toUpperCase();
+  const[pdfPages,setPdfPages]=React.useState([]);
+  const[pdfLoading,setPdfLoading]=React.useState(false);
+  const[pdfError,setPdfError]=React.useState(false);
+
+  React.useEffect(()=>{
+    if(type!=="pdf")return;
+    let cancelled=false;
+    setPdfLoading(true);setPdfPages([]);setPdfError(false);
+    const load=async()=>{
+      try{
+        if(!window.pdfjsLib){
+          await new Promise((res,rej)=>{
+            const s=document.createElement("script");
+            s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res();};
+            s.onerror=rej;document.head.appendChild(s);
+          });
+        }
+        const pdf=await window.pdfjsLib.getDocument(url).promise;
+        const pages=[];
+        for(let p=1;p<=pdf.numPages;p++){
+          const page=await pdf.getPage(p);
+          const vp=page.getViewport({scale:2.0});
+          const canvas=document.createElement("canvas");
+          canvas.width=vp.width;canvas.height=vp.height;
+          const ctx=canvas.getContext("2d");
+          await page.render({canvasContext:ctx,viewport:vp}).promise;
+          pages.push(canvas.toDataURL("image/jpeg",0.92));
+        }
+        if(!cancelled)setPdfPages(pages);
+      }catch(e){console.error("Sub PDF render error:",e);if(!cancelled)setPdfError(true);}
+      finally{if(!cancelled)setPdfLoading(false);}
+    };
+    load();
+    return()=>{cancelled=true;};
+  },[url,type]);
+
+  const labelStyle={fontSize:"10px",fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:"#444",marginBottom:"6px"};
+
+  if(type==="image"){
+    return(
+      <div style={{marginBottom:"14px"}}>
+        <div style={labelStyle}>{name}</div>
+        <img src={url} alt={name} style={{width:"100%",border:"1px solid #999",display:"block",borderRadius:"4px"}}/>
+      </div>
+    );
+  }
+  if(type==="pdf"){
+    return(
+      <div style={{marginBottom:"14px"}}>
+        <div style={labelStyle}>{name} {pdfPages.length>0&&<span style={{color:"#888",fontWeight:600,letterSpacing:"normal",textTransform:"none"}}>· {pdfPages.length} page{pdfPages.length===1?"":"s"}</span>}</div>
+        {pdfLoading&&<div style={{padding:"24px",textAlign:"center",border:"1px solid #999",borderRadius:"4px",background:"#fafafa",color:"#666",fontSize:"13px"}}>Loading PDF…</div>}
+        {pdfError&&<div style={{padding:"16px",border:"1px solid #999",borderRadius:"4px",background:"#fafafa",color:"#000",fontSize:"13px"}}>Could not render PDF inline. <a href={url} target="_blank" rel="noreferrer" style={{color:"#000"}}>Open PDF</a></div>}
+        {!pdfLoading&&!pdfError&&pdfPages.map((src,i)=>(
+          <div key={i} style={{marginBottom:"8px"}}>
+            {pdfPages.length>1&&<div style={{fontSize:"10px",color:"#888",marginBottom:"4px",fontWeight:600,letterSpacing:"1px"}}>PAGE {i+1} OF {pdfPages.length}</div>}
+            <img src={src} alt={`${name} page ${i+1}`} style={{width:"100%",border:"1px solid #999",display:"block",borderRadius:"4px"}}/>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if(type==="office"){
+    return(
+      <div style={{marginBottom:"14px",padding:"12px 14px",border:"1px solid #999",borderRadius:"4px",background:"#fafafa"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"#000",marginBottom:"6px"}}>📋 {name}</div>
+        <div style={{fontSize:"12px",color:"#444",lineHeight:1.5}}>This file was uploaded as a {ext||"document"} document. For best viewing, ask your manager to re-upload it as a PDF or image.</div>
+      </div>
+    );
+  }
+  return(
+    <div style={{marginBottom:"14px",padding:"10px 12px",border:"1px solid #999",borderRadius:"4px",background:"#fff"}}>
+      <a href={url} target="_blank" rel="noreferrer" style={{fontSize:"13px",color:"#000",textDecoration:"underline"}}>📎 {name}</a>
+    </div>
+  );
+}
+
 // ── SUBCONTRACTOR PUBLIC ORDER (clean black & white, no login) ───────────────
 function SubOrderPublicView({orderId}){
   const[order,setOrder]=useState(null);
@@ -802,12 +927,10 @@ function SubOrderPublicView({orderId}){
         <Section title="Special Instructions" body={order.instructions}/>
         {(order.attachments||[]).length>0&&(
           <div style={{borderTop:"1px solid #999",padding:"14px 22px"}}>
-            <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:"#666",marginBottom:"8px"}}>Attachments</div>
-            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
-              {(order.attachments||[]).map((a,i)=>(
-                <a key={i} href={a.url} target="_blank" rel="noreferrer" style={{padding:"9px 12px",border:"1px solid #999",fontSize:"13px",color:"#000",textDecoration:"underline",background:"#fff"}}>{a.name||`Attachment ${i+1}`}</a>
-              ))}
-            </div>
+            <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:"#666",marginBottom:"10px"}}>Attachments ({(order.attachments||[]).length})</div>
+            {(order.attachments||[]).map((a,i)=>(
+              <SubAttachmentInline key={i} attachment={a}/>
+            ))}
           </div>
         )}
         <div style={{padding:"16px 24px",borderTop:"2px solid #000",fontSize:"10px",letterSpacing:"1.5px",textTransform:"uppercase",color:"#444",textAlign:"center"}}>
@@ -1119,7 +1242,14 @@ function AppInner(){
   const[unreadCount,setUnreadCount]=useState(0);
   const[expandedSummaries,setExpandedSummaries]=useState({});
   const[summaryCardOpen,setSummaryCardOpen]=useState(false);
+  const[memberPhones,setMemberPhones]=useState({});
   const fileRef=useRef(null);const fieldFileRef=useRef(null);const noteFileRef=useRef(null);const cameraRef=useRef(null);const filesUploadRef=useRef(null);
+
+  // Subscribe to member phone numbers (for auto-SMS)
+  useEffect(()=>{
+    const u=onValue(ref(db,"memberPhones"),s=>setMemberPhones(s.val()||{}));
+    return()=>u();
+  },[]);
 
   // Subscribe to recurring templates / activity log / daily summaries / materials
   useEffect(()=>{
@@ -1262,6 +1392,30 @@ function AppInner(){
     }
     setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
   };
+  // Open the native SMS app for each assigned member that has a phone number stored.
+  // Returns the number of SMS links triggered (0 = silent skip per spec).
+  const triggerCrewSms=useCallback((order)=>{
+    const members=order.members||[];
+    const date=order.date||"today";
+    const firstJob=getJobsForOrder(order)[0]||{};
+    const address=firstJob.jobAddress||"see app";
+    const recipients=members
+      .map(name=>({name,phone:String(memberPhones[name]||"").replace(/\D/g,"")}))
+      .filter(r=>r.phone.length>=10);
+    recipients.forEach((r,i)=>{
+      setTimeout(()=>{
+        const message=`Icon Remodeling Group: Hi ${r.name}, you have a new work order for ${date}. Job: ${address}. Open your assignments at icon-work-orders.vercel.app`;
+        const link=`sms:${r.phone}&body=${encodeURIComponent(message)}`;
+        const a=document.createElement("a");
+        a.href=link;a.style.display="none";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{try{document.body.removeChild(a);}catch{}},200);
+      },i*1500);
+    });
+    return recipients.length;
+  },[memberPhones]);
+
   const saveCrew=()=>{
     if(!formData.crewName){showToast("Crew required");return;}
     const firstJob=formData.jobs?.[0];
@@ -1269,8 +1423,9 @@ function AppInner(){
     const now=new Date().toISOString();
     const d={...formData,lastModified:now};
     if(!d.referenceId)d.referenceId=generateReferenceId(d);
+    const wasEditing=editingOrder!==null;
     let u;
-    if(editingOrder!==null){u=orders.map((o,i)=>i===editingOrder?d:o);}
+    if(wasEditing){u=orders.map((o,i)=>i===editingOrder?d:o);}
     else{u=[...orders,d];}
     saveToFB("orders",u);
 
@@ -1294,7 +1449,14 @@ function AppInner(){
       logActivity({type:"order_created",who:"Manager",text:`Work Order ${d.referenceId} created`,refId:d.referenceId});
     }
     setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});setCustomerManualMode(false);
-    showToast(editingOrder!==null?"Updated":"Work order created");
+
+    // Auto SMS notification (silent skip if no members have phone numbers)
+    const smsCount=triggerCrewSms(d);
+    if(smsCount===0){
+      showToast(wasEditing?"Updated":"Work order created");
+    } else {
+      showToast(`Work order saved — notifying ${smsCount} crew member${smsCount===1?"":"s"}`);
+    }
   };
   const deleteCrew=i=>{saveToFB("orders",orders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const addMember=(crew)=>{if(!newMemberName.trim())return;saveToFB("crews",{...crews,[crew]:[...(crews[crew]||[]),newMemberName.trim()]});setNewMemberName("");showToast("Added");};
@@ -1918,14 +2080,30 @@ function AppInner(){
   );
 
   // ── MANAGE CREWS ──────────────────────────────────────────────────────────
-  if(manageCrews)return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+  if(manageCrews){
+    const allMemberNames=Array.from(new Set(crewNames.flatMap(c=>crews[c]||[]))).sort();
+    return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
     <Header title="Manage Crew Rosters" onBack={()=>{setManageCrews(false);setEditingCrewName(null);setNewMemberName("");}} onHome={goHome}/>
-    <div style={{padding:"20px"}}>{crewNames.map(crew=>(<div key={crew} style={{marginBottom:"22px"}}>
+    <div style={{padding:"20px"}}>
+      <div style={{marginBottom:"24px",background:t.card,border:`1px solid rgba(245,158,11,.25)`,borderRadius:"12px",padding:"16px"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:t.amber,marginBottom:"4px"}}>📱 SMS Auto-Notify</div>
+        <div style={{fontSize:"11px",color:t.muted,marginBottom:"14px",lineHeight:1.5}}>Add a phone number for each member. When a work order is saved or you tap the 📱 button on a card, the native SMS app opens for each member with a pre-filled message. Members without a number are silently skipped.</div>
+        {allMemberNames.length===0?<div style={{fontSize:"12px",color:t.muted}}>No members yet. Add members to a crew below.</div>:
+        <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{allMemberNames.map(name=>(
+          <div key={name} style={{display:"flex",alignItems:"center",gap:"10px"}}>
+            <span style={{flex:1,fontSize:"13px",color:t.text,fontWeight:600}}>{name}</span>
+            <input type="tel" value={memberPhones[name]||""} onChange={e=>{const v=e.target.value;setMemberPhones(p=>({...p,[name]:v}));saveToFB(`memberPhones/${name}`,v);}} placeholder="(555) 555-5555" style={{...inputStyle,maxWidth:"180px",padding:"8px 12px",fontSize:"13px"}}/>
+          </div>
+        ))}</div>}
+      </div>
+      {crewNames.map(crew=>(<div key={crew} style={{marginBottom:"22px"}}>
       <div style={{fontSize:"13px",fontWeight:700,color:t.green,marginBottom:"10px",borderBottom:`1px solid ${t.line}`,paddingBottom:"7px",textTransform:"uppercase",letterSpacing:".5px"}}>{crew}</div>
       <div style={{display:"flex",flexDirection:"column",gap:"6px",marginBottom:"10px"}}>{(crews[crew]||[]).map((n,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:t.card,padding:"10px 14px",borderRadius:"8px",border:`1px solid ${t.line}`}}><span style={{fontSize:"14px",color:t.text}}>{n}</span><button onClick={()=>removeMember(crew,i)} style={{...ghostBtn,padding:"4px",color:t.danger}}><TrashIcon/></button></div>)}</div>
       {editingCrewName===crew?(<div style={{display:"flex",gap:"8px"}}><input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Name" style={{...inputStyle,flex:1}} onKeyDown={e=>{if(e.key==="Enter")addMember(crew);}}/><button onClick={()=>addMember(crew)} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px",justifyContent:"center"}}>Add</button><button onClick={()=>{setEditingCrewName(null);setNewMemberName("");}} style={{...ghostBtn,color:t.muted}}>Cancel</button></div>):<button onClick={()=>{setEditingCrewName(crew);setNewMemberName("");}} style={{...ghostBtn,color:t.green,fontSize:"13px",padding:"5px 0",gap:"4px"}}><PlusIcon/> Add Member</button>}
-    </div>))}</div>
+    </div>))}
+    </div>
   </div>);
+  }
 
   // ── ARCHIVE ───────────────────────────────────────────────────────────────
   if(showArchive){
@@ -2218,6 +2396,7 @@ function AppInner(){
                     {getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700}}>{getJobsForOrder(order).length} Jobs</span>}
                   </div>
                   <div style={{display:"flex",gap:"3px"}}>
+                    <button onClick={()=>{const c=triggerCrewSms(order);showToast(c===0?"No phone numbers stored for crew":`Re-notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title="📱 Re-notify Crew"><PhoneIcon/></button>
                     <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
                     <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
                     <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
