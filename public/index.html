@@ -12,8 +12,8 @@
   <link rel="icon" type="image/png" href="/icon.png" />
   <link rel="manifest" href="/manifest.json" />
   <title>Icon Remodeling Group - Work Orders</title>
-  <style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-  @media print { .no-print { display: none !important; } .print-only { display: block !important; } body { background: #fff; } }</style>
+  <style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding-top: 36px; }
+  @media print { .no-print { display: none !important; } .print-only { display: block !important; } body { background: #fff; padding-top: 0; } }</style>
 </head>
 <body>
 <a id="op-center-home-btn" href="https://icon-operations-center.vercel.app" aria-label="Return to Operations Center">
@@ -23,23 +23,36 @@
 <style>
   #op-center-home-btn, .ops-center-home-btn, a[aria-label="Return to Operations Center"] {
     position: fixed !important;
-    bottom: 20px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    top: auto !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: 100% !important;
+    height: 36px !important;
+    transform: none !important;
     z-index: 999999 !important;
-    display: inline-flex !important;
+    display: flex !important;
     align-items: center !important;
     gap: 6px !important;
-    padding: 10px 20px !important;
+    padding: 0 0 0 16px !important;
     background: rgba(10,12,18,0.95) !important;
-    border: 1px solid #C9A84C !important;
-    border-radius: 25px !important;
+    border: none !important;
+    border-bottom: 1px solid #C9A84C !important;
+    border-radius: 0 !important;
     color: #ffffff !important;
-    font-size: 13px !important;
+    font-size: 12px !important;
     text-decoration: none !important;
     white-space: nowrap !important;
+    transition: color 0.15s !important;
   }
+  #op-center-home-btn:hover, #op-center-home-btn:focus,
+  .ops-center-home-btn:hover, .ops-center-home-btn:focus,
+  a[aria-label="Return to Operations Center"]:hover,
+  a[aria-label="Return to Operations Center"]:focus {
+    color: #E8192C !important;
+    outline: none !important;
+  }
+  @media print { #op-center-home-btn { display: none !important; } }
 </style>
 <div id="root"></div></body>
 </html>
