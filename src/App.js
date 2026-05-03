@@ -664,42 +664,45 @@ function OverflowMenu({items,color}){
 }
 
 
-// ── PERSISTENT OPERATIONS CENTER HOME BUTTON ────────────────────────────────
-function OpsHomeBtn(){
+// ── PERSISTENT OPERATIONS CENTER TOP BAR ────────────────────────────────────
+// Rendered once at the App root as a relative-positioned bar above the existing
+// header so it pushes content down naturally (no fixed positioning, no body
+// padding hacks). The legacy OpsHomeBtn callsites inside AppInner now render
+// nothing to avoid duplicates.
+function OpsTopBar(){
+  const [hov,setHov]=useState(false);
   return(
     <a
       href="https://icon-operations-center.vercel.app"
-      title="Back to Operations Center"
+      aria-label="Return to Operations Center"
+      onMouseEnter={()=>setHov(true)}
+      onMouseLeave={()=>setHov(false)}
       style={{
-        position:"fixed",bottom:"20px",left:"50%",transform:"translateX(-50%)",zIndex:9999,
-        display:"flex",alignItems:"center",gap:"7px",
-        padding:"9px 18px",
-        background:"rgba(9,11,16,0.92)",
-        border:"1.5px solid rgba(79,127,255,0.35)",
-        borderRadius:"24px",
-        color:"#7AAEFF",
-        fontSize:"12px",fontWeight:700,
-        letterSpacing:".6px",
-        textTransform:"uppercase",
+        position:"relative",
+        width:"100%",
+        height:"36px",
+        boxSizing:"border-box",
+        background:"rgba(10,12,18,0.95)",
+        borderBottom:"1px solid #C9A84C",
+        display:"flex",
+        alignItems:"center",
+        gap:"6px",
+        paddingLeft:"16px",
+        color:hov?"#E8192C":"#ffffff",
+        fontSize:"12px",
+        fontWeight:600,
         textDecoration:"none",
-        cursor:"pointer",
-        backdropFilter:"blur(8px)",
         whiteSpace:"nowrap",
         fontFamily:ff,
-        transition:"all 0.18s ease",
-        boxShadow:"0 4px 20px rgba(0,0,0,0.5)",
+        transition:"color 0.15s",
       }}
-      onMouseEnter={e=>{e.currentTarget.style.background="rgba(79,127,255,0.18)";e.currentTarget.style.borderColor="rgba(79,127,255,0.65)";e.currentTarget.style.color="#fff";e.currentTarget.style.boxShadow="0 0 16px rgba(79,127,255,0.3)";}}
-      onMouseLeave={e=>{e.currentTarget.style.background="rgba(9,11,16,0.88)";e.currentTarget.style.borderColor="rgba(79,127,255,0.35)";e.currentTarget.style.color="#7AAEFF";e.currentTarget.style.boxShadow="none";}}
     >
-      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
-      Operations Center Home Page
+      <span aria-hidden="true">&larr;</span>
+      <span>Operations Center</span>
     </a>
   );
 }
+function OpsHomeBtn(){return null;}
 
 function getSubOrderIdFromHash(){
   const h=typeof window!=="undefined"?(window.location.hash||""):"";
@@ -715,8 +718,8 @@ export default function App(){
     window.addEventListener("hashchange",onHash);
     return()=>window.removeEventListener("hashchange",onHash);
   },[]);
-  if(subOrderId)return(<><OfflineBanner online={online}/><SubOrderPublicView orderId={subOrderId}/></>);
-  return(<><OfflineBanner online={online}/><SkeletonStyles/><AppGate><AppInner/></AppGate></>);
+  if(subOrderId)return(<><OpsTopBar/><OfflineBanner online={online}/><SubOrderPublicView orderId={subOrderId}/></>);
+  return(<><OpsTopBar/><OfflineBanner online={online}/><SkeletonStyles/><AppGate><AppInner/></AppGate></>);
 }
 
 // ── Inline attachment renderer for the subcontractor public page (no FileViewer modal). ──
