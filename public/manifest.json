@@ -1,12 +1,11 @@
 {
   "short_name": "Work Orders",
   "name": "Icon Remodeling - Work Orders",
-  "icons": [
-    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" }
-  ],
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff"
+  "theme_color": "#0d1218",
+  "background_color": "#0d1218",
+  "icons": [
+    { "src": "/icon.png", "sizes": "192x192 512x512", "type": "image/png" }
+  ]
 }
