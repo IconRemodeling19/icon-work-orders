@@ -1241,6 +1241,7 @@ function AppInner(){
   const[fieldFormData,setFieldFormData]=useState({...emptyFieldOrder});
   const[showForm,setShowForm]=useState(false);
   const[deleteConfirm,setDeleteConfirm]=useState(null);
+  const[smsModal,setSmsModal]=useState(null);
   const[toast,setToast]=useState(null);
   const[manageCrews,setManageCrews]=useState(false);
   const[newMemberName,setNewMemberName]=useState("");
@@ -1446,30 +1447,54 @@ function AppInner(){
     }
     setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
   };
-  // Open the native SMS app for each assigned member that has a phone number stored.
-  // Returns the number of SMS links triggered (0 = silent skip per spec).
+  // Build per-member SMS payloads for an order. Single recipient → fire sendSMS directly.
+  // Multiple recipients → mobile shows a per-person picker modal (browsers block batch window.open),
+  // desktop copies the full list to clipboard for paste-each-into-Phone-Link.
+  // Returns the number of recipients with valid phone numbers (0 = silent skip per spec).
   const triggerCrewSms=useCallback((order)=>{
     const members=order.members||[];
     const jobs=getJobsForOrder(order);
     const smsDate=order.date
       ?new Date(order.date+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric"})
       :"today";
+    const buildMessage=(name)=>{
+      if(jobs.length<=1){
+        const j=jobs[0]||{};
+        const address=j.jobAddress||"see app";
+        const jobName=j.jobTreadName||j.customerName||"";
+        const jobLabel=jobName?`${jobName} — ${address}`:address;
+        return `Icon Remodeling Group: Hi ${name}, you have a new work order for ${smsDate}. Job: ${jobLabel}. Open your assignments at icon-work-orders.vercel.app`;
+      }
+      const lines=jobs.map((j,idx)=>{
+        const jobName=j.jobTreadName||j.customerName||"";
+        const addr=j.jobAddress||"see app";
+        return jobName?`J${idx+1}: ${jobName} — ${addr}`:`J${idx+1}: ${addr}`;
+      }).join("\n");
+      return `Icon Remodeling Group: Hi ${name}, you have ${jobs.length} jobs scheduled for ${smsDate}:\n${lines}\nOpen your assignments at icon-work-orders.vercel.app`;
+    };
     const recipients=members
       .map(name=>({name,phone:String(memberPhones[name]||"").replace(/\D/g,"")}))
-      .filter(r=>r.phone.length>=10);
-    recipients.forEach((r,i)=>{
-      setTimeout(()=>{
-        let message;
-        if(jobs.length<=1){
-          const address=jobs[0]?.jobAddress||"see app";
-          message=`Icon Remodeling Group: Hi ${r.name}, you have a new work order for ${smsDate}. Job: ${address}. Open your assignments at icon-work-orders.vercel.app`;
-        } else {
-          const lines=jobs.map((j,idx)=>`J${idx+1}: ${j.jobAddress||"see app"}`).join("\n");
-          message=`Icon Remodeling Group: Hi ${r.name}, you have ${jobs.length} jobs scheduled for ${smsDate}:\n${lines}\nOpen your assignments at icon-work-orders.vercel.app`;
-        }
-        sendSMS(r.phone,message);
-      },i*1500);
-    });
+      .filter(r=>r.phone.length>=10)
+      .map(r=>({...r,message:buildMessage(r.name)}));
+    if(recipients.length===0)return 0;
+    if(recipients.length===1){
+      sendSMS(recipients[0].phone,recipients[0].message);
+      return 1;
+    }
+    if(IS_MOBILE){
+      setSmsModal({recipients});
+    } else {
+      const combined=recipients.map(r=>`— ${r.name} (${r.phone}) —\n${r.message}`).join("\n\n");
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(combined).then(()=>{
+          alert(`✓ ${recipients.length} messages copied to clipboard!\n\nOpen Phone Link, send each one to the matching crew member.`);
+        }).catch(()=>{
+          setSmsModal({recipients});
+        });
+      } else {
+        setSmsModal({recipients});
+      }
+    }
     return recipients.length;
   },[memberPhones]);
 
@@ -2254,6 +2279,22 @@ function AppInner(){
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <OpsHomeBtn/>
       {deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"26px",maxWidth:"300px",width:"100%",textAlign:"center"}}><div style={{fontSize:"16px",fontWeight:700,marginBottom:"8px",color:t.text}}>Delete Order?</div><div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>{"This can't be undone."}</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px",fontWeight:700,borderRadius:"10px"}}>Delete</button></div></div></div>}
+      {smsModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setSmsModal(null)}><div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"22px",maxWidth:"420px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
+        <div style={{fontSize:"16px",fontWeight:700,marginBottom:"4px",color:t.text}}>{IS_MOBILE?"📱 Send SMS to Crew":"📋 Copy Message for Crew"}</div>
+        <div style={{fontSize:"12px",color:t.muted,marginBottom:"16px",lineHeight:1.5}}>{IS_MOBILE?"Tap each crew member to open their SMS draft. Browsers block sending all at once, so send them one by one.":"Click each crew member to copy their message individually."}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"16px"}}>
+          {smsModal.recipients.map((r,i)=>(
+            <button key={i} onClick={()=>sendSMS(r.phone,r.message)} style={{...baseBtn,display:"flex",alignItems:"center",justifyContent:"space-between",gap:"10px",padding:"12px 14px",background:t.tag,color:t.text,border:`1px solid ${t.line}`,borderRadius:"10px",textAlign:"left"}}>
+              <span style={{display:"flex",flexDirection:"column",alignItems:"flex-start"}}>
+                <span style={{fontWeight:700,fontSize:"14px"}}>{r.name}</span>
+                <span style={{fontSize:"11px",color:t.muted,fontFamily:"monospace"}}>{r.phone}</span>
+              </span>
+              <span style={{fontSize:"12px",fontWeight:700,color:t.green}}>{IS_MOBILE?"📱 Send":"📋 Copy"}</span>
+            </button>
+          ))}
+        </div>
+        <button onClick={()=>setSmsModal(null)} style={{...baseBtn,width:"100%",padding:"12px",background:t.tag,color:t.muted,border:`1px solid ${t.line}`,borderRadius:"10px"}}>Close</button>
+      </div></div>}
       {aiDescDialog&&<GenerateDescriptionDialog
         onUse={(text)=>{const ji=aiDescDialog.jobIdx;const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,jobDescription:text}:j);setFormData({...formData,jobs:nj});}}
         onEditAndUse={(text)=>{const ji=aiDescDialog.jobIdx;const nj=(formData.jobs||[]).map((j,i)=>i===ji?{...j,jobDescription:text}:j);setFormData({...formData,jobs:nj});}}
