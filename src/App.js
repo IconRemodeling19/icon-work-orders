@@ -28,6 +28,22 @@ const DEFAULT_CREWS = {"Crew 1":[...ALL_MEMBERS],"Crew 2":[...ALL_MEMBERS],"Crew
 const FIELD_OPS_MEMBERS = ["Joe","Bryan"];
 const DEFAULT_PIN = "1234";
 const DEFAULT_CREW_PIN = "5678";
+
+const IS_MOBILE = typeof navigator!=="undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+const sendSMS = (phoneNumber, message) => {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    window.open(`sms:${phoneNumber}?body=${encodeURIComponent(message)}`);
+  } else {
+    navigator.clipboard.writeText(message).then(() => {
+      alert('✓ Message copied to clipboard!\n\nOpen Phone Link, select the employee, and paste.');
+    }).catch(() => {
+      prompt('Copy this message:', message);
+    });
+  }
+};
 const AUTH_KEY = "wo-auth-granted";
 
 // ── COPILOT-INSPIRED THEME ──────────────────────────────────────────────────
@@ -1451,12 +1467,7 @@ function AppInner(){
           const lines=jobs.map((j,idx)=>`J${idx+1}: ${j.jobAddress||"see app"}`).join("\n");
           message=`Icon Remodeling Group: Hi ${r.name}, you have ${jobs.length} jobs scheduled for ${smsDate}:\n${lines}\nOpen your assignments at icon-work-orders.vercel.app`;
         }
-        const link=`sms:${r.phone}&body=${encodeURIComponent(message)}`;
-        const a=document.createElement("a");
-        a.href=link;a.style.display="none";
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(()=>{try{document.body.removeChild(a);}catch{}},200);
+        sendSMS(r.phone,message);
       },i*1500);
     });
     return recipients.length;
@@ -2449,7 +2460,7 @@ function AppInner(){
                     {getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700}}>{getJobsForOrder(order).length} Jobs</span>}
                   </div>
                   <div style={{display:"flex",gap:"3px"}}>
-                    <button onClick={()=>{const c=triggerCrewSms(order);showToast(c===0?"No phone numbers stored for crew":`Re-notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title="📱 Re-notify Crew"><PhoneIcon/></button>
+                    <button onClick={()=>{const c=triggerCrewSms(order);showToast(c===0?"No phone numbers stored for crew":`Re-notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title={IS_MOBILE?"📱 Send SMS":"📋 Copy Message"}><PhoneIcon/></button>
                     <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
                     <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
                     <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
