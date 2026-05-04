@@ -1571,13 +1571,9 @@ function AppInner(){
     }
     setShowForm(false);setEditingOrder(null);setFormData({...emptyCrewOrder});
 
-    // Auto SMS notification (silent skip if no members have phone numbers)
-    const smsCount=triggerCrewSms(d);
-    if(smsCount===0){
-      showToast(wasEditing?"Updated":"Work order created");
-    } else {
-      showToast(`Work order saved — notifying ${smsCount} crew member${smsCount===1?"":"s"}`);
-    }
+    // SMS is no longer auto-triggered — manager taps the 📱 button on the
+    // work order card when ready to notify crew.
+    showToast(wasEditing?"Work order updated":"Work order created");
   };
   const deleteCrew=i=>{saveToFB("orders",orders.filter((_,x)=>x!==i));setDeleteConfirm(null);showToast("Deleted");};
   const addMember=(crew)=>{if(!newMemberName.trim())return;saveToFB("crews",{...crews,[crew]:[...(crews[crew]||[]),newMemberName.trim()]});setNewMemberName("");showToast("Added");};
@@ -2212,8 +2208,8 @@ function AppInner(){
     <Header title="Manage Crew Rosters" onBack={()=>{setManageCrews(false);setEditingCrewName(null);setNewMemberName("");}} onHome={goHome}/>
     <div style={{padding:"20px",paddingBottom:"100px"}}>
       <div style={{marginBottom:"24px",background:t.card,border:`1px solid rgba(245,158,11,.25)`,borderRadius:"12px",padding:"16px"}}>
-        <div style={{fontSize:"13px",fontWeight:700,color:t.amber,marginBottom:"4px"}}>📱 SMS Auto-Notify</div>
-        <div style={{fontSize:"11px",color:t.muted,marginBottom:"14px",lineHeight:1.5}}>Add a phone number for each member. When a work order is saved or you tap the 📱 button on a card, the native SMS app opens for each member with a pre-filled message. Members without a number are silently skipped.</div>
+        <div style={{fontSize:"13px",fontWeight:700,color:t.amber,marginBottom:"4px"}}>📱 SMS Notify</div>
+        <div style={{fontSize:"11px",color:t.muted,marginBottom:"14px",lineHeight:1.5}}>Add a phone number for each member. Tap the 📱 button on a saved work order card to open the native SMS app with a pre-filled message for each member. Members without a number are silently skipped.</div>
         {allMemberNames.length===0?<div style={{fontSize:"12px",color:t.muted}}>No members yet. Add members to a crew below.</div>:
         <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>{allMemberNames.map(name=>(
           <div key={name} style={{display:"flex",alignItems:"center",gap:"10px"}}>
@@ -2540,7 +2536,7 @@ function AppInner(){
                     {getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700}}>{getJobsForOrder(order).length} Jobs</span>}
                   </div>
                   <div style={{display:"flex",gap:"3px"}}>
-                    <button onClick={()=>{const c=triggerCrewSms(order,ri);showToast(c===0?"No phone numbers stored for crew":`Re-notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title={IS_MOBILE?"📱 Send SMS":"📋 Copy Message"}><PhoneIcon/></button>
+                    <button onClick={()=>{const c=triggerCrewSms(order,ri);showToast(c===0?"No phone numbers stored for crew":`Notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title={IS_MOBILE?"📱 Notify Crew via SMS":"📋 Copy Message for Crew"}><PhoneIcon/></button>
                     <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
                     <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
                     <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
