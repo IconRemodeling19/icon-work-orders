@@ -31,6 +31,16 @@ const DEFAULT_CREW_PIN = "5678";
 
 const IS_MOBILE = typeof navigator!=="undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+const APP_PUBLIC_URL = "https://icon-work-orders.vercel.app";
+
+// 6-char alphanumeric — omits ambiguous chars (0/O, 1/I/L)
+const generateAccessCode = () => {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+};
+
 const sendSMS = (phoneNumber, message) => {
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -1226,6 +1236,11 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
 
 function AppInner(){
   const[mode,setMode]=useState(null);
+  const[deepLinkCode]=useState(()=>{
+    if(typeof window==="undefined")return null;
+    try{return new URLSearchParams(window.location.search).get("code");}catch{return null;}
+  });
+  const deepLinkConsumedRef=useRef(false);
   const[orders,ordersL]=useFB("orders",[]);
   const[fieldOrders,fieldL]=useFB("fieldOrders",[]);
   const[crews,crewsL]=useFB("crews",DEFAULT_CREWS);
@@ -1412,6 +1427,22 @@ function AppInner(){
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
+
+  // Deep-link: ?code=XXXXXX → land directly on the matching order in the Field Crews view.
+  useEffect(()=>{
+    if(!deepLinkCode||deepLinkConsumedRef.current||!ordersL)return;
+    const found=(orders||[]).find(o=>o.accessCode&&String(o.accessCode).toUpperCase()===String(deepLinkCode).toUpperCase());
+    if(found){
+      setMode("crew");
+      setDocView(found);
+    }
+    deepLinkConsumedRef.current=true;
+    try{
+      const u=new URL(window.location.href);
+      u.searchParams.delete("code");
+      window.history.replaceState({},"",u.toString());
+    }catch{}
+  },[deepLinkCode,ordersL,orders]);
   const hasUpdate=(section,items)=>{const ls=lastSeen[section]||"";return(items||[]).some(o=>o.lastModified&&o.lastModified>ls);};
   const crewUpdates=hasUpdate("crew",orders);
   const fieldUpdates=hasUpdate("fieldops",fieldOrders);
@@ -1447,30 +1478,37 @@ function AppInner(){
     }
     setFd({...fd,attachments:atts});setUploading(false);showToast(`${files.length} file(s) uploaded`);e.target.value="";
   };
-  // Build per-member SMS payloads for an order. Single recipient → fire sendSMS directly.
-  // Multiple recipients → mobile shows a per-person picker modal (browsers block batch window.open),
-  // desktop copies the full list to clipboard for paste-each-into-Phone-Link.
+  // Build per-member SMS payloads with deep-linked access codes. If the order has no
+  // accessCode yet, generate one and (when an orderIndex is provided) persist it to FB.
+  // Single recipient → fire sendSMS directly. Multiple recipients → mobile shows a
+  // per-person picker modal (browsers block batch window.open), desktop copies the
+  // full list to clipboard for paste-each-into-Phone-Link.
   // Returns the number of recipients with valid phone numbers (0 = silent skip per spec).
-  const triggerCrewSms=useCallback((order)=>{
-    const members=order.members||[];
-    const jobs=getJobsForOrder(order);
-    const smsDate=order.date
-      ?new Date(order.date+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric"})
-      :"today";
+  const triggerCrewSms=useCallback((order,orderIndex)=>{
+    let workingOrder=order;
+    if(!workingOrder.accessCode){
+      workingOrder={...workingOrder,accessCode:generateAccessCode()};
+      if(typeof orderIndex==="number"&&orders[orderIndex]){
+        const updated=orders.map((o,i)=>i===orderIndex?workingOrder:o);
+        saveToFB("orders",updated);
+      }
+    }
+    const members=workingOrder.members||[];
+    const jobs=getJobsForOrder(workingOrder);
+    const link=`${APP_PUBLIC_URL}?code=${workingOrder.accessCode}`;
     const buildMessage=(name)=>{
       if(jobs.length<=1){
         const j=jobs[0]||{};
+        const jobName=j.jobTreadName||j.customerName||"Job";
         const address=j.jobAddress||"see app";
-        const jobName=j.jobTreadName||j.customerName||"";
-        const jobLabel=jobName?`${jobName} — ${address}`:address;
-        return `Icon Remodeling Group: Hi ${name}, you have a new work order for ${smsDate}. Job: ${jobLabel}. Open your assignments at icon-work-orders.vercel.app`;
+        return `📋 ICON Work Order — ${jobName}\n📍 ${address}\n👷 Hi ${name}, you have been assigned to this job.\n🔗 View your work order: ${link}\n\n- Icon Remodeling Group\n  914-305-3534`;
       }
       const lines=jobs.map((j,idx)=>{
-        const jobName=j.jobTreadName||j.customerName||"";
+        const jn=j.jobTreadName||j.customerName||"";
         const addr=j.jobAddress||"see app";
-        return jobName?`J${idx+1}: ${jobName} — ${addr}`:`J${idx+1}: ${addr}`;
+        return jn?`   J${idx+1}: ${jn} — ${addr}`:`   J${idx+1}: ${addr}`;
       }).join("\n");
-      return `Icon Remodeling Group: Hi ${name}, you have ${jobs.length} jobs scheduled for ${smsDate}:\n${lines}\nOpen your assignments at icon-work-orders.vercel.app`;
+      return `📋 ICON Work Order — ${jobs.length} jobs\n${lines}\n👷 Hi ${name}, you have been assigned to these jobs.\n🔗 View your work order: ${link}\n\n- Icon Remodeling Group\n  914-305-3534`;
     };
     const recipients=members
       .map(name=>({name,phone:String(memberPhones[name]||"").replace(/\D/g,"")}))
@@ -1496,7 +1534,7 @@ function AppInner(){
       }
     }
     return recipients.length;
-  },[memberPhones]);
+  },[memberPhones,orders]);
 
   const saveCrew=()=>{
     if(!formData.crewName){showToast("Crew required");return;}
@@ -1505,6 +1543,7 @@ function AppInner(){
     const now=new Date().toISOString();
     const d={...formData,lastModified:now};
     if(!d.referenceId)d.referenceId=generateReferenceId(d);
+    if(!d.accessCode)d.accessCode=generateAccessCode();
     const wasEditing=editingOrder!==null;
     let u;
     if(wasEditing){u=orders.map((o,i)=>i===editingOrder?d:o);}
@@ -2501,7 +2540,7 @@ function AppInner(){
                     {getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700}}>{getJobsForOrder(order).length} Jobs</span>}
                   </div>
                   <div style={{display:"flex",gap:"3px"}}>
-                    <button onClick={()=>{const c=triggerCrewSms(order);showToast(c===0?"No phone numbers stored for crew":`Re-notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title={IS_MOBILE?"📱 Send SMS":"📋 Copy Message"}><PhoneIcon/></button>
+                    <button onClick={()=>{const c=triggerCrewSms(order,ri);showToast(c===0?"No phone numbers stored for crew":`Re-notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title={IS_MOBILE?"📱 Send SMS":"📋 Copy Message"}><PhoneIcon/></button>
                     <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
                     <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
                     <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
