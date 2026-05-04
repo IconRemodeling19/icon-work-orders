@@ -72,10 +72,10 @@ export function GenerateDescriptionDialog({ onUse, onEditAndUse, onClose }) {
         {output && (
           <div style={{ marginTop: "16px" }}>
             <div style={{ fontSize: "11px", fontWeight: 700, color: t.purple, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>Preview</div>
-            <textarea value={output} onChange={e => setOutput(e.target.value)} rows={Math.min(12, Math.max(4, output.split("\n").length + 1))} style={{ ...inputStyle, resize: "vertical", fontSize: "13px", lineHeight: 1.5 }} />
+            <textarea value={output} onChange={e => setOutput(e.target.value)} rows={Math.min(12, Math.max(4, output.split("\n").length + 1))} style={{ ...inputStyle, resize: "vertical", fontSize: "16px", lineHeight: 1.5 }} />
             <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-              <button onClick={() => { onEditAndUse(output); onClose(); }} style={{ flex: 1, padding: "10px", background: t.tag, border: `1px solid ${t.line}`, color: t.text, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Edit Before Using</button>
-              <button onClick={() => { onUse(output); onClose(); }} style={{ flex: 1, padding: "10px", background: t.blue, border: "none", color: "#fff", borderRadius: "8px", fontWeight: 700, cursor: "pointer", fontFamily: ff }}>Use This</button>
+              <button onClick={() => { onEditAndUse(output); onClose(); }} style={{ flex: 1, padding: "12px", minHeight: "44px", background: t.tag, border: `1px solid ${t.line}`, color: t.text, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Edit Before Using</button>
+              <button onClick={() => { onUse(output); onClose(); }} style={{ flex: 1, padding: "12px", minHeight: "44px", background: t.blue, border: "none", color: "#fff", borderRadius: "8px", fontWeight: 700, cursor: "pointer", fontFamily: ff }}>Use This</button>
             </div>
           </div>
         )}
@@ -111,11 +111,11 @@ export function SuggestMaterialsDialog({ jobDescription, onUse, onEditAndUse, on
 
         {output && !loading && (
           <>
-            <textarea value={output} onChange={e => setOutput(e.target.value)} rows={Math.min(14, Math.max(4, output.split("\n").length + 1))} style={{ ...inputStyle, resize: "vertical", fontSize: "13px", lineHeight: 1.5 }} />
+            <textarea value={output} onChange={e => setOutput(e.target.value)} rows={Math.min(14, Math.max(4, output.split("\n").length + 1))} style={{ ...inputStyle, resize: "vertical", fontSize: "16px", lineHeight: 1.5 }} />
             <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-              <button onClick={onClose} style={{ flex: 1, padding: "10px", background: t.tag, border: `1px solid ${t.line}`, color: t.muted, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Cancel</button>
-              <button onClick={() => { onEditAndUse(output); onClose(); }} style={{ flex: 1, padding: "10px", background: t.tag, border: `1px solid ${t.line}`, color: t.text, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Edit Before Using</button>
-              <button onClick={() => { onUse(output); onClose(); }} style={{ flex: 1, padding: "10px", background: t.blue, border: "none", color: "#fff", borderRadius: "8px", fontWeight: 700, cursor: "pointer", fontFamily: ff }}>Use This</button>
+              <button onClick={onClose} style={{ flex: 1, padding: "12px", minHeight: "44px", background: t.tag, border: `1px solid ${t.line}`, color: t.muted, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Cancel</button>
+              <button onClick={() => { onEditAndUse(output); onClose(); }} style={{ flex: 1, padding: "12px", minHeight: "44px", background: t.tag, border: `1px solid ${t.line}`, color: t.text, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Edit Before Using</button>
+              <button onClick={() => { onUse(output); onClose(); }} style={{ flex: 1, padding: "12px", minHeight: "44px", background: t.blue, border: "none", color: "#fff", borderRadius: "8px", fontWeight: 700, cursor: "pointer", fontFamily: ff }}>Use This</button>
             </div>
           </>
         )}
@@ -212,8 +212,8 @@ export function VoiceToOrderDialog({ onApply, onClose, showToast }) {
         <ErrorMsg msg={error} />
 
         <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "10px", background: t.tag, border: `1px solid ${t.line}`, color: t.muted, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Cancel</button>
-          <button onClick={parse} disabled={!transcript.trim() || parsing} style={{ flex: 2, padding: "10px", background: parsing ? t.tag : t.blue, color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: !transcript.trim() ? "not-allowed" : parsing ? "wait" : "pointer", fontFamily: ff, opacity: !transcript.trim() ? 0.5 : 1 }}>{parsing ? "Parsing..." : "Fill Form"}</button>
+          <button onClick={onClose} style={{ flex: 1, padding: "12px", minHeight: "44px", background: t.tag, border: `1px solid ${t.line}`, color: t.muted, borderRadius: "8px", fontWeight: 600, cursor: "pointer", fontFamily: ff }}>Cancel</button>
+          <button onClick={parse} disabled={!transcript.trim() || parsing} style={{ flex: 2, padding: "12px", minHeight: "44px", background: parsing ? t.tag : t.blue, color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: !transcript.trim() ? "not-allowed" : parsing ? "wait" : "pointer", fontFamily: ff, opacity: !transcript.trim() ? 0.5 : 1 }}>{parsing ? "Parsing..." : "Fill Form"}</button>
         </div>
       </div>
     </div>

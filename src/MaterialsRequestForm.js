@@ -107,7 +107,7 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
         display: "flex", alignItems: "center", justifyContent: "space-between", background: "#161D2E"
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: t.blue, padding: "6px", cursor: "pointer", fontFamily: ff }}>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: t.blue, padding: "10px", minWidth: "44px", minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontFamily: ff }}>
             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
           <div>
@@ -146,23 +146,23 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
                 <div key={line.id} style={{ background: t.card, border: `1px solid ${t.line}`, borderRadius: "12px", padding: "12px" }}>
                   <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "8px" }}>
                     <div style={{ flex: 1 }}>
-                      <input value={line.description} onChange={e => updateLine(idx, { description: e.target.value })} placeholder={`Item #${idx + 1} description`} style={{ ...inputStyle, fontSize: "14px" }} />
+                      <input value={line.description} onChange={e => updateLine(idx, { description: e.target.value })} placeholder={`Item #${idx + 1} description`} style={inputStyle} />
                     </div>
-                    <button onClick={() => removeLine(idx)} title="Remove" style={{ background: "transparent", border: "none", color: t.danger, cursor: "pointer", padding: "12px 8px", fontSize: "16px", fontWeight: 800 }}>✕</button>
+                    <button onClick={() => removeLine(idx)} title="Remove" style={{ background: "transparent", border: "none", color: t.danger, cursor: "pointer", padding: "12px 12px", minWidth: "44px", minHeight: "44px", fontSize: "16px", fontWeight: 800 }}>✕</button>
                   </div>
                   <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                     <div style={{ flex: 1 }}>
-                      <input type="number" min="0" step="1" value={line.quantity} onChange={e => updateLine(idx, { quantity: e.target.value })} placeholder="Qty" style={{ ...inputStyle, fontSize: "13px" }} />
+                      <input type="number" min="0" step="1" value={line.quantity} onChange={e => updateLine(idx, { quantity: e.target.value })} placeholder="Qty" style={inputStyle} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <select value={line.unit} onChange={e => updateLine(idx, { unit: e.target.value })} style={{ ...inputStyle, fontSize: "13px", appearance: "none" }}>
+                      <select value={line.unit} onChange={e => updateLine(idx, { unit: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
                         {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <input type="file" accept="image/*" capture="environment" id={`photo-${line.id}`} style={{ display: "none" }} onChange={e => handlePhoto(idx, e)} />
-                    <button type="button" onClick={() => document.getElementById(`photo-${line.id}`)?.click()} disabled={uploadingIdx === idx} style={{ background: t.tag, border: `1px solid ${t.line}`, color: t.text, padding: "8px 12px", fontSize: "12px", borderRadius: "8px", cursor: "pointer", fontFamily: ff, fontWeight: 600 }}>
+                    <button type="button" onClick={() => document.getElementById(`photo-${line.id}`)?.click()} disabled={uploadingIdx === idx} style={{ background: t.tag, border: `1px solid ${t.line}`, color: t.text, padding: "12px 14px", minHeight: "44px", fontSize: "14px", borderRadius: "8px", cursor: "pointer", fontFamily: ff, fontWeight: 600 }}>
                       📷 {uploadingIdx === idx ? "Uploading..." : line.photoUrl ? "Replace photo" : "Add photo"}
                     </button>
                     {line.photoUrl && (
@@ -173,9 +173,9 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
               ))}
             </div>
             <button onClick={addLine} style={{
-              width: "100%", marginTop: "10px", padding: "12px",
+              width: "100%", marginTop: "10px", padding: "12px", minHeight: "44px",
               background: "transparent", border: `2px dashed ${t.line}`, color: t.muted,
-              borderRadius: "10px", fontSize: "13px", fontWeight: 700, cursor: "pointer", fontFamily: ff
+              borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: "pointer", fontFamily: ff
             }}>+ Add Item</button>
           </div>
 
@@ -186,13 +186,13 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
 
           <div style={{ display: "flex", gap: "10px" }}>
             <button onClick={onClose} style={{
-              flex: 1, padding: "14px", background: t.tag, border: `1px solid ${t.line}`, color: t.muted,
+              flex: 1, padding: "14px", minHeight: "44px", background: t.tag, border: `1px solid ${t.line}`, color: t.muted,
               borderRadius: "10px", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: ff
             }}>Cancel</button>
             <button onClick={submit} disabled={submitting} style={{
-              flex: 2, padding: "14px",
+              flex: 2, padding: "14px", minHeight: "44px",
               background: "linear-gradient(135deg,#3B6FEF,#5B9BFF)", color: "#fff",
-              border: "none", borderRadius: "10px", fontWeight: 700, fontSize: "15px",
+              border: "none", borderRadius: "10px", fontWeight: 700, fontSize: "16px",
               cursor: submitting ? "not-allowed" : "pointer", fontFamily: ff,
               opacity: submitting ? 0.6 : 1
             }}>{submitting ? "Submitting..." : "Submit Request"}</button>

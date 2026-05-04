@@ -10,8 +10,8 @@ const t = {
 };
 
 const inputStyle = {
-  width: "100%", padding: "10px 12px", background: t.inputBg, border: `1.5px solid ${t.line}`,
-  borderRadius: "8px", color: t.text, fontSize: "13px", fontFamily: ff, outline: "none",
+  width: "100%", padding: "12px 14px", minHeight: "44px", background: t.inputBg, border: `1.5px solid ${t.line}`,
+  borderRadius: "8px", color: t.text, fontSize: "16px", fontFamily: ff, outline: "none",
   boxSizing: "border-box"
 };
 

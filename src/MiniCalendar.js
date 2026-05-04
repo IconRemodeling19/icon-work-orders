@@ -61,9 +61,9 @@ export default function MiniCalendar({ value, onChange, minDate, maxDate, allowM
   };
 
   const inputStyle = {
-    width: "100%", padding: "12px 14px", background: c.bg,
+    width: "100%", padding: "12px 14px", minHeight: "44px", background: c.bg,
     border: `1.5px solid ${c.line}`, borderRadius: "10px", color: c.text,
-    fontSize: "15px", fontFamily: ff, outline: "none", boxSizing: "border-box",
+    fontSize: "16px", fontFamily: ff, outline: "none", boxSizing: "border-box",
   };
 
   return (
@@ -85,9 +85,9 @@ export default function MiniCalendar({ value, onChange, minDate, maxDate, allowM
           type="button"
           onClick={() => setOpen(o => !o)}
           style={{
-            padding: "12px 14px", background: c.card, border: `1.5px solid ${c.line}`,
+            padding: "12px 14px", minHeight: "44px", background: c.card, border: `1.5px solid ${c.line}`,
             borderRadius: "10px", color: c.text, cursor: "pointer",
-            fontSize: "14px", fontWeight: 600, fontFamily: ff,
+            fontSize: "16px", fontWeight: 600, fontFamily: ff,
             display: "flex", alignItems: "center", gap: "6px"
           }}
         >📅 {open ? "Close" : "Pick"}</button>
