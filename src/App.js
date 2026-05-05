@@ -1341,8 +1341,8 @@ function AppInner(){
     area:"",
     brand:"",customBrand:"",
     line:"",customLine:"",
-    intExt:"Interior",
-    finish:"Eggshell",customFinish:"",
+    intExt:"INTERIOR",
+    finish:"EGGSHELL",customFinish:"",
     colorName:"",colorCode:"",appliedTo:"",
     gallons:"",invoiceNumber:"",
     datePurchased:todayDateStr(),
@@ -1992,90 +1992,109 @@ function AppInner(){
     const entryArr=Object.entries(entriesObj).map(([id,e])=>({id,...e})).sort((a,b)=>(a.createdAt||"").localeCompare(b.createdAt||""));
 
     // Dropdown option lists
-    const PAINT_BRANDS=["Benjamin Moore","Sherwin Williams","Home Depot (Behr or Other)","Other"];
+    const PAINT_BRANDS=["BENJAMIN MOORE","SHERWIN WILLIAMS","HOME DEPOT (BEHR OR OTHER)","OTHER"];
     const BM_LINES_INTERIOR=[
-      "BM Interior - Aura Interior",
-      "BM Interior - Aura Bath & Spa",
-      "BM Interior - Regal Select",
-      "BM Interior - Ben",
-      "BM Interior - Ultra Spec 500",
-      "BM Interior - Advance Interior",
-      "BM Interior - Waterborne Ceiling Paint",
-      "BM Interior - Muresco Ceiling Paint",
-      "BM Interior - Other",
+      "BM INTERIOR - AURA INTERIOR",
+      "BM INTERIOR - AURA BATH & SPA",
+      "BM INTERIOR - REGAL SELECT",
+      "BM INTERIOR - BEN",
+      "BM INTERIOR - ULTRA SPEC 500",
+      "BM INTERIOR - ADVANCE INTERIOR",
+      "BM INTERIOR - WATERBORNE CEILING PAINT",
+      "BM INTERIOR - MURESCO CEILING PAINT",
+      "BM INTERIOR - OTHER",
     ];
     const BM_LINES_EXTERIOR=[
-      "BM Exterior - Aura Exterior",
-      "BM Exterior - Regal Select",
-      "BM Exterior - Regal Select Exterior High Build",
-      "BM Exterior - Element Guard Exterior",
-      "BM Exterior - Ultra Spec EXT",
-      "BM Exterior - Other",
+      "BM EXTERIOR - AURA EXTERIOR",
+      "BM EXTERIOR - REGAL SELECT",
+      "BM EXTERIOR - REGAL SELECT EXTERIOR HIGH BUILD",
+      "BM EXTERIOR - ELEMENT GUARD EXTERIOR",
+      "BM EXTERIOR - ULTRA SPEC EXT",
+      "BM EXTERIOR - OTHER",
     ];
     const SW_LINES_INTERIOR=[
-      "SW Interior - Emerald Interior Acrylic Latex",
-      "SW Interior - Designer Edition INT Latex",
-      "SW Interior - Emerald Symmetry INT Latex",
-      "SW Interior - Duration Home INT Acrylic Latex",
-      "SW Interior - SuperPaint INT Acrylic Latex",
-      "SW Interior - Emerald Urethane Trim Enamel",
-      "SW Interior - CHB INT Latex Flat Wall Paint",
-      "SW Interior - Other",
+      "SW INTERIOR - EMERALD INTERIOR ACRYLIC LATEX",
+      "SW INTERIOR - DESIGNER EDITION INT LATEX",
+      "SW INTERIOR - EMERALD SYMMETRY INT LATEX",
+      "SW INTERIOR - DURATION HOME INT ACRYLIC LATEX",
+      "SW INTERIOR - SUPERPAINT INT ACRYLIC LATEX",
+      "SW INTERIOR - EMERALD URETHANE TRIM ENAMEL",
+      "SW INTERIOR - CHB INT LATEX FLAT WALL PAINT",
+      "SW INTERIOR - OTHER",
     ];
     const SW_LINES_EXTERIOR=[
-      "SW Exterior - Emerald Exterior Acrylic Latex",
-      "SW Exterior - Rain Refresh Exterior Acrylic Latex",
-      "SW Exterior - Duration Exterior Acrylic Latex",
-      "SW Exterior - SuperPaint Exterior Acrylic Latex",
-      "SW Exterior - Latitude Exterior Acrylic Latex",
-      "SW Exterior - Resilience Exterior Acrylic Latex",
-      "SW Exterior - A-100 Exterior Acrylic Latex",
-      "SW Exterior - Emerald Urethane Trim Enamel",
-      "SW Exterior - WoodScapes Exterior House Stain",
-      "SW Exterior - Loxon Exterior Masonry Coating",
-      "SW Exterior - Loxon Exterior Self-Cleaning Acrylic Coating",
-      "SW Exterior - Loxon Exterior Waterproofing XP Coating",
-      "SW Exterior - Other",
+      "SW EXTERIOR - EMERALD EXTERIOR ACRYLIC LATEX",
+      "SW EXTERIOR - RAIN REFRESH EXTERIOR ACRYLIC LATEX",
+      "SW EXTERIOR - DURATION EXTERIOR ACRYLIC LATEX",
+      "SW EXTERIOR - SUPERPAINT EXTERIOR ACRYLIC LATEX",
+      "SW EXTERIOR - LATITUDE EXTERIOR ACRYLIC LATEX",
+      "SW EXTERIOR - RESILIENCE EXTERIOR ACRYLIC LATEX",
+      "SW EXTERIOR - A-100 EXTERIOR ACRYLIC LATEX",
+      "SW EXTERIOR - EMERALD URETHANE TRIM ENAMEL",
+      "SW EXTERIOR - WOODSCAPES EXTERIOR HOUSE STAIN",
+      "SW EXTERIOR - LOXON EXTERIOR MASONRY COATING",
+      "SW EXTERIOR - LOXON EXTERIOR SELF-CLEANING ACRYLIC COATING",
+      "SW EXTERIOR - LOXON EXTERIOR WATERPROOFING XP COATING",
+      "SW EXTERIOR - OTHER",
     ];
     const ALL_BM_LINES=[...BM_LINES_INTERIOR,...BM_LINES_EXTERIOR];
     const ALL_SW_LINES=[...SW_LINES_INTERIOR,...SW_LINES_EXTERIOR];
-    const FINISHES=["Flat","Matte","Eggshell","Satin","Semi-Gloss","Gloss","High-Gloss","Other - Stain"];
-    const INT_EXT=["Interior","Exterior","Both"];
+    const FINISHES=[
+      "FLAT",
+      "MATTE",
+      "EGGSHELL",
+      "SATIN",
+      "LOW LUSTRE",
+      "SEMI-GLOSS",
+      "SOFT GLOSS",
+      "GLOSS",
+      "HIGH-GLOSS",
+      "SOLID STAIN",
+      "SEMI-TRANSPARENT",
+      "TRANSLUCENT",
+      "OTHER - STAIN",
+    ];
+    const INT_EXT=["INTERIOR","EXTERIOR","BOTH"];
 
     // Brand dropdown selection requires custom field?
-    const brandIsOther=paintForm.brand==="Other";
-    const brandIsHomeDepot=paintForm.brand==="Home Depot (Behr or Other)";
-    const showBMLine=paintForm.brand==="Benjamin Moore";
-    const showSWLine=paintForm.brand==="Sherwin Williams";
-    const lineIsOther=(showBMLine||showSWLine)&&paintForm.line.endsWith(" - Other");
-    const finishIsOther=paintForm.finish==="Other - Stain";
+    const brandIsOther=paintForm.brand==="OTHER";
+    const brandIsHomeDepot=paintForm.brand==="HOME DEPOT (BEHR OR OTHER)";
+    const showBMLine=paintForm.brand==="BENJAMIN MOORE";
+    const showSWLine=paintForm.brand==="SHERWIN WILLIAMS";
+    const lineIsOther=(showBMLine||showSWLine)&&paintForm.line.endsWith(" - OTHER");
+    const finishIsOther=paintForm.finish==="OTHER - STAIN";
 
-    // Map a stored entry back into form state for editing
+    // Map a stored entry back into form state for editing.
+    // Saved data may be old (mixed-case) or new (all-caps); normalize to caps before matching.
     const entryToForm=(e)=>{
-      const knownBrands=PAINT_BRANDS.slice(0,-1); // exclude "Other"
-      const isCustomBrand=!!e.brand&&!knownBrands.includes(e.brand);
-      const brand=isCustomBrand?"Other":(e.brand||"");
+      const eBrand=(e.brand||"").toUpperCase();
+      const eLine=(e.line||"").toUpperCase();
+      const eFinish=(e.finish||"").toUpperCase();
+      const eIntExt=(e.intExt||"").toUpperCase();
+      const knownBrands=PAINT_BRANDS.slice(0,-1); // exclude "OTHER"
+      const isCustomBrand=!!eBrand&&!knownBrands.includes(eBrand);
+      const brand=isCustomBrand?"OTHER":eBrand;
       const customBrand=isCustomBrand?(e.brand||""):"";
       let line="",customLine="";
-      if(brand==="Benjamin Moore"){
-        if(ALL_BM_LINES.includes(e.line)){line=e.line;}
-        else if(e.line){line=(e.line||"").toLowerCase().includes("exterior")?"BM Exterior - Other":"BM Interior - Other";customLine=e.line;}
-      } else if(brand==="Sherwin Williams"){
-        if(ALL_SW_LINES.includes(e.line)){line=e.line;}
-        else if(e.line){line=(e.line||"").toLowerCase().includes("exterior")?"SW Exterior - Other":"SW Interior - Other";customLine=e.line;}
+      if(brand==="BENJAMIN MOORE"){
+        if(ALL_BM_LINES.includes(eLine)){line=eLine;}
+        else if(eLine){line=eLine.includes("EXTERIOR")?"BM EXTERIOR - OTHER":"BM INTERIOR - OTHER";customLine=e.line;}
+      } else if(brand==="SHERWIN WILLIAMS"){
+        if(ALL_SW_LINES.includes(eLine)){line=eLine;}
+        else if(eLine){line=eLine.includes("EXTERIOR")?"SW EXTERIOR - OTHER":"SW INTERIOR - OTHER";customLine=e.line;}
       } else {
         // Home Depot or Other — line is free text
         customLine=e.line||"";
       }
       const knownFinishes=FINISHES.slice(0,-1);
-      const isCustomFinish=!!e.finish&&!knownFinishes.includes(e.finish);
-      const finish=isCustomFinish?"Other - Stain":(e.finish||"Eggshell");
+      const isCustomFinish=!!eFinish&&!knownFinishes.includes(eFinish);
+      const finish=isCustomFinish?"OTHER - STAIN":(eFinish||"EGGSHELL");
       const customFinish=isCustomFinish?(e.finish||""):"";
       return{
         area:e.area||"",
         brand,customBrand,
         line,customLine,
-        intExt:e.intExt||"Interior",
+        intExt:eIntExt||"INTERIOR",
         finish,customFinish,
         colorName:e.colorName||"",
         colorCode:e.colorCode||"",
@@ -2350,13 +2369,13 @@ function AppInner(){
             <div><label style={labelStyle}>Paint Line</label>
               {showBMLine&&<select value={paintForm.line} onChange={e=>setPaintForm({...paintForm,line:e.target.value,customLine:""})} style={inputStyle}>
                 <option value="">— Select line —</option>
-                <optgroup label="Interior">{BM_LINES_INTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
-                <optgroup label="Exterior">{BM_LINES_EXTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+                <optgroup label="INTERIOR">{BM_LINES_INTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+                <optgroup label="EXTERIOR">{BM_LINES_EXTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
               </select>}
               {showSWLine&&<select value={paintForm.line} onChange={e=>setPaintForm({...paintForm,line:e.target.value,customLine:""})} style={inputStyle}>
                 <option value="">— Select line —</option>
-                <optgroup label="Interior">{SW_LINES_INTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
-                <optgroup label="Exterior">{SW_LINES_EXTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+                <optgroup label="INTERIOR">{SW_LINES_INTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+                <optgroup label="EXTERIOR">{SW_LINES_EXTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
               </select>}
               {brandIsHomeDepot&&capsInput("customLine","Manually Enter Paint Line")}
               {brandIsOther&&capsInput("customLine","Enter paint line")}
