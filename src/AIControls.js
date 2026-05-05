@@ -155,11 +155,11 @@ export function VoiceToOrderDialog({ onApply, onClose, showToast }) {
     rec.onerror = (e) => { setError(`Voice error: ${e.error || "unknown"}`); setListening(false); };
     rec.onend = () => setListening(false);
     recRef.current = rec;
-    return () => { try { rec.stop(); } catch (e) {} };
+    return () => { try { rec.stop(); } catch (e) { console.error('[AIControls:rec.stop cleanup]', e); } };
   }, []);
 
   const start = () => { setError(""); setTranscript(""); try { recRef.current?.start(); setListening(true); } catch (e) { setError("Couldn't start microphone"); } };
-  const stop = () => { try { recRef.current?.stop(); } catch (e) {} setListening(false); };
+  const stop = () => { try { recRef.current?.stop(); } catch (e) { console.error('[AIControls:stop]', e); } setListening(false); };
 
   const parse = async () => {
     if (!transcript.trim()) return;

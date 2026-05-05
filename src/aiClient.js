@@ -47,9 +47,9 @@ export function extractJson(text) {
   }
   // Find first { ... } or [ ... ]
   const obj = text.match(/\{[\s\S]*\}/);
-  if (obj) { try { return JSON.parse(obj[0]); } catch (e) {} }
+  if (obj) { try { return JSON.parse(obj[0]); } catch (error) { console.error('[aiClient:extractJson:obj]', error); } }
   const arr = text.match(/\[[\s\S]*\]/);
-  if (arr) { try { return JSON.parse(arr[0]); } catch (e) {} }
+  if (arr) { try { return JSON.parse(arr[0]); } catch (error) { console.error('[aiClient:extractJson:arr]', error); } }
   return null;
 }
 

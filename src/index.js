@@ -18,7 +18,7 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     navigator.serviceWorker.register('/sw.js')
       .then(() => {
         // Also register the FCM messaging service worker if available.
-        navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => {});
+        navigator.serviceWorker.register('/firebase-messaging-sw.js').catch((err) => console.error('[index:firebase-messaging-sw]', err));
       })
       .catch((err) => console.warn('SW registration failed:', err));
   });

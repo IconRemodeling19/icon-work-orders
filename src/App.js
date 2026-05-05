@@ -589,11 +589,11 @@ function BulletTextarea({value,onChange,placeholder,style:s}){
 function AddressInput({value,onChange,style:s}){
   const[sug,setSug]=useState([]);const[show,setShow]=useState(false);const[tok,setTok]=useState(null);const[loaded,setLoaded]=useState(false);const debRef=useRef(null);const wRef=useRef(null);
   useEffect(()=>{if(window.google?.maps?.places){setLoaded(true);return;}const ex=document.querySelector(`script[src*="maps.googleapis.com"]`);if(ex){ex.addEventListener("load",()=>setLoaded(true));return;}const sc=document.createElement("script");sc.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places&loading=async`;sc.async=true;sc.defer=true;sc.onload=()=>setLoaded(true);document.head.appendChild(sc);},[]);
-  useEffect(()=>{if(loaded&&window.google?.maps?.places)try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch(e){}},[loaded]);
+  useEffect(()=>{if(loaded&&window.google?.maps?.places)try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch(error){console.error('[App:AddressInput:setTok]', error);}},[loaded]);
   useEffect(()=>{const h=e=>{if(wRef.current&&!wRef.current.contains(e.target))setShow(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
-  const fetch=useCallback(input=>{if(!loaded||!input||input.length<3){setSug([]);return;}try{new window.google.maps.places.AutocompleteService().getPlacePredictions({input,types:["address"],componentRestrictions:{country:"us"},sessionToken:tok},(p,st)=>{if(st===window.google.maps.places.PlacesServiceStatus.OK&&p){setSug(p.map(x=>({description:x.description})));setShow(true);}else setSug([]);});}catch(e){}},[loaded,tok]);
+  const fetch=useCallback(input=>{if(!loaded||!input||input.length<3){setSug([]);return;}try{new window.google.maps.places.AutocompleteService().getPlacePredictions({input,types:["address"],componentRestrictions:{country:"us"},sessionToken:tok},(p,st)=>{if(st===window.google.maps.places.PlacesServiceStatus.OK&&p){setSug(p.map(x=>({description:x.description})));setShow(true);}else setSug([]);});}catch(error){console.error('[App:AddressInput:fetch]', error);}},[loaded,tok]);
   const hc=e=>{onChange(e);if(debRef.current)clearTimeout(debRef.current);debRef.current=setTimeout(()=>fetch(e.target.value),300);};
-  const hs=d=>{onChange({target:{value:d}});setShow(false);setSug([]);try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch(e){}};
+  const hs=d=>{onChange({target:{value:d}});setShow(false);setSug([]);try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch(error){console.error('[App:AddressInput:hs]', error);}};
   return(<div ref={wRef} style={{position:"relative"}}><input type="text" value={value} onChange={hc} onFocus={()=>{if(sug.length>0)setShow(true);}} placeholder="Start typing an address..." style={s}/>
     {show&&sug.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:t.nav,border:`1.5px solid ${t.line}`,borderRadius:"0 0 10px 10px",boxShadow:"0 4px 16px rgba(0,0,0,.5)",zIndex:100,maxHeight:"200px",overflowY:"auto"}}>
       {sug.map((x,i)=><div key={i} onClick={()=>hs(x.description)} style={{padding:"12px 16px",cursor:"pointer",fontSize:"14px",color:t.text,borderBottom:i<sug.length-1?`1px solid ${t.line}`:"none",display:"flex",alignItems:"center",gap:"8px"}} onMouseEnter={e=>e.currentTarget.style.background=t.tag} onMouseLeave={e=>e.currentTarget.style.background=t.nav}><SearchIcon/>{x.description}</div>)}</div>}</div>);
@@ -693,8 +693,7 @@ function OverflowMenu({items,color}){
 // ── PERSISTENT OPERATIONS CENTER TOP BAR ────────────────────────────────────
 // Rendered once at the App root as a relative-positioned bar above the existing
 // header so it pushes content down naturally (no fixed positioning, no body
-// padding hacks). The legacy OpsHomeBtn callsites inside AppInner now render
-// nothing to avoid duplicates.
+// padding hacks).
 function OpsTopBar(){
   const [hov,setHov]=useState(false);
   return(
@@ -728,8 +727,6 @@ function OpsTopBar(){
     </a>
   );
 }
-function OpsHomeBtn(){return null;}
-
 function getSubOrderIdFromHash(){
   const h=typeof window!=="undefined"?(window.location.hash||""):"";
   if(h.startsWith("#/sub/")){const id=h.slice(6).split(/[?&#/]/)[0];return id||null;}
@@ -921,7 +918,7 @@ function SubOrderPublicView({orderId}){
       ${imgPages}
     </div></body></html>`);
     w.document.close();
-    setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
+    setTimeout(()=>{try{w.focus();w.print();}catch(error){console.error('[App:print]', error);}},600);
   };
   const mailHref=`mailto:?subject=${encodeURIComponent(`Icon Remodeling Group — Subcontractor Work Order ${order?.jobName||order?.id||""}`.trim())}&body=${encodeURIComponent(`Please find your work order details at the following link: ${url}\n\nIf there are attachments included, you will be notified at the top of the work order page.`)}`;
 
@@ -1425,7 +1422,7 @@ function AppInner(){
   },[mode,managerAuth,ordersL,recurringTemplates]);
   const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
-  const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
+  const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:markSeen]', error);}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
 
   // Deep-link: ?code=XXXXXX → land directly on the matching order in the Field Crews view.
@@ -1441,7 +1438,7 @@ function AppInner(){
       const u=new URL(window.location.href);
       u.searchParams.delete("code");
       window.history.replaceState({},"",u.toString());
-    }catch{}
+    }catch(error){console.error('[App:deepLink:cleanUrl]', error);}
   },[deepLinkCode,ordersL,orders]);
   const hasUpdate=(section,items)=>{const ls=lastSeen[section]||"";return(items||[]).some(o=>o.lastModified&&o.lastModified>ls);};
   const crewUpdates=hasUpdate("crew",orders);
@@ -1685,7 +1682,7 @@ function AppInner(){
   if(showMaterialsForm)return(<MaterialsRequestForm activeJobs={activeJobs||[]} members={[...ALL_MEMBERS,...FIELD_OPS_MEMBERS]} onClose={()=>setShowMaterialsForm(false)} onSubmitted={()=>setShowMaterialsForm(false)} showToast={showToast}/>);
   if(materialsDetail&&materialsRequests[materialsDetail])return(<MaterialsManagerPanel request={materialsRequests[materialsDetail]} aiEnabled={aiSettings.aiMaterials!==false} onSetAiEnabled={v=>{setAiSettings(p=>({...p,aiMaterials:v}));saveToFB("settings/aiMaterials",v);}} onClose={()=>setMaterialsDetail(null)} showToast={showToast}/>);
 
-  if(loading)return(<><SkeletonScreen rows={5}/><OpsHomeBtn/></>);
+  if(loading)return(<SkeletonScreen rows={5}/>);
 
   const Toast=()=>toast?<div style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg,#0891B2,#22D3EE)",color:"#fff",padding:"12px 24px",borderRadius:"10px",fontSize:"14px",fontWeight:600,zIndex:1001,boxShadow:"0 4px 20px rgba(34,211,238,.4)"}}>{toast}</div>:null;
   const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
@@ -1697,7 +1694,7 @@ function AppInner(){
   // ── ADD / EDIT JOB SCREEN ────────────────────────────────────────────────
   if(showAddJob)return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
-      <Toast/><OpsHomeBtn/>
+      <Toast/>
       <Header title={editingActiveJob!==null?"Edit Job":"Add New Job"} onBack={()=>{setShowAddJob(false);setEditingActiveJob(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");}} onHome={goHome}/>
       <div style={{padding:"20px",maxWidth:"560px",margin:"0 auto",paddingBottom:"120px",boxSizing:"border-box"}}>
         <div style={{display:"flex",flexDirection:"column",gap:"18px"}}>
@@ -1939,7 +1936,6 @@ function AppInner(){
     const entryBorder=(e)=>e._source==="lockbox"?"rgba(245,158,11,.22)":e._source==="job-garage"||e.doorType==="garage"?"rgba(167,139,250,.22)":"rgba(34,211,238,.18)";
     const entryIcon=(e)=>e._source==="lockbox"?<KeyIcon/>:e._source==="job-garage"||e.doorType==="garage"?<GarageIcon/>:<DoorIcon/>;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <OpsHomeBtn/>
       <Header title={selected?"Access Code Details":"Job Access Codes"} subtitle={`${allEntries.length} locations`} onBack={()=>{if(selected)setSelectedLockbox(null);else goHome();}} onHome={goHome}/>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         {selected?(<div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"22px"}}>
@@ -1981,7 +1977,6 @@ function AppInner(){
     const saveLockbox=()=>{if(!lockboxForm.jobLocation.trim()){showToast("Location required");return;}const now=new Date().toISOString();const d={...lockboxForm,linkedJobIndex:lockboxForm.linkedJobIndex!==""?lockboxForm.linkedJobIndex:"",lastModified:now};let u;if(editingLockbox!==null){u=codes.map((c,i)=>i===editingLockbox?d:c);}else{u=[...codes,d];}saveToFB("lockboxCodes",u);setShowLockboxForm(false);setEditingLockbox(null);setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});showToast("Saved");};
     const deleteLockbox=(idx)=>{if(!window.confirm("Delete?"))return;saveToFB("lockboxCodes",codes.filter((_,i)=>i!==idx));showToast("Deleted");};
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <OpsHomeBtn/>
       <Header title="Manage Lock Box Codes" onBack={()=>{setShowLockboxForm(false);setEditingLockbox(null);setMode("manager");}} onHome={goHome}>
         {!showLockboxForm&&<button onClick={()=>{setLockboxForm({jobName:"",jobLocation:"",keyBoxLocation:"",keyBoxCode:"",linkedJobIndex:""});setEditingLockbox(null);setShowLockboxForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> Add</button>}
       </Header>
@@ -2041,7 +2036,6 @@ function AppInner(){
   };
     const handleCamera=async(e)=>{const file=e.target.files[0];if(!file)return;setUploading(true);const dn=window.prompt("Name photo:",`Photo`)||file.name;try{const fn=`${Date.now()}_${file.name}`;const fr=storageRef(storage,`fieldnotes/${fn}`);await uploadBytes(fr,file);const url=await getDownloadURL(fr);setNoteAtts([...noteAtts,{name:dn,url,uploadedAt:new Date().toISOString()}]);}catch(err){showToast("Failed");}setUploading(false);e.target.value="";};
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <OpsHomeBtn/>
       <Header title="Field Notes & Photos" subtitle={today} onBack={goHome} onHome={goHome}/>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         <div style={{display:"flex",flexDirection:"column",gap:"14px",marginBottom:"24px"}}>
@@ -2104,7 +2098,6 @@ function AppInner(){
     saveToFB("standaloneFiles",nf);setUploading(false);showToast("Uploaded");e.target.value="";
   };
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <OpsHomeBtn/>
       <Header title="All Files" subtitle={`${allAtts.length} files`} onBack={goHome} onHome={goHome}>
         <input ref={filesUploadRef} type="file" multiple onChange={handleDirectUpload} style={{display:"none"}}/>
         <button onClick={()=>filesUploadRef.current?.click()} disabled={uploading} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> Upload</button>
@@ -2123,7 +2116,6 @@ function AppInner(){
   if(mode==="crew"){
     const allActive=activeCrew;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <OpsHomeBtn/>
       <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}>
         <button onClick={()=>setMode("fieldnotes")} style={{...baseBtn,background:"rgba(34,211,238,.1)",border:`1px solid rgba(34,211,238,.3)`,color:t.cyan,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>📝 Notes</button>
         <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"rgba(245,158,11,.12)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>🔧 Materials</button>
@@ -2160,7 +2152,6 @@ function AppInner(){
   // ── FIELD OPS ─────────────────────────────────────────────────────────────
   if(mode==="fieldops")return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <OpsHomeBtn/>
       <Header title="Icon Operations" subtitle={today} onBack={()=>{setShowFieldForm(false);setEditingFieldOrder(null);goHome();}} onHome={goHome}>
         <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"rgba(245,158,11,.12)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>🔧 Materials</button>
         {!showFieldForm&&<button onClick={()=>{setFieldFormData({...emptyFieldOrder});setEditingFieldOrder(null);setShowFieldForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> New</button>}
@@ -2312,7 +2303,6 @@ function AppInner(){
   // ── MANAGER ───────────────────────────────────────────────────────────────
   return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <OpsHomeBtn/>
       {deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"26px",maxWidth:"300px",width:"100%",textAlign:"center"}}><div style={{fontSize:"16px",fontWeight:700,marginBottom:"8px",color:t.text}}>Delete Order?</div><div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>{"This can't be undone."}</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px",fontWeight:700,borderRadius:"10px"}}>Delete</button></div></div></div>}
       {smsModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setSmsModal(null)}><div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"22px",maxWidth:"420px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{fontSize:"16px",fontWeight:700,marginBottom:"4px",color:t.text}}>{IS_MOBILE?"📱 Send SMS to Crew":"📋 Copy Message for Crew"}</div>
@@ -2486,7 +2476,7 @@ function AppInner(){
               {k:"materials",label:"🔧 Materials",badge:Object.values(materialsRequests||{}).filter(r=>r.status==="pending").length},
               {k:"history",label:"📜 History",badge:unreadActivity}
             ].map(tab=>(
-              <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}}}} style={{padding:"10px 14px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
+              <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:mgrTab:wo-seen]', error);}}}} style={{padding:"10px 14px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
             ))}
           </div>
 

@@ -22,7 +22,6 @@ export async function requestPermissionAndRegisterToken() {
     const { getToken, onMessage } = await import("firebase/messaging");
 
     if (!VAPID_KEY) {
-      console.info("[notifications] VAPID key not configured — skipping token registration. Set VAPID_KEY in src/notifications.js.");
       return null;
     }
 
@@ -40,7 +39,7 @@ export async function requestPermissionAndRegisterToken() {
         const title = payload.notification?.title || "Icon Remodeling";
         const body = payload.notification?.body || "";
         new Notification(title, { body, icon: "/icon-192.png" });
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.error('[notifications:onMessage]', e); }
     });
 
     return token;
@@ -59,7 +58,7 @@ export function localNotify(title, body) {
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       new Notification(title, { body, icon: "/icon-192.png" });
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error('[notifications:localNotify]', e); }
 }
 
 export function listTokens(cb) {

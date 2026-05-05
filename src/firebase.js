@@ -56,7 +56,7 @@ async function getMessagingIfSupported() {
       _messaging = getMessaging(app);
       return _messaging;
     }
-  } catch (e) { /* messaging not available */ }
+  } catch (e) { console.error('[firebase:getMessagingIfSupported]', e); }
   return null;
 }
 
