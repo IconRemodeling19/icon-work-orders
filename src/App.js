@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { db, ref, set, onValue, storage, storageRef, uploadBytes, getDownloadURL, auth, signInAnonymously, onAuthStateChanged } from "./firebase";
+import { db, ref, set, onValue, push, remove, storage, storageRef, uploadBytes, getDownloadURL, auth, signInAnonymously, onAuthStateChanged } from "./firebase";
 import { SkeletonScreen, SkeletonOrderList, SkeletonStyles, OfflineBanner } from "./Skeletons";
 import { generateReferenceId, ensureReferenceId } from "./refId";
 import { FREQUENCIES, nextDate, todayStr as recurringTodayStr, dueTemplates, orderFromTemplate } from "./recurring";
@@ -169,6 +169,10 @@ function getJobsForOrder(order){if(order.jobs&&order.jobs.length>0)return order.
 const emptyFieldOrder={staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
 
 function saveToFB(path,data){set(ref(db,path),data).catch(e=>console.error("FB save:",e));}
+function pushToFB(path,data){return push(ref(db,path),data);}
+function removeFB(path){return remove(ref(db,path)).catch(e=>console.error("FB remove:",e));}
+// Stable jobId derived from a job's name — survives reorder/delete of the activeJobs array
+const jobIdFor=(job)=>(job?.name||"").toString().toUpperCase().replace(/[^A-Z0-9]+/g,"_").replace(/^_+|_+$/g,"")||"UNNAMED";
 function useFB(path,fb){const[d,setD]=useState(fb);const[l,setL]=useState(false);useEffect(()=>{const u=onValue(ref(db,path),s=>{const v=s.val();setD(v!==null?v:fb);setL(true);},()=>setL(true));return()=>u();},[path]);return[d,l];}
 function isExpired(order){const now=new Date();const od=new Date(order.date+"T06:00:00");const ex=new Date(od);ex.setDate(ex.getDate()+1);return now>=ex;}
 function getActive(orders){return(orders||[]).filter(o=>!isExpired(o));}
@@ -1310,7 +1314,21 @@ function AppInner(){
   const[expandedSummaries,setExpandedSummaries]=useState({});
   const[summaryCardOpen,setSummaryCardOpen]=useState(false);
   const[memberPhones,setMemberPhones]=useState({});
+  // Active Job Detail / Paint Colors
+  const[selectedActiveJobIdx,setSelectedActiveJobIdx]=useState(null);
+  const[activeJobTab,setActiveJobTab]=useState("paint");
+  const[jobPaintColors,setJobPaintColors]=useState({});
+  const[showPaintForm,setShowPaintForm]=useState(false);
+  const PAINT_FORM_BLANK={area:"",brand:"",line:"",intExt:"Interior",finish:"Eggshell",colorName:"",colorCode:"",appliedTo:""};
+  const[paintForm,setPaintForm]=useState(PAINT_FORM_BLANK);
+  const[deletePaintEntry,setDeletePaintEntry]=useState(null);
   const fileRef=useRef(null);const fieldFileRef=useRef(null);const noteFileRef=useRef(null);const cameraRef=useRef(null);const filesUploadRef=useRef(null);
+
+  // Subscribe to job paint colors
+  useEffect(()=>{
+    const u=onValue(ref(db,"jobs"),s=>setJobPaintColors(s.val()||{}));
+    return()=>u();
+  },[]);
 
   // Subscribe to member phone numbers (for auto-SMS)
   useEffect(()=>{
@@ -1420,7 +1438,7 @@ function AppInner(){
     }
     ranAutoGenRef.current=true;
   },[mode,managerAuth,ordersL,recurringTemplates]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:markSeen]', error);}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -1866,23 +1884,24 @@ function AppInner(){
             <tbody>
               {(activeJobs||[]).map((job,idx)=>({job,idx})).sort((a,b)=>(a.job.name||"").localeCompare(b.job.name||"")).map(({job,idx})=>{
                 const linked=getLinkedLockbox(idx);const hasWifi=!!(job.wifiName||job.wifiPassword);const hasGarage=!!job.garageCode;const hasDoor=!!(job.doorType&&job.doorCode);
+                const openDetail=()=>{setSelectedActiveJobIdx(idx);setActiveJobTab("paint");setMode("activeJobDetail");};
                 return(
-                  <tr key={idx} className="job-row">
-                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase",verticalAlign:"top"}}>{job.name}</td>
-                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text,verticalAlign:"top"}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
-                    <td style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
+                  <tr key={idx} className="job-row" style={{cursor:"pointer"}}>
+                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase",verticalAlign:"top"}}>{job.name}</td>
+                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text,verticalAlign:"top"}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
+                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
                       <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
                         <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px"}}>{job.address}</span>
                         <div style={{display:"flex",alignItems:"center",gap:"5px",flexWrap:"wrap"}}>
-                          {linked&&<button onClick={()=>setKeyModal(linked)} style={{...baseBtn,padding:"2px 7px",background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.28)",borderRadius:"7px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
-                          {hasWifi&&<button onClick={()=>setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword})} style={{...baseBtn,padding:"2px 7px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
-                          {hasGarage&&<button onClick={()=>setDoorModal({type:"garage",code:job.garageCode})} style={{...baseBtn,padding:"2px 7px",background:"rgba(167,139,250,.1)",border:"1.5px solid rgba(167,139,250,.22)",borderRadius:"7px",color:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}><GarageIcon/> Garage</button>}
-                          {hasDoor&&<button onClick={()=>setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation})} style={{...baseBtn,padding:"2px 7px",background:"rgba(34,211,238,.08)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"7px",color:t.cyan,gap:"3px",fontSize:"11px",fontWeight:700}}><DoorIcon/> Door</button>}
+                          {linked&&<button onClick={e=>{e.stopPropagation();setKeyModal(linked);}} style={{...baseBtn,padding:"2px 7px",background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.28)",borderRadius:"7px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
+                          {hasWifi&&<button onClick={e=>{e.stopPropagation();setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
+                          {hasGarage&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:"garage",code:job.garageCode});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(167,139,250,.1)",border:"1.5px solid rgba(167,139,250,.22)",borderRadius:"7px",color:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}><GarageIcon/> Garage</button>}
+                          {hasDoor&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(34,211,238,.08)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"7px",color:t.cyan,gap:"3px",fontSize:"11px",fontWeight:700}}><DoorIcon/> Door</button>}
                         </div>
                       </div>
                     </td>
                     <td style={{padding:"8px 4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
-                      <div style={{position:"relative"}}>
+                      <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>setJobMenu(jobMenu===idx?null:idx)} style={{...ghostBtn,padding:"5px",color:t.muted,borderRadius:"8px"}}><DotsIcon/></button>
                         {jobMenu===idx&&<>
                           <div onClick={()=>setJobMenu(null)} style={{position:"fixed",inset:0,zIndex:998}}/>
@@ -1925,6 +1944,204 @@ function AppInner(){
       </div>}
     </div>
   );
+
+  // ── ACTIVE JOB DETAIL (Paint Colors) ──────────────────────────────────────
+  if(mode==="activeJobDetail"){
+    const job=(activeJobs||[])[selectedActiveJobIdx];
+    if(!job){
+      return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
+        <Header title="Active Job" onBack={()=>{setMode(null);setSelectedActiveJobIdx(null);}} onHome={goHome}/>
+        <div style={{padding:"40px 20px",textAlign:"center",color:t.muted}}>Job not found.</div>
+      </div>);
+    }
+    const jobId=jobIdFor(job);
+    const entriesObj=(jobPaintColors[jobId]&&jobPaintColors[jobId].paintColors)||{};
+    const entryArr=Object.entries(entriesObj).map(([id,e])=>({id,...e})).sort((a,b)=>(a.createdAt||"").localeCompare(b.createdAt||""));
+
+    const savePaint=()=>{
+      const trimmed={
+        area:paintForm.area.trim(),
+        brand:paintForm.brand.trim(),
+        line:paintForm.line.trim(),
+        intExt:paintForm.intExt,
+        finish:paintForm.finish,
+        colorName:paintForm.colorName.trim(),
+        colorCode:paintForm.colorCode.trim(),
+        appliedTo:paintForm.appliedTo.trim(),
+      };
+      if(!trimmed.area&&!trimmed.colorName&&!trimmed.colorCode&&!trimmed.brand){
+        showToast("Add at least an area or color");
+        return;
+      }
+      const entry={...trimmed,createdAt:new Date().toISOString()};
+      pushToFB(`jobs/${jobId}/paintColors`,entry).then(()=>{
+        setShowPaintForm(false);
+        setPaintForm(PAINT_FORM_BLANK);
+        showToast("Paint color added");
+      }).catch(e=>{console.error("[App:savePaint]",e);showToast("Save failed");});
+    };
+    const removePaint=(entryId)=>{
+      removeFB(`jobs/${jobId}/paintColors/${entryId}`).then(()=>{
+        setDeletePaintEntry(null);
+        showToast("Removed");
+      });
+    };
+
+    const FINISHES=["Flat","Matte","Eggshell","Satin","Semi-Gloss","Gloss","High-Gloss"];
+    const INT_EXT=["Interior","Exterior","Both"];
+
+    return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
+      <Toast/>
+      <Header title={job.name||"Active Job"} subtitle={job.address||job.customerName||""} onBack={()=>{setMode(null);setSelectedActiveJobIdx(null);}} onHome={goHome}/>
+      <style>{`
+        @media (max-width:640px){
+          .paint-table-wrap{display:none;}
+          .paint-cards-wrap{display:flex;}
+        }
+        @media (min-width:641px){
+          .paint-table-wrap{display:block;}
+          .paint-cards-wrap{display:none;}
+        }
+      `}</style>
+
+      <div style={{padding:"16px",maxWidth:"960px",margin:"0 auto",paddingBottom:"100px"}}>
+        {/* Job summary card */}
+        <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"14px 16px",marginBottom:"14px"}}>
+          <div style={{display:"flex",flexWrap:"wrap",gap:"14px"}}>
+            <div style={{flex:"1 1 200px",minWidth:0}}>
+              <div style={labelStyle}>Job</div>
+              <div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{job.name||"—"}</div>
+            </div>
+            {job.customerName&&<div style={{flex:"1 1 180px",minWidth:0}}>
+              <div style={labelStyle}>Customer</div>
+              <div style={{fontSize:"13px",color:t.text}}>{job.customerName}</div>
+            </div>}
+            {job.address&&<div style={{flex:"2 1 260px",minWidth:0}}>
+              <div style={labelStyle}>Address</div>
+              <div style={{fontSize:"13px",color:t.text}}>{job.address}</div>
+            </div>}
+          </div>
+        </div>
+
+        {/* Tab bar */}
+        <div style={{display:"flex",borderBottom:`1px solid ${t.line}`,marginBottom:"18px",overflowX:"auto"}}>
+          <button onClick={()=>setActiveJobTab("paint")} style={{padding:"11px 16px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:activeJobTab==="paint"?t.blue:t.muted,borderBottom:activeJobTab==="paint"?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",whiteSpace:"nowrap"}}>🎨 Paint Colors</button>
+        </div>
+
+        {activeJobTab==="paint"&&(<div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px",gap:"10px",flexWrap:"wrap"}}>
+            <h2 style={{fontSize:"18px",fontWeight:700,color:t.text,margin:0,fontFamily:ff}}>Job Paint Colors</h2>
+            <button onClick={()=>{setPaintForm(PAINT_FORM_BLANK);setShowPaintForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"13px"}}><PlusIcon/> Add Paint Color</button>
+          </div>
+
+          {entryArr.length===0?(
+            <div style={{textAlign:"center",padding:"40px 16px",background:t.card,border:`1px dashed ${t.line}`,borderRadius:"12px",color:t.muted,fontSize:"14px"}}>
+              🎨 No paint colors logged yet
+            </div>
+          ):(<>
+            {/* Desktop table */}
+            <div className="paint-table-wrap" style={{overflowX:"auto",background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                <thead><tr>
+                  {["Room/Area","Brand","Line","Int/Ext","Finish","Color Name","Color Code","Applied To",""].map((h,i)=>(
+                    <th key={i} style={{textAlign:"left",padding:"10px 12px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",whiteSpace:"nowrap",background:t.nav}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {entryArr.map((e,i)=>(
+                    <tr key={e.id} style={{background:i%2===0?t.card:t.nav}}>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.area||"—"}</td>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.brand||"—"}</td>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.line||"—"}</td>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.intExt||"—"}</td>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.finish||"—"}</td>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text,fontWeight:600}}>{e.colorName||"—"}</td>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.cyan,fontFamily:"monospace"}}>{e.colorCode||"—"}</td>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.appliedTo||"—"}</td>
+                      <td style={{padding:"6px",borderBottom:`1px solid ${t.line}`,textAlign:"right",width:"40px"}}>
+                        <button onClick={()=>setDeletePaintEntry(e.id)} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px"}}><TrashIcon/></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="paint-cards-wrap" style={{flexDirection:"column",gap:"10px"}}>
+              {entryArr.map((e,i)=>(
+                <div key={e.id} style={{background:i%2===0?t.card:t.nav,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"14px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px",marginBottom:"10px"}}>
+                    <div style={{minWidth:0,flex:1}}>
+                      <div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{e.colorName||e.area||"Paint Entry"}</div>
+                      {e.colorCode&&<div style={{fontSize:"12px",fontFamily:"monospace",color:t.cyan,marginTop:"2px"}}>{e.colorCode}</div>}
+                    </div>
+                    <button onClick={()=>setDeletePaintEntry(e.id)} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px",flexShrink:0}}><TrashIcon/></button>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 14px",fontSize:"12px"}}>
+                    {e.area&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Area</div><div style={{color:t.text}}>{e.area}</div></div>}
+                    {e.brand&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Brand</div><div style={{color:t.text}}>{e.brand}</div></div>}
+                    {e.line&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Line</div><div style={{color:t.text}}>{e.line}</div></div>}
+                    {e.intExt&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Int/Ext</div><div style={{color:t.text}}>{e.intExt}</div></div>}
+                    {e.finish&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Finish</div><div style={{color:t.text}}>{e.finish}</div></div>}
+                    {e.appliedTo&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Applied To</div><div style={{color:t.text}}>{e.appliedTo}</div></div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>)}
+        </div>)}
+      </div>
+
+      {/* Add Paint Color modal */}
+      {showPaintForm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>{setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"24px",maxWidth:"480px",width:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"18px"}}>
+            <div style={{fontSize:"17px",fontWeight:700,color:t.text}}>🎨 Add Paint Color</div>
+            <button onClick={()=>{setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);}} style={{...ghostBtn,padding:"4px",color:t.muted}}><XIcon/></button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+            <div><label style={labelStyle}>Area / Location / Room</label><input value={paintForm.area} onChange={e=>setPaintForm({...paintForm,area:e.target.value})} placeholder="e.g. Master Bedroom" style={inputStyle}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+              <div><label style={labelStyle}>Paint Brand</label><input value={paintForm.brand} onChange={e=>setPaintForm({...paintForm,brand:e.target.value})} placeholder="Benjamin Moore" style={inputStyle}/></div>
+              <div><label style={labelStyle}>Paint Line</label><input value={paintForm.line} onChange={e=>setPaintForm({...paintForm,line:e.target.value})} placeholder="Aura" style={inputStyle}/></div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+              <div><label style={labelStyle}>Interior / Exterior</label>
+                <select value={paintForm.intExt} onChange={e=>setPaintForm({...paintForm,intExt:e.target.value})} style={inputStyle}>
+                  {INT_EXT.map(o=><option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div><label style={labelStyle}>Paint Finish</label>
+                <select value={paintForm.finish} onChange={e=>setPaintForm({...paintForm,finish:e.target.value})} style={inputStyle}>
+                  {FINISHES.map(o=><option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+            <div><label style={labelStyle}>Paint Color Name</label><input value={paintForm.colorName} onChange={e=>setPaintForm({...paintForm,colorName:e.target.value})} placeholder="Simply White" style={inputStyle}/></div>
+            <div><label style={labelStyle}>Paint Color Code</label><input value={paintForm.colorCode} onChange={e=>setPaintForm({...paintForm,colorCode:e.target.value})} placeholder="OC-117 / SW 7015" style={inputStyle}/></div>
+            <div><label style={labelStyle}>Applied To</label><input value={paintForm.appliedTo} onChange={e=>setPaintForm({...paintForm,appliedTo:e.target.value})} placeholder="Walls, Ceiling, Trim, Doors" style={inputStyle}/></div>
+            <div style={{display:"flex",gap:"10px",marginTop:"6px"}}>
+              <button onClick={()=>{setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"13px"}}>Cancel</button>
+              <button onClick={savePaint} style={{...primaryBtn,flex:2,padding:"13px",justifyContent:"center"}}>Save</button>
+            </div>
+          </div>
+        </div>
+      </div>}
+
+      {/* Delete confirm */}
+      {deletePaintEntry&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1001,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+        <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"28px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+          <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"8px"}}>Delete paint color?</div>
+          <div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>This can't be undone.</div>
+          <div style={{display:"flex",gap:"10px"}}>
+            <button onClick={()=>setDeletePaintEntry(null)} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"13px"}}>Cancel</button>
+            <button onClick={()=>removePaint(deletePaintEntry)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"13px",fontWeight:700,borderRadius:"10px"}}>Delete</button>
+          </div>
+        </div>
+      </div>}
+    </div>);
+  }
 
   // ── LOCK BOX CODES ────────────────────────────────────────────────────────
   if(mode==="lockbox"){
