@@ -621,6 +621,23 @@ function PinDialog({onSuccess,onCancel,title}){
   </div>);
 }
 
+// Paint Colors admin gate — hardcoded to Rob's PIN
+const ROB_PIN="2433";
+function RobPinDialog({onSuccess,onCancel,title,subtitle}){
+  const[pin,setPin]=useState("");const[err,setErr]=useState(false);
+  const check=()=>{if(pin===ROB_PIN){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
+  return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+    <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+      <div style={{color:t.amber}}><LockIcon/></div>
+      <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
+      <p style={{fontSize:"13px",color:t.muted,marginBottom:"20px"}}>{subtitle||"Admin-only action"}</p>
+      <input autoFocus type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter Rob's PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
+      {err&&<div style={{color:t.danger,fontSize:"13px",marginBottom:"8px"}}>Incorrect PIN</div>}
+      <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px",justifyContent:"center"}}>Enter</button></div>
+    </div>
+  </div>);
+}
+
 function InfoModal({title,icon,children,onClose}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={onClose}>
@@ -1319,9 +1336,25 @@ function AppInner(){
   const[activeJobTab,setActiveJobTab]=useState("paint");
   const[jobPaintColors,setJobPaintColors]=useState({});
   const[showPaintForm,setShowPaintForm]=useState(false);
-  const PAINT_FORM_BLANK={area:"",brand:"",line:"",intExt:"Interior",finish:"Eggshell",colorName:"",colorCode:"",appliedTo:""};
+  const todayDateStr=()=>new Date().toISOString().split("T")[0];
+  const PAINT_FORM_BLANK={
+    area:"",
+    brand:"",customBrand:"",
+    line:"",customLine:"",
+    intExt:"Interior",
+    finish:"Eggshell",customFinish:"",
+    colorName:"",colorCode:"",appliedTo:"",
+    gallons:"",invoiceNumber:"",
+    datePurchased:todayDateStr(),
+    store:"",
+    robComment:"",
+  };
   const[paintForm,setPaintForm]=useState(PAINT_FORM_BLANK);
   const[deletePaintEntry,setDeletePaintEntry]=useState(null);
+  const[isRobAuth,setIsRobAuth]=useState(false);
+  const[paintListMode,setPaintListMode]=useState("view"); // view | edit | delete
+  const[editingPaintId,setEditingPaintId]=useState(null);
+  const[robPinPurpose,setRobPinPurpose]=useState(null); // {type:"unlock"|"delete-enter", entryId?}
   const fileRef=useRef(null);const fieldFileRef=useRef(null);const noteFileRef=useRef(null);const cameraRef=useRef(null);const filesUploadRef=useRef(null);
 
   // Subscribe to job paint colors
@@ -1438,7 +1471,7 @@ function AppInner(){
     }
     ranAutoGenRef.current=true;
   },[mode,managerAuth,ordersL,recurringTemplates]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);setIsRobAuth(false);setPaintListMode("view");setEditingPaintId(null);setRobPinPurpose(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:markSeen]', error);}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -1958,27 +1991,158 @@ function AppInner(){
     const entriesObj=(jobPaintColors[jobId]&&jobPaintColors[jobId].paintColors)||{};
     const entryArr=Object.entries(entriesObj).map(([id,e])=>({id,...e})).sort((a,b)=>(a.createdAt||"").localeCompare(b.createdAt||""));
 
+    // Dropdown option lists
+    const PAINT_BRANDS=["Benjamin Moore","Sherwin Williams","Home Depot (Behr or Other)","Other"];
+    const BM_LINES_INTERIOR=[
+      "BM Interior - Aura Interior",
+      "BM Interior - Aura Bath & Spa",
+      "BM Interior - Regal Select",
+      "BM Interior - Ben",
+      "BM Interior - Ultra Spec 500",
+      "BM Interior - Advance Interior",
+      "BM Interior - Waterborne Ceiling Paint",
+      "BM Interior - Muresco Ceiling Paint",
+      "BM Interior - Other",
+    ];
+    const BM_LINES_EXTERIOR=[
+      "BM Exterior - Aura Exterior",
+      "BM Exterior - Regal Select",
+      "BM Exterior - Regal Select Exterior High Build",
+      "BM Exterior - Element Guard Exterior",
+      "BM Exterior - Ultra Spec EXT",
+      "BM Exterior - Other",
+    ];
+    const SW_LINES_INTERIOR=[
+      "SW Interior - Emerald Interior Acrylic Latex",
+      "SW Interior - Designer Edition INT Latex",
+      "SW Interior - Emerald Symmetry INT Latex",
+      "SW Interior - Duration Home INT Acrylic Latex",
+      "SW Interior - SuperPaint INT Acrylic Latex",
+      "SW Interior - Emerald Urethane Trim Enamel",
+      "SW Interior - CHB INT Latex Flat Wall Paint",
+      "SW Interior - Other",
+    ];
+    const SW_LINES_EXTERIOR=[
+      "SW Exterior - Emerald Exterior Acrylic Latex",
+      "SW Exterior - Rain Refresh Exterior Acrylic Latex",
+      "SW Exterior - Duration Exterior Acrylic Latex",
+      "SW Exterior - SuperPaint Exterior Acrylic Latex",
+      "SW Exterior - Latitude Exterior Acrylic Latex",
+      "SW Exterior - Resilience Exterior Acrylic Latex",
+      "SW Exterior - A-100 Exterior Acrylic Latex",
+      "SW Exterior - Emerald Urethane Trim Enamel",
+      "SW Exterior - WoodScapes Exterior House Stain",
+      "SW Exterior - Loxon Exterior Masonry Coating",
+      "SW Exterior - Loxon Exterior Self-Cleaning Acrylic Coating",
+      "SW Exterior - Loxon Exterior Waterproofing XP Coating",
+      "SW Exterior - Other",
+    ];
+    const ALL_BM_LINES=[...BM_LINES_INTERIOR,...BM_LINES_EXTERIOR];
+    const ALL_SW_LINES=[...SW_LINES_INTERIOR,...SW_LINES_EXTERIOR];
+    const FINISHES=["Flat","Matte","Eggshell","Satin","Semi-Gloss","Gloss","High-Gloss","Other - Stain"];
+    const INT_EXT=["Interior","Exterior","Both"];
+
+    // Brand dropdown selection requires custom field?
+    const brandIsOther=paintForm.brand==="Other";
+    const brandIsHomeDepot=paintForm.brand==="Home Depot (Behr or Other)";
+    const showBMLine=paintForm.brand==="Benjamin Moore";
+    const showSWLine=paintForm.brand==="Sherwin Williams";
+    const lineIsOther=(showBMLine||showSWLine)&&paintForm.line.endsWith(" - Other");
+    const finishIsOther=paintForm.finish==="Other - Stain";
+
+    // Map a stored entry back into form state for editing
+    const entryToForm=(e)=>{
+      const knownBrands=PAINT_BRANDS.slice(0,-1); // exclude "Other"
+      const isCustomBrand=!!e.brand&&!knownBrands.includes(e.brand);
+      const brand=isCustomBrand?"Other":(e.brand||"");
+      const customBrand=isCustomBrand?(e.brand||""):"";
+      let line="",customLine="";
+      if(brand==="Benjamin Moore"){
+        if(ALL_BM_LINES.includes(e.line)){line=e.line;}
+        else if(e.line){line=(e.line||"").toLowerCase().includes("exterior")?"BM Exterior - Other":"BM Interior - Other";customLine=e.line;}
+      } else if(brand==="Sherwin Williams"){
+        if(ALL_SW_LINES.includes(e.line)){line=e.line;}
+        else if(e.line){line=(e.line||"").toLowerCase().includes("exterior")?"SW Exterior - Other":"SW Interior - Other";customLine=e.line;}
+      } else {
+        // Home Depot or Other — line is free text
+        customLine=e.line||"";
+      }
+      const knownFinishes=FINISHES.slice(0,-1);
+      const isCustomFinish=!!e.finish&&!knownFinishes.includes(e.finish);
+      const finish=isCustomFinish?"Other - Stain":(e.finish||"Eggshell");
+      const customFinish=isCustomFinish?(e.finish||""):"";
+      return{
+        area:e.area||"",
+        brand,customBrand,
+        line,customLine,
+        intExt:e.intExt||"Interior",
+        finish,customFinish,
+        colorName:e.colorName||"",
+        colorCode:e.colorCode||"",
+        appliedTo:e.appliedTo||"",
+        gallons:e.gallons!==undefined&&e.gallons!==null?String(e.gallons):"",
+        invoiceNumber:e.invoiceNumber||"",
+        datePurchased:e.datePurchased||todayDateStr(),
+        store:e.store||"",
+        robComment:e.robComment||"",
+      };
+    };
+
+    const openAdd=()=>{setEditingPaintId(null);setPaintForm(PAINT_FORM_BLANK);setShowPaintForm(true);};
+    const openEdit=(entry)=>{setEditingPaintId(entry.id);setPaintForm(entryToForm(entry));setShowPaintForm(true);};
+    const closeForm=()=>{setShowPaintForm(false);setEditingPaintId(null);setPaintForm(PAINT_FORM_BLANK);};
+
     const savePaint=()=>{
-      const trimmed={
+      // Resolve brand
+      const finalBrand=brandIsOther?paintForm.customBrand.trim():paintForm.brand;
+      // Resolve line
+      let finalLine="";
+      if(showBMLine||showSWLine){
+        finalLine=paintForm.line.endsWith(" - Other")?paintForm.customLine.trim():paintForm.line;
+      } else if(brandIsHomeDepot||brandIsOther){
+        finalLine=paintForm.customLine.trim();
+      }
+      // Resolve finish
+      const finalFinish=finishIsOther?paintForm.customFinish.trim():paintForm.finish;
+      // Validate
+      if(!paintForm.area.trim()&&!finalBrand&&!paintForm.colorName.trim()&&!paintForm.colorCode.trim()){
+        showToast("Add at least an area, brand, or color");
+        return;
+      }
+      const baseEntry={
         area:paintForm.area.trim(),
-        brand:paintForm.brand.trim(),
-        line:paintForm.line.trim(),
+        brand:finalBrand,
+        line:finalLine,
         intExt:paintForm.intExt,
-        finish:paintForm.finish,
+        finish:finalFinish,
         colorName:paintForm.colorName.trim(),
         colorCode:paintForm.colorCode.trim(),
         appliedTo:paintForm.appliedTo.trim(),
+        gallons:paintForm.gallons===""?"":String(paintForm.gallons),
+        invoiceNumber:paintForm.invoiceNumber.trim(),
+        datePurchased:paintForm.datePurchased||todayDateStr(),
+        store:paintForm.store.trim(),
+        robComment:paintForm.robComment.trim(),
       };
-      if(!trimmed.area&&!trimmed.colorName&&!trimmed.colorCode&&!trimmed.brand){
-        showToast("Add at least an area or color");
-        return;
+      if(editingPaintId){
+        const existing=entriesObj[editingPaintId]||{};
+        // If Rob comment changed, reset dismissed flag so it reappears
+        const commentChanged=(existing.robComment||"")!==baseEntry.robComment;
+        const merged={
+          ...existing,
+          ...baseEntry,
+          robCommentDismissed:commentChanged?false:(existing.robCommentDismissed||false),
+          updatedAt:new Date().toISOString(),
+        };
+        set(ref(db,`jobs/${jobId}/paintColors/${editingPaintId}`),merged).then(()=>{
+          closeForm();showToast("Paint color updated");
+        }).catch(e=>{console.error("[App:savePaint]",e);showToast("Save failed");});
+      } else {
+        const entry={...baseEntry,robCommentDismissed:false,createdAt:new Date().toISOString()};
+        pushToFB(`jobs/${jobId}/paintColors`,entry).then(()=>{
+          closeForm();showToast("Paint color added");
+        }).catch(e=>{console.error("[App:savePaint]",e);showToast("Save failed");});
       }
-      const entry={...trimmed,createdAt:new Date().toISOString()};
-      pushToFB(`jobs/${jobId}/paintColors`,entry).then(()=>{
-        setShowPaintForm(false);
-        setPaintForm(PAINT_FORM_BLANK);
-        showToast("Paint color added");
-      }).catch(e=>{console.error("[App:savePaint]",e);showToast("Save failed");});
     };
     const removePaint=(entryId)=>{
       removeFB(`jobs/${jobId}/paintColors/${entryId}`).then(()=>{
@@ -1986,9 +2150,32 @@ function AppInner(){
         showToast("Removed");
       });
     };
+    const dismissRobComment=(entryId)=>{
+      saveToFB(`jobs/${jobId}/paintColors/${entryId}/robCommentDismissed`,true);
+    };
 
-    const FINISHES=["Flat","Matte","Eggshell","Satin","Semi-Gloss","Gloss","High-Gloss"];
-    const INT_EXT=["Interior","Exterior","Both"];
+    // Pending Rob comments (only relevant when Rob is authed)
+    const pendingRobComments=isRobAuth
+      ? entryArr.filter(e=>e.robComment&&e.robComment.trim()&&!e.robCommentDismissed)
+      : [];
+
+    // Caps + spell-check input style/handler shorthand
+    const capsInput=(field,placeholder)=>(
+      <input
+        value={paintForm[field]||""}
+        onChange={e=>setPaintForm({...paintForm,[field]:e.target.value.toUpperCase()})}
+        placeholder={placeholder}
+        spellCheck={true}
+        style={{...inputStyle,textTransform:"uppercase"}}
+      />
+    );
+
+    // Row click handler depending on mode
+    const handleRowClick=(entry)=>{
+      if(paintListMode==="edit") openEdit(entry);
+      else if(paintListMode==="delete") setDeletePaintEntry(entry.id);
+    };
+    const rowCursor=paintListMode==="view"?"default":"pointer";
 
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
       <Toast/>
@@ -2001,6 +2188,9 @@ function AppInner(){
         @media (min-width:641px){
           .paint-table-wrap{display:block;}
           .paint-cards-wrap{display:none;}
+        }
+        @media print{
+          .paint-no-print{display:none !important;}
         }
       `}</style>
 
@@ -2024,15 +2214,51 @@ function AppInner(){
         </div>
 
         {/* Tab bar */}
-        <div style={{display:"flex",borderBottom:`1px solid ${t.line}`,marginBottom:"18px",overflowX:"auto"}}>
+        <div className="paint-no-print" style={{display:"flex",borderBottom:`1px solid ${t.line}`,marginBottom:"18px",overflowX:"auto",alignItems:"center",justifyContent:"space-between"}}>
           <button onClick={()=>setActiveJobTab("paint")} style={{padding:"11px 16px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:activeJobTab==="paint"?t.blue:t.muted,borderBottom:activeJobTab==="paint"?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",whiteSpace:"nowrap"}}>🎨 Paint Colors</button>
+          {/* Rob auth indicator */}
+          <div style={{paddingRight:"4px",paddingBottom:"6px"}}>
+            {isRobAuth
+              ? <span style={{fontSize:"11px",color:t.green,fontWeight:700,letterSpacing:".5px"}}>🟢 ROB MODE</span>
+              : <button onClick={()=>setRobPinPurpose({type:"unlock"})} style={{...baseBtn,background:"rgba(245,158,11,.1)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"5px 10px",fontSize:"11px",fontWeight:700,letterSpacing:".5px"}}>🔓 LOGIN AS ROB</button>}
+          </div>
         </div>
 
         {activeJobTab==="paint"&&(<div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px",gap:"10px",flexWrap:"wrap"}}>
+
+          {/* Rob comments banner */}
+          {pendingRobComments.length>0&&<div className="paint-no-print" style={{background:"rgba(245,158,11,.1)",border:`1.5px solid rgba(245,158,11,.35)`,borderRadius:"12px",padding:"12px 14px",marginBottom:"14px"}}>
+            <div style={{...labelStyle,color:t.amber,marginBottom:"8px"}}>💬 Rob Comments ({pendingRobComments.length})</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+              {pendingRobComments.map(e=>(
+                <div key={e.id} style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"10px",fontSize:"13px",color:t.text,lineHeight:1.4}}>
+                  <span style={{flex:1,minWidth:0,wordBreak:"break-word"}}>💬 <strong>{e.area||"—"}</strong>: {e.robComment}</span>
+                  <button onClick={()=>dismissRobComment(e.id)} title="Dismiss" style={{...ghostBtn,padding:"2px 6px",color:t.muted,flexShrink:0}}><XIcon/></button>
+                </div>
+              ))}
+            </div>
+          </div>}
+
+          <div className="paint-no-print" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px",gap:"10px",flexWrap:"wrap"}}>
             <h2 style={{fontSize:"18px",fontWeight:700,color:t.text,margin:0,fontFamily:ff}}>Job Paint Colors</h2>
-            <button onClick={()=>{setPaintForm(PAINT_FORM_BLANK);setShowPaintForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"13px"}}><PlusIcon/> Add Paint Color</button>
+            <button onClick={openAdd} style={{...primaryBtn,padding:"10px 16px",fontSize:"13px"}}><PlusIcon/> Add Paint Color</button>
           </div>
+
+          {/* List action buttons (when entries exist) */}
+          {entryArr.length>0&&<div className="paint-no-print" style={{display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"14px"}}>
+            <button onClick={()=>window.print()} style={{...baseBtn,background:t.card,border:`1px solid ${t.line}`,color:t.text,padding:"8px 12px",fontSize:"12px",fontWeight:700}}>🖨️ Print</button>
+            <button onClick={()=>setPaintListMode(paintListMode==="edit"?"view":"edit")} style={{...baseBtn,background:paintListMode==="edit"?"rgba(79,127,255,.15)":t.card,border:`1px solid ${paintListMode==="edit"?t.blue:t.line}`,color:paintListMode==="edit"?t.blue:t.text,padding:"8px 12px",fontSize:"12px",fontWeight:700}}>✏️ Edit List</button>
+            <button onClick={()=>setPaintListMode("view")} style={{...baseBtn,background:paintListMode==="view"?"rgba(74,222,128,.12)":t.card,border:`1px solid ${paintListMode==="view"?t.green:t.line}`,color:paintListMode==="view"?t.green:t.text,padding:"8px 12px",fontSize:"12px",fontWeight:700}}>👁️ View List</button>
+            <button onClick={()=>{
+              if(paintListMode==="delete"){setPaintListMode("view");return;}
+              if(isRobAuth){setPaintListMode("delete");}
+              else{setRobPinPurpose({type:"delete-enter"});}
+            }} style={{...baseBtn,background:paintListMode==="delete"?"rgba(244,63,94,.15)":t.card,border:`1px solid ${paintListMode==="delete"?t.danger:t.line}`,color:paintListMode==="delete"?t.danger:t.text,padding:"8px 12px",fontSize:"12px",fontWeight:700}}>🗑️ Delete</button>
+            {paintListMode!=="view"&&<div style={{fontSize:"11px",color:t.muted,alignSelf:"center",marginLeft:"4px"}}>
+              {paintListMode==="edit"&&"Click any row to edit"}
+              {paintListMode==="delete"&&"Click trash icon to delete"}
+            </div>}
+          </div>}
 
           {entryArr.length===0?(
             <div style={{textAlign:"center",padding:"40px 16px",background:t.card,border:`1px dashed ${t.line}`,borderRadius:"12px",color:t.muted,fontSize:"14px"}}>
@@ -2043,13 +2269,13 @@ function AppInner(){
             <div className="paint-table-wrap" style={{overflowX:"auto",background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
                 <thead><tr>
-                  {["Room/Area","Brand","Line","Int/Ext","Finish","Color Name","Color Code","Applied To",""].map((h,i)=>(
+                  {["Room/Area","Brand","Line","Int/Ext","Finish","Color Name","Color Code","Applied To","Qty",paintListMode==="delete"?"":""].map((h,i)=>(
                     <th key={i} style={{textAlign:"left",padding:"10px 12px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",whiteSpace:"nowrap",background:t.nav}}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
                   {entryArr.map((e,i)=>(
-                    <tr key={e.id} style={{background:i%2===0?t.card:t.nav}}>
+                    <tr key={e.id} onClick={()=>handleRowClick(e)} style={{background:i%2===0?t.card:t.nav,cursor:rowCursor}}>
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.area||"—"}</td>
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.brand||"—"}</td>
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.line||"—"}</td>
@@ -2058,8 +2284,10 @@ function AppInner(){
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text,fontWeight:600}}>{e.colorName||"—"}</td>
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.cyan,fontFamily:"monospace"}}>{e.colorCode||"—"}</td>
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.appliedTo||"—"}</td>
-                      <td style={{padding:"6px",borderBottom:`1px solid ${t.line}`,textAlign:"right",width:"40px"}}>
-                        <button onClick={()=>setDeletePaintEntry(e.id)} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px"}}><TrashIcon/></button>
+                      <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.gallons?`${e.gallons} gal`:"—"}</td>
+                      <td className="paint-no-print" style={{padding:"6px",borderBottom:`1px solid ${t.line}`,textAlign:"right",width:"40px"}}>
+                        {paintListMode==="delete"&&<button onClick={ev=>{ev.stopPropagation();setDeletePaintEntry(e.id);}} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px"}}><TrashIcon/></button>}
+                        {paintListMode==="edit"&&<button onClick={ev=>{ev.stopPropagation();openEdit(e);}} title="Edit" style={{...ghostBtn,padding:"6px",color:t.blue,borderRadius:"8px"}}><EditIcon/></button>}
                       </td>
                     </tr>
                   ))}
@@ -2070,13 +2298,14 @@ function AppInner(){
             {/* Mobile cards */}
             <div className="paint-cards-wrap" style={{flexDirection:"column",gap:"10px"}}>
               {entryArr.map((e,i)=>(
-                <div key={e.id} style={{background:i%2===0?t.card:t.nav,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"14px"}}>
+                <div key={e.id} onClick={()=>handleRowClick(e)} style={{background:i%2===0?t.card:t.nav,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"14px",cursor:rowCursor}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px",marginBottom:"10px"}}>
                     <div style={{minWidth:0,flex:1}}>
                       <div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{e.colorName||e.area||"Paint Entry"}</div>
                       {e.colorCode&&<div style={{fontSize:"12px",fontFamily:"monospace",color:t.cyan,marginTop:"2px"}}>{e.colorCode}</div>}
                     </div>
-                    <button onClick={()=>setDeletePaintEntry(e.id)} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px",flexShrink:0}}><TrashIcon/></button>
+                    {paintListMode==="delete"&&<button onClick={ev=>{ev.stopPropagation();setDeletePaintEntry(e.id);}} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px",flexShrink:0}}><TrashIcon/></button>}
+                    {paintListMode==="edit"&&<button onClick={ev=>{ev.stopPropagation();openEdit(e);}} title="Edit" style={{...ghostBtn,padding:"6px",color:t.blue,borderRadius:"8px",flexShrink:0}}><EditIcon/></button>}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 14px",fontSize:"12px"}}>
                     {e.area&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Area</div><div style={{color:t.text}}>{e.area}</div></div>}
@@ -2085,6 +2314,10 @@ function AppInner(){
                     {e.intExt&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Int/Ext</div><div style={{color:t.text}}>{e.intExt}</div></div>}
                     {e.finish&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Finish</div><div style={{color:t.text}}>{e.finish}</div></div>}
                     {e.appliedTo&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Applied To</div><div style={{color:t.text}}>{e.appliedTo}</div></div>}
+                    {e.gallons&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Qty (gal)</div><div style={{color:t.text}}>{e.gallons}</div></div>}
+                    {e.invoiceNumber&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Invoice #</div><div style={{color:t.text}}>{e.invoiceNumber}</div></div>}
+                    {e.datePurchased&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Date Purchased</div><div style={{color:t.text}}>{e.datePurchased}</div></div>}
+                    {e.store&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Store</div><div style={{color:t.text}}>{e.store}</div></div>}
                   </div>
                 </div>
               ))}
@@ -2093,46 +2326,98 @@ function AppInner(){
         </div>)}
       </div>
 
-      {/* Add Paint Color modal */}
-      {showPaintForm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>{setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"24px",maxWidth:"480px",width:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+      {/* Add / Edit Paint Color modal */}
+      {showPaintForm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={closeForm}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"24px",maxWidth:"520px",width:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"18px"}}>
-            <div style={{fontSize:"17px",fontWeight:700,color:t.text}}>🎨 Add Paint Color</div>
-            <button onClick={()=>{setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);}} style={{...ghostBtn,padding:"4px",color:t.muted}}><XIcon/></button>
+            <div style={{fontSize:"17px",fontWeight:700,color:t.text}}>🎨 {editingPaintId?"Edit Paint Color":"Add Paint Color"}</div>
+            <button onClick={closeForm} style={{...ghostBtn,padding:"4px",color:t.muted}}><XIcon/></button>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-            <div><label style={labelStyle}>Area / Location / Room</label><input value={paintForm.area} onChange={e=>setPaintForm({...paintForm,area:e.target.value})} placeholder="e.g. Master Bedroom" style={inputStyle}/></div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
-              <div><label style={labelStyle}>Paint Brand</label><input value={paintForm.brand} onChange={e=>setPaintForm({...paintForm,brand:e.target.value})} placeholder="Benjamin Moore" style={inputStyle}/></div>
-              <div><label style={labelStyle}>Paint Line</label><input value={paintForm.line} onChange={e=>setPaintForm({...paintForm,line:e.target.value})} placeholder="Aura" style={inputStyle}/></div>
+
+            <div><label style={labelStyle}>Area / Location / Room</label>{capsInput("area","e.g. MASTER BEDROOM")}</div>
+
+            {/* Brand dropdown + custom */}
+            <div><label style={labelStyle}>Paint Brand</label>
+              <select value={paintForm.brand} onChange={e=>setPaintForm({...paintForm,brand:e.target.value,line:"",customLine:"",customBrand:""})} style={inputStyle}>
+                <option value="">— Select brand —</option>
+                {PAINT_BRANDS.map(b=><option key={b} value={b}>{b}</option>)}
+              </select>
+              {brandIsOther&&<div style={{marginTop:"8px"}}>{capsInput("customBrand","Enter brand name")}</div>}
             </div>
+
+            {/* Paint Line — conditional based on brand */}
+            <div><label style={labelStyle}>Paint Line</label>
+              {showBMLine&&<select value={paintForm.line} onChange={e=>setPaintForm({...paintForm,line:e.target.value,customLine:""})} style={inputStyle}>
+                <option value="">— Select line —</option>
+                <optgroup label="Interior">{BM_LINES_INTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+                <optgroup label="Exterior">{BM_LINES_EXTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+              </select>}
+              {showSWLine&&<select value={paintForm.line} onChange={e=>setPaintForm({...paintForm,line:e.target.value,customLine:""})} style={inputStyle}>
+                <option value="">— Select line —</option>
+                <optgroup label="Interior">{SW_LINES_INTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+                <optgroup label="Exterior">{SW_LINES_EXTERIOR.map(o=><option key={o} value={o}>{o}</option>)}</optgroup>
+              </select>}
+              {brandIsHomeDepot&&capsInput("customLine","Manually Enter Paint Line")}
+              {brandIsOther&&capsInput("customLine","Enter paint line")}
+              {!showBMLine&&!showSWLine&&!brandIsHomeDepot&&!brandIsOther&&<input disabled placeholder="Select a brand first" style={{...inputStyle,opacity:.6}}/>}
+              {(showBMLine||showSWLine)&&lineIsOther&&<div style={{marginTop:"8px"}}>{capsInput("customLine","Enter paint line")}</div>}
+            </div>
+
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
               <div><label style={labelStyle}>Interior / Exterior</label>
                 <select value={paintForm.intExt} onChange={e=>setPaintForm({...paintForm,intExt:e.target.value})} style={inputStyle}>
                   {INT_EXT.map(o=><option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
-              <div><label style={labelStyle}>Paint Finish</label>
-                <select value={paintForm.finish} onChange={e=>setPaintForm({...paintForm,finish:e.target.value})} style={inputStyle}>
+              <div><label style={labelStyle}>Paint Finish/Stain</label>
+                <select value={paintForm.finish} onChange={e=>setPaintForm({...paintForm,finish:e.target.value,customFinish:""})} style={inputStyle}>
                   {FINISHES.map(o=><option key={o} value={o}>{o}</option>)}
                 </select>
+                {finishIsOther&&<div style={{marginTop:"8px"}}><label style={{...labelStyle,marginTop:"2px"}}>Describe Finish/Stain Type</label>{capsInput("customFinish","e.g. SEMI-TRANSPARENT WALNUT STAIN")}</div>}
               </div>
             </div>
-            <div><label style={labelStyle}>Paint Color Name</label><input value={paintForm.colorName} onChange={e=>setPaintForm({...paintForm,colorName:e.target.value})} placeholder="Simply White" style={inputStyle}/></div>
-            <div><label style={labelStyle}>Paint Color Code</label><input value={paintForm.colorCode} onChange={e=>setPaintForm({...paintForm,colorCode:e.target.value})} placeholder="OC-117 / SW 7015" style={inputStyle}/></div>
-            <div><label style={labelStyle}>Applied To</label><input value={paintForm.appliedTo} onChange={e=>setPaintForm({...paintForm,appliedTo:e.target.value})} placeholder="Walls, Ceiling, Trim, Doors" style={inputStyle}/></div>
+
+            <div><label style={labelStyle}>Paint Color Name</label>{capsInput("colorName","SIMPLY WHITE")}</div>
+            <div><label style={labelStyle}>Paint Color Code</label>{capsInput("colorCode","OC-117 / SW 7015")}</div>
+            <div><label style={labelStyle}>Applied To</label>{capsInput("appliedTo","WALLS, CEILING, TRIM, DOORS")}</div>
+
+            {/* New purchase fields */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+              <div><label style={labelStyle}>Quantity / Gallons Purchased</label>
+                <input type="number" step="0.01" min="0" value={paintForm.gallons} onChange={e=>setPaintForm({...paintForm,gallons:e.target.value})} placeholder="e.g. 2.5" style={inputStyle}/>
+              </div>
+              <div><label style={labelStyle}>Date Purchased</label>
+                <input type="date" value={paintForm.datePurchased} onChange={e=>setPaintForm({...paintForm,datePurchased:e.target.value})} style={inputStyle}/>
+              </div>
+            </div>
+            <div><label style={labelStyle}>Invoice / Receipt Number</label>{capsInput("invoiceNumber","ENTER INVOICE OR RECEIPT NUMBER")}</div>
+            <div><label style={labelStyle}>Store / Material Purchased At</label>{capsInput("store","STORE NAME AND LOCATION")}</div>
+
+            {/* Comments to Rob */}
+            <div><label style={labelStyle}>Comments / Requests to Rob</label>
+              <textarea
+                value={paintForm.robComment||""}
+                onChange={e=>setPaintForm({...paintForm,robComment:e.target.value.toUpperCase()})}
+                placeholder="ANY NEW FIELDS OR SUGGESTIONS REQUESTED FOR ROB TO ADD..."
+                spellCheck={true}
+                rows={3}
+                style={{...inputStyle,textTransform:"uppercase",resize:"vertical",minHeight:"80px",fontFamily:ff}}
+              />
+            </div>
+
             <div style={{display:"flex",gap:"10px",marginTop:"6px"}}>
-              <button onClick={()=>{setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"13px"}}>Cancel</button>
-              <button onClick={savePaint} style={{...primaryBtn,flex:2,padding:"13px",justifyContent:"center"}}>Save</button>
+              <button onClick={closeForm} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"13px"}}>Cancel</button>
+              <button onClick={savePaint} style={{...primaryBtn,flex:2,padding:"13px",justifyContent:"center"}}>{editingPaintId?"Update":"Save"}</button>
             </div>
           </div>
         </div>
       </div>}
 
-      {/* Delete confirm */}
+      {/* Delete confirm — Rob's PIN already validated to enter delete mode */}
       {deletePaintEntry&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1001,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
         <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"28px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
-          <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"8px"}}>Delete paint color?</div>
+          <div style={{fontSize:"17px",fontWeight:700,color:t.text,marginBottom:"8px"}}>Are you sure you want to delete this entry?</div>
           <div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>This can't be undone.</div>
           <div style={{display:"flex",gap:"10px"}}>
             <button onClick={()=>setDeletePaintEntry(null)} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"13px"}}>Cancel</button>
@@ -2140,6 +2425,18 @@ function AppInner(){
           </div>
         </div>
       </div>}
+
+      {/* Rob PIN gate */}
+      {robPinPurpose&&<RobPinDialog
+        title={robPinPurpose.type==="delete-enter"?"Rob's PIN — Delete Mode":"Rob's PIN"}
+        subtitle={robPinPurpose.type==="delete-enter"?"Required to delete entries":"Unlock Rob features for this session"}
+        onSuccess={()=>{
+          setIsRobAuth(true);
+          if(robPinPurpose.type==="delete-enter")setPaintListMode("delete");
+          setRobPinPurpose(null);
+        }}
+        onCancel={()=>setRobPinPurpose(null)}
+      />}
     </div>);
   }
 
