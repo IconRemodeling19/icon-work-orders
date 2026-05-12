@@ -202,6 +202,7 @@ const XIcon=()=>ic(<path d="M18 6L6 18M6 6l12 12"/>,18);
 const DoorIcon=()=>ic(<><path d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16"/><path d="M14 12a1 1 0 100-2 1 1 0 000 2z" fill="currentColor" stroke="none"/></>,18);
 const GarageIcon=()=>ic(<><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/><path d="M9 12h6"/><path d="M9 15h6"/></>,18);
 const DotsIcon=()=>ic(<><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></>,16);
+const DocIcon=()=>ic(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,16);
 
 function getFileType(url,name){
   // Check name first, then fall back to URL for extension
@@ -753,16 +754,23 @@ function getSubOrderIdFromHash(){
   if(h.startsWith("#/sub/")){const id=h.slice(6).split(/[?&#/]/)[0];return id||null;}
   return null;
 }
+function getDocJobFromHash(){
+  const h=typeof window!=="undefined"?(window.location.hash||""):"";
+  if(h.startsWith("#/doc/")){const v=h.slice(6);if(!v)return null;try{return decodeURIComponent(v);}catch{return v;}}
+  return null;
+}
 
 export default function App(){
   const[subOrderId,setSubOrderId]=useState(()=>getSubOrderIdFromHash());
+  const[docJobName,setDocJobName]=useState(()=>getDocJobFromHash());
   const online=useOnline();
   useEffect(()=>{
-    const onHash=()=>setSubOrderId(getSubOrderIdFromHash());
+    const onHash=()=>{setSubOrderId(getSubOrderIdFromHash());setDocJobName(getDocJobFromHash());};
     window.addEventListener("hashchange",onHash);
     return()=>window.removeEventListener("hashchange",onHash);
   },[]);
   if(subOrderId)return(<><OpsTopBar/><OfflineBanner online={online}/><SubOrderPublicView orderId={subOrderId}/></>);
+  if(docJobName)return(<><OfflineBanner online={online}/><JobDocPublicView jobName={docJobName}/></>);
   return(<><OpsTopBar/><OfflineBanner online={online}/><SkeletonStyles/><AppGate><AppInner/></AppGate></>);
 }
 
@@ -849,6 +857,23 @@ function SubAttachmentInline({attachment}){
       <a href={url} target="_blank" rel="noreferrer" style={{fontSize:"13px",color:"#000",textDecoration:"underline"}}>📎 {name}</a>
     </div>
   );
+}
+
+// ── QR CODE HELPERS ──────────────────────────────────────────────────────────
+async function loadQRCodeLib(){
+  if(typeof window==="undefined")return;
+  if(window.QRCode)return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
+    s.onload=()=>res();
+    s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
+async function generateQRDataUrl(text,size=280){
+  await loadQRCodeLib();
+  return window.QRCode.toDataURL(text,{width:size,margin:2,color:{dark:"#000000",light:"#ffffff"}});
 }
 
 // ── SUBCONTRACTOR PUBLIC ORDER (clean black & white, no login) ───────────────
@@ -1252,6 +1277,185 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
   );
 }
 
+// ── JOB DOC PUBLIC VIEW (QR scan target, no login) ───────────────────────────
+function JobDocPublicView({jobName}){
+  const[doc,setDoc]=useState(null);
+  const[loaded,setLoaded]=useState(false);
+  useEffect(()=>{
+    let off=null;
+    const startListen=()=>{
+      off=onValue(ref(db,`jobDocs/${jobName}`),s=>{
+        setDoc(s.val()||null);setLoaded(true);
+      },()=>setLoaded(true));
+    };
+    const u=onAuthStateChanged(auth,user=>{
+      if(user){startListen();}
+      else{signInAnonymously(auth).catch(e=>console.error("Anon sign in:",e));}
+    });
+    return()=>{u();if(off)off();};
+  },[jobName]);
+  const docFf="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  if(!loaded)return(
+    <div style={{minHeight:"100vh",background:"#fff",color:"#000",fontFamily:docFf,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{fontSize:"14px",color:"#555"}}>Loading…</div>
+    </div>
+  );
+  if(!doc||!doc.url)return(
+    <div style={{minHeight:"100vh",background:"#fff",color:"#000",fontFamily:docFf,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"24px"}}>
+      <div>
+        <div style={{fontSize:"22px",fontWeight:900,letterSpacing:"1.5px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
+        <div style={{marginTop:"24px",fontSize:"14px",color:"#444"}}>No document linked for "{jobName}" yet.</div>
+      </div>
+    </div>
+  );
+  return(
+    <div style={{minHeight:"100vh",background:"#f4f4f4",color:"#000",fontFamily:docFf}}>
+      <div style={{background:"#000",color:"#fff",padding:"16px 22px",textAlign:"center"}}>
+        <div style={{fontSize:"18px",fontWeight:900,letterSpacing:"1.5px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
+        <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"3px",textTransform:"uppercase",marginTop:"4px",color:"#ccc"}}>Job Document</div>
+      </div>
+      <div style={{maxWidth:"880px",margin:"0 auto",padding:"16px"}}>
+        <div style={{fontSize:"11px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:"#666",marginBottom:"4px"}}>Job</div>
+        <div style={{fontSize:"20px",fontWeight:900,color:"#000",marginBottom:"14px",textTransform:"uppercase",letterSpacing:"0.5px"}}>{jobName}</div>
+        {doc.notes&&doc.notes.trim()&&(
+          <div style={{background:"#FFF7DA",border:"2px solid #F59E0B",borderRadius:"8px",padding:"12px 14px",marginBottom:"14px"}}>
+            <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:"#92400E",marginBottom:"6px"}}>Notes</div>
+            <div style={{fontSize:"14px",color:"#000",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{doc.notes}</div>
+          </div>
+        )}
+        <a href={doc.url} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",padding:"16px 20px",background:"#1d4ed8",color:"#fff",border:"none",borderRadius:"10px",fontSize:"16px",fontWeight:800,textDecoration:"none",letterSpacing:"0.5px",marginBottom:"14px",boxShadow:"0 4px 14px rgba(29,78,216,.35)"}}>📄 Open Document</a>
+        <div style={{background:"#fff",border:"1px solid #999",borderRadius:"6px",overflow:"hidden"}}>
+          <iframe src={doc.url} title={`${jobName} document`} style={{width:"100%",height:"72vh",border:"none",display:"block"}}/>
+        </div>
+        <div style={{fontSize:"11px",color:"#666",textAlign:"center",padding:"14px",marginTop:"4px"}}>View only · Icon Remodeling Group Inc.</div>
+      </div>
+    </div>
+  );
+}
+
+// ── JOB DOC MANAGER (admin screen with QR code + edit) ───────────────────────
+function JobDocManager({job,jobDoc,docViewerUrl,onSave,onBack,onHome,showToast}){
+  const[showForm,setShowForm]=useState(false);
+  const[pinDialog,setPinDialog]=useState(false);
+  const[formUrl,setFormUrl]=useState(jobDoc?.url||"");
+  const[formNotes,setFormNotes]=useState(jobDoc?.notes||"");
+  const[qrDataUrl,setQrDataUrl]=useState("");
+  const[qrLoading,setQrLoading]=useState(true);
+  useEffect(()=>{
+    let cancelled=false;
+    setQrLoading(true);
+    generateQRDataUrl(docViewerUrl).then(d=>{if(!cancelled){setQrDataUrl(d);setQrLoading(false);}}).catch(e=>{console.error("QR gen:",e);if(!cancelled)setQrLoading(false);});
+    return()=>{cancelled=true;};
+  },[docViewerUrl]);
+  const openEdit=()=>{setFormUrl(jobDoc?.url||"");setFormNotes(jobDoc?.notes||"");setShowForm(true);};
+  const save=()=>{
+    if(!formUrl.trim()){showToast&&showToast("Document URL required");return;}
+    onSave({url:formUrl.trim(),notes:formNotes.trim(),jobName:job.name||"",customerName:job.customerName||"",updatedAt:new Date().toISOString()});
+    setShowForm(false);
+    showToast&&showToast(jobDoc?"Document link updated":"Document linked");
+  };
+  const printQRSheet=async()=>{
+    const sheetUrl=qrDataUrl||await generateQRDataUrl(docViewerUrl,560);
+    const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    const w=window.open("","_blank","width=900,height=1100");
+    if(!w)return;
+    w.document.write(`<!DOCTYPE html><html><head><title>QR Sheet — ${esc(job.name||"")}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Helvetica Neue',Arial,sans-serif;background:#fff;color:#000}
+      .sheet{width:8.5in;height:11in;margin:0 auto;padding:0.5in;display:flex;flex-direction:column;align-items:center;justify-content:space-between}
+      .hdr{width:100%;background:#000;color:#fff;padding:18px 22px;text-align:center}
+      .hdr h1{font-size:22px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase}
+      .hdr h2{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-top:6px;color:#ccc}
+      .qrwrap{padding:18px;background:#fff;border:3px solid #000;margin-top:24px}
+      .qrwrap img{display:block;width:280px;height:280px}
+      .panel{width:100%;border:2px solid #000;padding:14px 18px;margin-top:18px}
+      .panel .lbl{font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#444;margin-bottom:4px}
+      .panel .val{font-size:18px;font-weight:900;color:#000;text-transform:uppercase;letter-spacing:.5px}
+      .panel .notes{font-size:13px;color:#000;line-height:1.5;white-space:pre-wrap;font-weight:500}
+      .instr{width:100%;background:#000;color:#fff;text-align:center;padding:14px;margin-top:18px;font-size:16px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
+      .footer{width:100%;text-align:center;padding-top:18px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#444}
+      @media print{@page{size:letter;margin:0}body{background:#fff}}
+    </style>
+    </head><body><div class="sheet">
+      <div class="hdr"><h1>Icon Remodeling Group Inc.</h1><h2>Job Document QR Sheet</h2></div>
+      <div class="qrwrap"><img src="${esc(sheetUrl)}" alt="QR"/></div>
+      <div class="panel"><div class="lbl">Job</div><div class="val">${esc(job.name||"")}</div>${job.customerName?`<div class="lbl" style="margin-top:10px">Customer</div><div class="val">${esc(job.customerName)}</div>`:""}</div>
+      ${jobDoc?.notes?`<div class="panel"><div class="lbl">Notes</div><div class="notes">${esc(jobDoc.notes)}</div></div>`:""}
+      <div class="instr">Scan to view document</div>
+      <div class="footer">Icon Remodeling Group Inc.</div>
+    </div></body></html>`);
+    w.document.close();
+    setTimeout(()=>{try{w.focus();w.print();}catch(error){console.error('[JobDocManager:print]',error);}},600);
+  };
+  return(
+    <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff,color:t.text}}>
+      <div style={{padding:"14px 16px",background:t.nav,borderBottom:`1px solid ${t.line}`,display:"flex",alignItems:"center",gap:"10px"}}>
+        <button onClick={onBack} style={{...ghostBtn,padding:"8px",color:t.text}}><BackIcon/></button>
+        <div style={{flex:1}}>
+          <div style={{fontSize:"15px",fontWeight:800,color:t.text,textTransform:"uppercase",letterSpacing:"0.5px"}}>{job.name||"Job"}</div>
+          <div style={{fontSize:"11px",color:t.muted,marginTop:"2px"}}>Job Document QR Code</div>
+        </div>
+        <button onClick={onHome} style={{...ghostBtn,padding:"8px",color:t.text}}><HomeIcon/></button>
+      </div>
+      <div style={{maxWidth:"560px",margin:"0 auto",padding:"20px 16px 40px"}}>
+        {!jobDoc&&!showForm&&(
+          <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"32px 22px",textAlign:"center"}}>
+            <div style={{color:t.blue,marginBottom:"10px",display:"flex",justifyContent:"center"}}><DocIcon/></div>
+            <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"6px"}}>No document linked</div>
+            <div style={{fontSize:"13px",color:t.muted,marginBottom:"20px",lineHeight:1.5}}>Link a SharePoint or other document URL to generate a scannable QR code for this job.</div>
+            <button onClick={()=>setPinDialog(true)} style={{...primaryBtn,width:"100%",justifyContent:"center"}}>🔗 Link SharePoint Document</button>
+          </div>
+        )}
+        {jobDoc&&!showForm&&(
+          <>
+            <div style={{background:"#0A0D18",border:`1px solid ${t.line}`,borderRadius:"14px",padding:"22px",textAlign:"center",marginBottom:"14px"}}>
+              <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:t.muted,marginBottom:"14px"}}>Scan to View</div>
+              <div style={{display:"inline-block",background:"#fff",padding:"14px",borderRadius:"10px"}}>
+                {qrLoading?(
+                  <div style={{width:"200px",height:"200px",display:"flex",alignItems:"center",justifyContent:"center",color:"#666",fontSize:"12px"}}>Generating…</div>
+                ):(
+                  <img src={qrDataUrl} alt="QR code" style={{width:"200px",height:"200px",display:"block"}}/>
+                )}
+              </div>
+              <button onClick={printQRSheet} style={{...primaryBtn,width:"100%",justifyContent:"center",marginTop:"16px"}}><PrintIcon/> Print QR Sheet</button>
+            </div>
+            <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"18px 16px",marginBottom:"14px"}}>
+              <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:t.muted,marginBottom:"8px"}}>Linked Document</div>
+              <a href={jobDoc.url} target="_blank" rel="noreferrer" style={{display:"block",fontSize:"13px",color:t.blue,wordBreak:"break-all",marginBottom:"10px",textDecoration:"underline"}}>{jobDoc.url}</a>
+              {jobDoc.notes&&jobDoc.notes.trim()&&(
+                <>
+                  <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:t.muted,marginBottom:"6px",marginTop:"12px"}}>Notes</div>
+                  <div style={{fontSize:"13px",color:t.text,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{jobDoc.notes}</div>
+                </>
+              )}
+              <button onClick={()=>setPinDialog(true)} style={{...baseBtn,width:"100%",background:t.tag,border:`1px solid ${t.line}`,color:t.text,padding:"11px",fontSize:"13px",fontWeight:700,marginTop:"14px"}}>✏️ Update Link</button>
+            </div>
+          </>
+        )}
+        {showForm&&(
+          <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"14px",padding:"20px"}}>
+            <div style={{fontSize:"15px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{jobDoc?"Update Document Link":"Link Document"}</div>
+            <div style={{marginBottom:"14px"}}>
+              <label style={labelStyle}>Document URL</label>
+              <input type="url" value={formUrl} onChange={e=>setFormUrl(e.target.value)} placeholder="https://..." style={inputStyle}/>
+            </div>
+            <div style={{marginBottom:"18px"}}>
+              <label style={labelStyle}>Notes (optional)</label>
+              <textarea value={formNotes} onChange={e=>setFormNotes(e.target.value)} placeholder="Notes shown on the QR sheet and document viewer" style={{...inputStyle,minHeight:"100px",fontFamily:ff,resize:"vertical"}}/>
+            </div>
+            <div style={{display:"flex",gap:"10px"}}>
+              <button onClick={()=>setShowForm(false)} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"13px"}}>Cancel</button>
+              <button onClick={save} style={{...primaryBtn,flex:1,padding:"13px",justifyContent:"center"}}>Save</button>
+            </div>
+          </div>
+        )}
+      </div>
+      {pinDialog&&<PinDialog title="Manager PIN" onSuccess={()=>{setPinDialog(false);openEdit();}} onCancel={()=>setPinDialog(false)}/>}
+    </div>
+  );
+}
+
 function AppInner(){
   const[mode,setMode]=useState(null);
   const[deepLinkCode]=useState(()=>{
@@ -1268,6 +1472,8 @@ function AppInner(){
   const[standaloneFiles,standaloneFilesL]=useFB("standaloneFiles",[]);
   const[lockboxCodes,lockboxL]=useFB("lockboxCodes",[]);
   const[activeJobs,activeJobsL]=useFB("activeJobs",[]);
+  const[jobDocs,jobDocsL]=useFB("jobDocs",{});
+  const[selectedJobForDocs,setSelectedJobForDocs]=useState(null);
   const[lastSeen,setLastSeen]=useState(()=>{try{return JSON.parse(localStorage.getItem("wo-seen"))||{};}catch{return{};}});
   const[editingOrder,setEditingOrder]=useState(null);
   const[formData,setFormData]=useState({...emptyCrewOrder});
@@ -1384,7 +1590,7 @@ function AppInner(){
     return()=>{u1();u2();u3();u4();u5();u6();};
   },[]);
 
-  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL;
+  const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL||!jobDocsL;
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2200);},[]);
 
   // Backfill missing reference IDs once orders are loaded
@@ -1471,7 +1677,7 @@ function AppInner(){
     }
     ranAutoGenRef.current=true;
   },[mode,managerAuth,ordersL,recurringTemplates]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);setIsRobAuth(false);setPaintListMode("view");setEditingPaintId(null);setRobPinPurpose(null);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);setIsRobAuth(false);setPaintListMode("view");setEditingPaintId(null);setRobPinPurpose(null);setSelectedJobForDocs(null);};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:markSeen]', error);}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -1930,6 +2136,9 @@ function AppInner(){
                           {hasWifi&&<button onClick={e=>{e.stopPropagation();setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
                           {hasGarage&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:"garage",code:job.garageCode});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(167,139,250,.1)",border:"1.5px solid rgba(167,139,250,.22)",borderRadius:"7px",color:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}><GarageIcon/> Garage</button>}
                           {hasDoor&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(34,211,238,.08)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"7px",color:t.cyan,gap:"3px",fontSize:"11px",fontWeight:700}}><DoorIcon/> Door</button>}
+                          {(()=>{const hasDoc=!!((jobDocs||{})[job.name]);return(
+                            <button onClick={e=>{e.stopPropagation();setSelectedJobForDocs(idx);setMode("jobDocs");}} style={{...baseBtn,padding:"2px 7px",background:hasDoc?"rgba(79,127,255,.12)":"rgba(74,90,122,.12)",border:hasDoc?"1.5px solid rgba(79,127,255,.32)":"1.5px solid rgba(74,90,122,.28)",borderRadius:"7px",color:hasDoc?t.blue:t.muted,gap:"3px",fontSize:"11px",fontWeight:700}}>📄 {hasDoc?"Docs":"Doc"}</button>
+                          );})()}
                         </div>
                       </div>
                     </td>
@@ -2831,6 +3040,13 @@ function AppInner(){
     </div>
   </div>);
 
+  if(mode==="jobDocs"&&selectedJobForDocs!==null){
+    const job=(activeJobs||[])[selectedJobForDocs];
+    if(!job){return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff,color:t.muted,display:"flex",alignItems:"center",justifyContent:"center"}}>Job not found</div>);}
+    const jd=(jobDocs||{})[job.name]||null;
+    const docViewerUrl=`${APP_PUBLIC_URL}/#/doc/${encodeURIComponent(job.name)}`;
+    return(<><Toast/><JobDocManager job={job} jobDoc={jd} docViewerUrl={docViewerUrl} onSave={data=>saveToFB(`jobDocs/${job.name}`,data)} onBack={()=>{setMode(null);setSelectedJobForDocs(null);}} onHome={goHome} showToast={showToast}/></>);
+  }
   if(mode==="subOrders")return(<SubOrderManager onBack={()=>setMode("manager")} onHome={goHome} activeJobs={activeJobs} showToast={showToast}/>);
 
   // ── MANAGER ───────────────────────────────────────────────────────────────
