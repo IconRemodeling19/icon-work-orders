@@ -859,23 +859,6 @@ function SubAttachmentInline({attachment}){
   );
 }
 
-// ── QR CODE HELPERS ──────────────────────────────────────────────────────────
-async function loadQRCodeLib(){
-  if(typeof window==="undefined")return;
-  if(window.QRCode)return;
-  await new Promise((res,rej)=>{
-    const s=document.createElement("script");
-    s.src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
-    s.onload=()=>res();
-    s.onerror=rej;
-    document.head.appendChild(s);
-  });
-}
-async function generateQRDataUrl(text,size=280){
-  await loadQRCodeLib();
-  return window.QRCode.toDataURL(text,{width:size,margin:2,color:{dark:"#000000",light:"#ffffff"}});
-}
-
 // ── SUBCONTRACTOR PUBLIC ORDER (clean black & white, no login) ───────────────
 function SubOrderPublicView({orderId}){
   const[order,setOrder]=useState(null);
@@ -1339,14 +1322,8 @@ function JobDocManager({job,jobDoc,docViewerUrl,onSave,onBack,onHome,showToast})
   const[pinDialog,setPinDialog]=useState(false);
   const[formUrl,setFormUrl]=useState(jobDoc?.url||"");
   const[formNotes,setFormNotes]=useState(jobDoc?.notes||"");
-  const[qrDataUrl,setQrDataUrl]=useState("");
-  const[qrLoading,setQrLoading]=useState(true);
-  useEffect(()=>{
-    let cancelled=false;
-    setQrLoading(true);
-    generateQRDataUrl(docViewerUrl).then(d=>{if(!cancelled){setQrDataUrl(d);setQrLoading(false);}}).catch(e=>{console.error("QR gen:",e);if(!cancelled)setQrLoading(false);});
-    return()=>{cancelled=true;};
-  },[docViewerUrl]);
+  const qrImgUrl=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(docViewerUrl)}&margin=10&color=000000&bgcolor=ffffff`;
+  const qrPrintUrl=`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(docViewerUrl)}&margin=10`;
   const openEdit=()=>{setFormUrl(jobDoc?.url||"");setFormNotes(jobDoc?.notes||"");setShowForm(true);};
   const save=()=>{
     if(!formUrl.trim()){showToast&&showToast("Document URL required");return;}
@@ -1354,8 +1331,8 @@ function JobDocManager({job,jobDoc,docViewerUrl,onSave,onBack,onHome,showToast})
     setShowForm(false);
     showToast&&showToast(jobDoc?"Document link updated":"Document linked");
   };
-  const printQRSheet=async()=>{
-    const sheetUrl=qrDataUrl||await generateQRDataUrl(docViewerUrl,560);
+  const printQRSheet=()=>{
+    const sheetUrl=qrPrintUrl;
     const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
     const w=window.open("","_blank","width=900,height=1100");
     if(!w)return;
@@ -1412,11 +1389,7 @@ function JobDocManager({job,jobDoc,docViewerUrl,onSave,onBack,onHome,showToast})
             <div style={{background:"#0A0D18",border:`1px solid ${t.line}`,borderRadius:"14px",padding:"22px",textAlign:"center",marginBottom:"14px"}}>
               <div style={{fontSize:"10px",fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:t.muted,marginBottom:"14px"}}>Scan to View</div>
               <div style={{display:"inline-block",background:"#fff",padding:"14px",borderRadius:"10px"}}>
-                {qrLoading?(
-                  <div style={{width:"200px",height:"200px",display:"flex",alignItems:"center",justifyContent:"center",color:"#666",fontSize:"12px"}}>Generating…</div>
-                ):(
-                  <img src={qrDataUrl} alt="QR code" style={{width:"200px",height:"200px",display:"block"}}/>
-                )}
+                <img src={qrImgUrl} alt="QR code" style={{width:"200px",height:"200px",display:"block"}}/>
               </div>
               <button onClick={printQRSheet} style={{...primaryBtn,width:"100%",justifyContent:"center",marginTop:"16px"}}><PrintIcon/> Print QR Sheet</button>
             </div>
