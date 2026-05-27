@@ -1447,6 +1447,9 @@ function AppInner(){
   const[activeJobs,activeJobsL]=useFB("activeJobs",[]);
   const[jobDocs,jobDocsL]=useFB("jobDocs",{});
   const[selectedJobForDocs,setSelectedJobForDocs]=useState(null);
+  const[punchLists,setPunchLists]=useState({});
+  const[selectedPunchlistJob,setSelectedPunchlistJob]=useState(null);
+  const[newPunchItemText,setNewPunchItemText]=useState("");
   const[lastSeen,setLastSeen]=useState(()=>{try{return JSON.parse(localStorage.getItem("wo-seen"))||{};}catch{return{};}});
   const[editingOrder,setEditingOrder]=useState(null);
   const[formData,setFormData]=useState({...emptyCrewOrder});
@@ -1545,6 +1548,12 @@ function AppInner(){
   // Subscribe to member phone numbers (for auto-SMS)
   useEffect(()=>{
     const u=onValue(ref(db,"memberPhones"),s=>setMemberPhones(s.val()||{}));
+    return()=>u();
+  },[]);
+
+  // Subscribe to punch lists per job
+  useEffect(()=>{
+    const u=onValue(ref(db,"punchlist"),s=>setPunchLists(s.val()||{}));
     return()=>u();
   },[]);
 
@@ -1650,7 +1659,7 @@ function AppInner(){
     }
     ranAutoGenRef.current=true;
   },[mode,managerAuth,ordersL,recurringTemplates]);
-  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);setIsRobAuth(false);setPaintListMode("view");setEditingPaintId(null);setRobPinPurpose(null);setSelectedJobForDocs(null);};
+  const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);setIsRobAuth(false);setPaintListMode("view");setEditingPaintId(null);setRobPinPurpose(null);setSelectedJobForDocs(null);setSelectedPunchlistJob(null);setNewPunchItemText("");};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:markSeen]', error);}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
@@ -2112,6 +2121,15 @@ function AppInner(){
                           {(()=>{const hasDoc=!!((jobDocs||{})[job.name]);return(
                             <button onClick={e=>{e.stopPropagation();setSelectedJobForDocs(idx);setMode("jobDocs");}} style={{...baseBtn,padding:"2px 7px",background:hasDoc?"rgba(79,127,255,.12)":"rgba(74,90,122,.12)",border:hasDoc?"1.5px solid rgba(79,127,255,.32)":"1.5px solid rgba(74,90,122,.28)",borderRadius:"7px",color:hasDoc?t.blue:t.muted,gap:"3px",fontSize:"11px",fontWeight:700}}>📄 {hasDoc?"Docs":"Doc"}</button>
                           );})()}
+                          {(()=>{
+                            const pl=(punchLists||{})[job.name]||{};
+                            const items=pl.items||{};
+                            const openCount=Object.values(items).filter(it=>it&&!it.completed).length;
+                            const has=openCount>0;
+                            return(
+                              <button onClick={e=>{e.stopPropagation();setSelectedPunchlistJob(idx);setNewPunchItemText("");setMode("punchlist");}} style={{...baseBtn,padding:"2px 7px",background:has?"rgba(167,139,250,.14)":"rgba(167,139,250,.08)",border:has?"1.5px solid rgba(245,158,11,.45)":"1.5px solid rgba(167,139,250,.28)",borderRadius:"7px",color:has?t.amber:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}>📋 {has?`${openCount} open`:"Punch List"}</button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </td>
@@ -3019,6 +3037,103 @@ function AppInner(){
     const jd=(jobDocs||{})[job.name]||null;
     const docViewerUrl=`${APP_PUBLIC_URL}/#/doc/${encodeURIComponent(job.name)}`;
     return(<><Toast/><JobDocManager job={job} jobDoc={jd} docViewerUrl={docViewerUrl} onSave={data=>saveToFB(`jobDocs/${job.name}`,data)} onBack={()=>{setMode(null);setSelectedJobForDocs(null);}} onHome={goHome} showToast={showToast}/></>);
+  }
+  if(mode==="punchlist"&&selectedPunchlistJob!==null){
+    const job=(activeJobs||[])[selectedPunchlistJob];
+    if(!job){
+      return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
+        <Header title="Punch List" onBack={()=>{setMode(null);setSelectedPunchlistJob(null);}} onHome={goHome}/>
+        <div style={{padding:"40px 20px",textAlign:"center",color:t.muted}}>Job not found.</div>
+      </div>);
+    }
+    const itemsObj=((punchLists||{})[job.name]||{}).items||{};
+    const itemArr=Object.entries(itemsObj).map(([id,it])=>({id,...it}));
+    const openItems=itemArr.filter(it=>!it.completed).sort((a,b)=>(a.createdAt||"").localeCompare(b.createdAt||""));
+    const doneItems=itemArr.filter(it=>it.completed).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
+    const ordered=[...openItems,...doneItems];
+    const openCount=openItems.length;
+    const doneCount=doneItems.length;
+    const fmtTs=(iso)=>{if(!iso)return"";try{const d=new Date(iso);return d.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}catch{return"";}};
+    const addItem=()=>{
+      const text=newPunchItemText.trim();
+      if(!text)return;
+      const id=`pl_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const now=new Date().toISOString();
+      saveToFB(`punchlist/${job.name}/items/${id}`,{id,text,completed:false,createdAt:now,completedAt:null});
+      setNewPunchItemText("");
+    };
+    const toggleItem=(it)=>{
+      const now=new Date().toISOString();
+      const next={...it,completed:!it.completed,completedAt:!it.completed?now:null};
+      saveToFB(`punchlist/${job.name}/items/${it.id}`,next);
+    };
+    const deleteItem=(it)=>{
+      saveToFB(`punchlist/${job.name}/items/${it.id}`,null);
+      showToast("Deleted");
+    };
+    return(
+      <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}>
+        <Toast/>
+        <Header title={`Punch List — ${job.name||""}`} subtitle={job.customerName||job.address||""} onBack={()=>{setMode(null);setSelectedPunchlistJob(null);setNewPunchItemText("");}} onHome={goHome}/>
+        <div style={{maxWidth:"720px",margin:"0 auto",padding:"16px 14px 32px"}}>
+          {/* Add bar */}
+          <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"12px",display:"flex",gap:"8px",alignItems:"stretch",marginBottom:"14px"}}>
+            <input
+              type="text"
+              value={newPunchItemText}
+              onChange={e=>setNewPunchItemText(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addItem();}}}
+              placeholder="Add a punch list item…"
+              style={{...inputStyle,flex:1,padding:"12px 14px",fontSize:"15px"}}
+            />
+            <button onClick={addItem} style={{...baseBtn,background:`linear-gradient(135deg,${t.purple} 0%,${t.amber} 100%)`,color:"#fff",padding:"0 18px",fontSize:"14px",fontWeight:700,borderRadius:"10px",whiteSpace:"nowrap",minWidth:"110px"}}>+ Add Item</button>
+          </div>
+
+          {/* Summary */}
+          <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"10px",padding:"0 4px"}}>
+            <span style={{fontSize:"12px",fontWeight:700,color:t.purple,letterSpacing:"0.5px"}}>{openCount} open</span>
+            <span style={{color:t.muted}}>·</span>
+            <span style={{fontSize:"12px",fontWeight:700,color:t.muted,letterSpacing:"0.5px"}}>{doneCount} completed</span>
+          </div>
+
+          {/* Items */}
+          {ordered.length===0?(
+            <div style={{textAlign:"center",padding:"40px 20px",color:t.muted,fontSize:"14px",background:t.card,border:`1px dashed ${t.line}`,borderRadius:"12px"}}>
+              No punch list items yet. Tap above to add one.
+            </div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+              {ordered.map(it=>{
+                const done=!!it.completed;
+                return(
+                  <div key={it.id} style={{background:t.card,border:`1px solid ${t.line}`,borderLeft:done?`4px solid ${t.muted}`:`4px solid ${t.green}`,borderRadius:"10px",padding:"4px 10px 4px 4px",display:"flex",alignItems:"center",gap:"8px",opacity:done?0.6:1}}>
+                    <button
+                      onClick={()=>toggleItem(it)}
+                      aria-label={done?"Mark as open":"Mark as completed"}
+                      style={{...baseBtn,minWidth:"44px",minHeight:"44px",width:"44px",height:"44px",background:"transparent",border:"none",padding:0,borderRadius:"10px",flexShrink:0}}
+                    >
+                      <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"26px",height:"26px",borderRadius:"7px",border:`2px solid ${done?t.green:t.muted}`,background:done?t.green:"transparent",color:"#fff",fontSize:"16px",fontWeight:900,lineHeight:1}}>{done?"✓":""}</span>
+                    </button>
+                    <div style={{flex:1,minWidth:0,padding:"6px 0"}}>
+                      <div style={{fontSize:"15px",fontWeight:600,color:done?t.muted:t.text,textDecoration:done?"line-through":"none",wordBreak:"break-word",lineHeight:1.35}}>{it.text}</div>
+                      <div style={{fontSize:"11px",color:t.muted,marginTop:"3px"}}>
+                        {done&&it.completedAt?`Done ${fmtTs(it.completedAt)} · `:""}Added {fmtTs(it.createdAt)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={()=>deleteItem(it)}
+                      aria-label="Delete item"
+                      title="Delete"
+                      style={{...baseBtn,minWidth:"44px",minHeight:"44px",width:"44px",height:"44px",background:"transparent",border:"none",color:t.danger,fontSize:"18px",padding:0,borderRadius:"10px",flexShrink:0}}
+                    >🗑️</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
   if(mode==="subOrders")return(<SubOrderManager onBack={()=>setMode("manager")} onHome={goHome} activeJobs={activeJobs} showToast={showToast}/>);
 
