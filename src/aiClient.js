@@ -18,7 +18,12 @@ export class AIKeyMissingError extends Error {
 async function callProxy({ messages, system, model, max_tokens, temperature }) {
   const res = await fetch(PROXY_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(process.env.REACT_APP_ANTHROPIC_PROXY_SECRET
+        ? { "x-proxy-secret": process.env.REACT_APP_ANTHROPIC_PROXY_SECRET }
+        : {}),
+    },
     body: JSON.stringify({ messages, system, model, max_tokens, temperature }),
   });
   if (res.status === 500) {
