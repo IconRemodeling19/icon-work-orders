@@ -1,8 +1,10 @@
 /* ── PWA / iOS home-screen support (added) ── */
 * { -webkit-tap-highlight-color: transparent; }
 input, select, textarea { font-size: 16px !important; }
-html, body {
+html {
   overflow-x: hidden;
+}
+html, body {
   overscroll-behavior: none;
   background-color: #0d1117;
 }
