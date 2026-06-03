@@ -24,6 +24,7 @@ function useOnline(){
 const GOOGLE_API_KEY = "AIzaSyDP9N998QacTADs3UaDYBohltD3rfflMmE";
 const LOGO_SRC = "/logo.jpg";
 const ALL_MEMBERS = ["Luis","Azael","Oswaldo","Andres","Vicente","Gabriel","Geovanny"];
+const FIELD_LOG_CREW = ["Gabriel","Azael","Luis","Oswaldo","Vicente"];
 const DEFAULT_CREWS = {"Crew 1":[...ALL_MEMBERS],"Crew 2":[...ALL_MEMBERS],"Crew 3":[...ALL_MEMBERS],"Crew 4":[...ALL_MEMBERS],"Crew 5":[...ALL_MEMBERS]};
 const FIELD_OPS_MEMBERS = ["Joe","Bryan"];
 const DEFAULT_PIN = "1234";
@@ -1429,6 +1430,174 @@ function JobDocManager({job,jobDoc,docViewerUrl,onSave,onBack,onHome,showToast})
   );
 }
 
+// ── DAILY FIELD LOG — END-OF-DAY REMINDER BANNER ────────────────────────────
+function FieldLogReminderBanner({employee,fieldLogs,onDismiss,onGoToLog}){
+  const now=new Date();const hour=now.getHours();
+  if(hour<15||hour>=19)return null;
+  if(!employee)return null;
+  const todayStr=now.toISOString().split("T")[0];
+  const alreadySubmitted=(fieldLogs||[]).some(log=>log.employee===employee&&log.date===todayStr);
+  if(alreadySubmitted)return null;
+  return(
+    <div style={{background:"linear-gradient(135deg,rgba(232,25,44,0.13),rgba(232,25,44,0.06))",border:"1px solid rgba(232,25,44,0.45)",borderLeft:"4px solid #E8192C",borderRadius:"8px",padding:"11px 14px",marginBottom:"14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"10px",flexWrap:"wrap"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+        <span style={{fontSize:"18px"}}>⏰</span>
+        <div>
+          <div style={{color:"#E8192C",fontWeight:700,fontSize:"12px",letterSpacing:"0.5px",textTransform:"uppercase"}}>End-of-Day Reminder</div>
+          <div style={{color:"#ccc",fontSize:"12px",marginTop:"1px"}}>{employee} — no Field Log submitted yet today</div>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:"7px",alignItems:"center",flexShrink:0}}>
+        <button onClick={onGoToLog} style={{background:"#E8192C",color:"#fff",border:"none",borderRadius:"6px",padding:"6px 12px",fontSize:"12px",fontWeight:700,cursor:"pointer",letterSpacing:"0.5px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>Log Now</button>
+        <button onClick={onDismiss} style={{background:"rgba(255,255,255,0.07)",color:"#888",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"6px",padding:"6px 9px",fontSize:"12px",cursor:"pointer"}}>✕</button>
+      </div>
+    </div>
+  );
+}
+
+// ── DAILY FIELD LOG — CREW SUBMISSION FORM ───────────────────────────────────
+function FieldLogForm({activeJobs,fieldLogs,selectedEmployee,onEmployeeChange}){
+  const todayStr=new Date().toISOString().split("T")[0];
+  const[employee,setEmployee]=useState(selectedEmployee||"");
+  const[jobId,setJobId]=useState("");
+  const[date,setDate]=useState(todayStr);
+  const[hours,setHours]=useState("");
+  const[description,setDescription]=useState("");
+  const[materials,setMaterials]=useState("");
+  const[submitting,setSubmitting]=useState(false);
+  const[successMsg,setSuccessMsg]=useState("");
+  const[errorMsg,setErrorMsg]=useState("");
+  const handleEmployeeChange=(val)=>{setEmployee(val);onEmployeeChange(val);try{localStorage.setItem("irg_field_employee",val);}catch(e){}};
+  const jobList=(activeJobs||[]).filter(j=>j&&j.name);
+  const alreadyToday=employee&&(fieldLogs||[]).some(l=>l.employee===employee&&l.date===todayStr);
+  const handleSubmit=async()=>{
+    setErrorMsg("");
+    if(!employee)return setErrorMsg("Please select your name.");
+    if(!jobId)return setErrorMsg("Please select a job.");
+    if(!date)return setErrorMsg("Please enter the date.");
+    if(!hours||isNaN(parseFloat(hours))||parseFloat(hours)<=0)return setErrorMsg("Please enter valid hours worked.");
+    if(!description.trim())return setErrorMsg("Please describe the work performed.");
+    setSubmitting(true);
+    try{
+      const selectedJob=jobList.find(j=>j.name===jobId);
+      const logData={employee,jobId,jobName:selectedJob?selectedJob.name:jobId,date,hours:parseFloat(hours),description:description.trim(),materials:materials.trim(),timestamp:Date.now()};
+      await push(ref(db,"fieldLogs"),logData);
+      setSuccessMsg(`Log submitted! ${hours}h on ${logData.jobName} — great work, ${employee}.`);
+      setJobId("");setHours("");setDescription("");setMaterials("");
+      setTimeout(()=>setSuccessMsg(""),5000);
+    }catch(err){console.error("FieldLog save:",err);setErrorMsg("Error saving log. Please try again.");}
+    finally{setSubmitting(false);}
+  };
+  const fInput={width:"100%",padding:"11px 13px",background:"#0A0D18",border:"1.5px solid #1E2845",borderRadius:"10px",color:"#F0F4FF",fontSize:"14px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",outline:"none",boxSizing:"border-box"};
+  const fLabel={display:"block",fontSize:"11px",fontWeight:700,color:"#4A5A7A",textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"6px"};
+  return(
+    <div style={{maxWidth:"580px",margin:"0 auto",padding:"0 2px"}}>
+      <div style={{background:"linear-gradient(135deg,rgba(79,127,255,0.1),rgba(79,127,255,0.04))",border:"1px solid rgba(79,127,255,0.22)",borderRadius:"12px",padding:"16px 18px",marginBottom:"18px",display:"flex",alignItems:"center",gap:"12px"}}>
+        <div style={{width:"38px",height:"38px",background:"rgba(79,127,255,0.18)",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",flexShrink:0}}>📋</div>
+        <div>
+          <div style={{color:"#F0F4FF",fontWeight:700,fontSize:"15px"}}>Daily Field Log</div>
+          <div style={{color:"#4A5A7A",fontSize:"12px",marginTop:"2px"}}>Submit your end-of-day T&amp;M hours — required for billing</div>
+        </div>
+      </div>
+      {alreadyToday&&<div style={{background:"rgba(74,222,128,0.08)",border:"1px solid rgba(74,222,128,0.28)",borderRadius:"8px",padding:"10px 13px",marginBottom:"14px",color:"#4ADE80",fontSize:"13px",display:"flex",gap:"8px",alignItems:"center"}}><span>✅</span><span>You already submitted a log for today. Submit another if you worked multiple jobs.</span></div>}
+      {successMsg&&<div style={{background:"rgba(74,222,128,0.1)",border:"1px solid rgba(74,222,128,0.32)",borderRadius:"8px",padding:"12px 14px",marginBottom:"14px",color:"#4ADE80",fontSize:"14px",fontWeight:600}}>✅ {successMsg}</div>}
+      {errorMsg&&<div style={{background:"rgba(232,25,44,0.08)",border:"1px solid rgba(232,25,44,0.28)",borderRadius:"8px",padding:"10px 13px",marginBottom:"14px",color:"#ff6b7a",fontSize:"13px"}}>⚠️ {errorMsg}</div>}
+      <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+        <div><label style={fLabel}>Your Name *</label><select value={employee} onChange={e=>handleEmployeeChange(e.target.value)} style={{...fInput,cursor:"pointer",appearance:"none"}}><option value="">— Select your name —</option>{FIELD_LOG_CREW.map(n=><option key={n} value={n}>{n}</option>)}</select></div>
+        <div><label style={fLabel}>Job *</label><select value={jobId} onChange={e=>setJobId(e.target.value)} style={{...fInput,cursor:"pointer",appearance:"none"}}><option value="">— Select job —</option>{jobList.map(j=><option key={j.name} value={j.name}>{j.name}{j.customerName?` — ${j.customerName}`:""}</option>)}</select></div>
+        <div style={{display:"flex",gap:"12px"}}>
+          <div style={{flex:1}}><label style={fLabel}>Date *</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={fInput}/></div>
+          <div style={{flex:1}}><label style={fLabel}>Hours Worked *</label><input type="number" value={hours} onChange={e=>setHours(e.target.value)} placeholder="e.g. 7.5" min="0.5" max="24" step="0.5" style={fInput}/></div>
+        </div>
+        <div><label style={fLabel}>Work Performed *</label><textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe the work completed today (tile setting, demo, framing, rough plumbing, etc.)" rows={4} style={{...fInput,resize:"vertical",minHeight:"90px",lineHeight:"1.5"}}/></div>
+        <div><label style={fLabel}>Materials Used <span style={{color:"#4A5A7A",fontWeight:400,textTransform:"none",letterSpacing:0,fontSize:"11px"}}>(optional)</span></label><textarea value={materials} onChange={e=>setMaterials(e.target.value)} placeholder="List any materials or supplies used (e.g. 50 lbs thinset, 10 sheets drywall)" rows={2} style={{...fInput,resize:"vertical",lineHeight:"1.5"}}/></div>
+        <button onClick={handleSubmit} disabled={submitting} style={{background:submitting?"rgba(79,127,255,0.3)":"linear-gradient(135deg,#3B6FEF 0%,#5B9BFF 100%)",color:"#fff",border:"none",borderRadius:"10px",padding:"14px",fontSize:"14px",fontWeight:700,cursor:submitting?"not-allowed":"pointer",width:"100%",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",opacity:submitting?0.6:1,marginTop:"2px"}}>
+          {submitting?"⏳ Submitting...":"📤 Submit Field Log"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── DAILY FIELD LOG — MANAGER VIEWER ────────────────────────────────────────
+function FieldLogManager({fieldLogs,activeJobs}){
+  const[filterJob,setFilterJob]=useState("ALL");
+  const[filterEmployee,setFilterEmployee]=useState("ALL");
+  const[filterDateFrom,setFilterDateFrom]=useState("");
+  const[filterDateTo,setFilterDateTo]=useState("");
+  const jobsInLogs=[...new Set((fieldLogs||[]).map(l=>l.jobName).filter(Boolean))].sort();
+  const employeesInLogs=[...new Set((fieldLogs||[]).map(l=>l.employee).filter(Boolean))].sort();
+  const filtered=(fieldLogs||[]).filter(log=>{
+    if(filterJob!=="ALL"&&log.jobName!==filterJob)return false;
+    if(filterEmployee!=="ALL"&&log.employee!==filterEmployee)return false;
+    if(filterDateFrom&&log.date<filterDateFrom)return false;
+    if(filterDateTo&&log.date>filterDateTo)return false;
+    return true;
+  });
+  const totalHours=filtered.reduce((s,l)=>s+(parseFloat(l.hours)||0),0);
+  const byJob={};
+  filtered.forEach(log=>{
+    if(!byJob[log.jobName])byJob[log.jobName]={hours:0,employees:{}};
+    byJob[log.jobName].hours+=parseFloat(log.hours)||0;
+    byJob[log.jobName].employees[log.employee]=(byJob[log.jobName].employees[log.employee]||0)+(parseFloat(log.hours)||0);
+  });
+  const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${m}/${dd}/${y}`;};
+  const selStyle={background:"rgba(255,255,255,0.05)",border:"1px solid #1E2845",borderRadius:"7px",color:"#F0F4FF",padding:"7px 10px",fontSize:"13px",outline:"none",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"};
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"18px",paddingBottom:"14px",borderBottom:"1px solid #1E2845"}}>
+        <div style={{width:"34px",height:"34px",background:"rgba(201,168,76,0.14)",border:"1px solid rgba(201,168,76,0.28)",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px",flexShrink:0}}>📋</div>
+        <div style={{flex:1}}>
+          <div style={{color:"#F59E0B",fontWeight:700,fontSize:"15px"}}>Daily Field Logs</div>
+          <div style={{color:"#4A5A7A",fontSize:"12px"}}>T&M billing records · {(fieldLogs||[]).length} total entries</div>
+        </div>
+        <div style={{background:"rgba(201,168,76,0.1)",border:"1px solid rgba(201,168,76,0.22)",borderRadius:"20px",padding:"4px 12px",color:"#F59E0B",fontSize:"13px",fontWeight:700,flexShrink:0}}>{totalHours.toFixed(1)} hrs</div>
+      </div>
+      <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid #1E2845",borderRadius:"10px",padding:"12px",marginBottom:"18px",display:"flex",flexWrap:"wrap",gap:"10px",alignItems:"flex-end"}}>
+        {[["Job",filterJob,setFilterJob,["ALL",...jobsInLogs],false],["Employee",filterEmployee,setFilterEmployee,["ALL",...employeesInLogs],false]].map(([lbl,val,setter,opts])=>(
+          <div key={lbl}><div style={{color:"#4A5A7A",fontSize:"10px",fontWeight:700,letterSpacing:"0.8px",textTransform:"uppercase",marginBottom:"4px"}}>{lbl}</div>
+            <select value={val} onChange={e=>setter(e.target.value)} style={selStyle}>{opts.map(o=><option key={o} value={o}>{o==="ALL"?`All ${lbl}s`:o}</option>)}</select></div>
+        ))}
+        <div><div style={{color:"#4A5A7A",fontSize:"10px",fontWeight:700,letterSpacing:"0.8px",textTransform:"uppercase",marginBottom:"4px"}}>From</div><input type="date" value={filterDateFrom} onChange={e=>setFilterDateFrom(e.target.value)} style={selStyle}/></div>
+        <div><div style={{color:"#4A5A7A",fontSize:"10px",fontWeight:700,letterSpacing:"0.8px",textTransform:"uppercase",marginBottom:"4px"}}>To</div><input type="date" value={filterDateTo} onChange={e=>setFilterDateTo(e.target.value)} style={selStyle}/></div>
+        {(filterJob!=="ALL"||filterEmployee!=="ALL"||filterDateFrom||filterDateTo)&&<button onClick={()=>{setFilterJob("ALL");setFilterEmployee("ALL");setFilterDateFrom("");setFilterDateTo("");}} style={{background:"rgba(232,25,44,0.1)",color:"#F43F5E",border:"1px solid rgba(232,25,44,0.22)",borderRadius:"7px",padding:"7px 12px",fontSize:"12px",cursor:"pointer",marginTop:"16px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>Clear</button>}
+      </div>
+      {Object.keys(byJob).length>0&&<div style={{marginBottom:"18px"}}>
+        <div style={{color:"#4A5A7A",fontSize:"11px",fontWeight:700,letterSpacing:"0.8px",textTransform:"uppercase",marginBottom:"8px"}}>Billing Summary</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:"10px"}}>
+          {Object.entries(byJob).map(([jobName,data])=>(
+            <div key={jobName} style={{background:"rgba(201,168,76,0.05)",border:"1px solid rgba(201,168,76,0.18)",borderRadius:"10px",padding:"12px 14px",flex:"1 0 160px",maxWidth:"240px"}}>
+              <div style={{color:"#F59E0B",fontWeight:700,fontSize:"13px",marginBottom:"5px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{jobName}</div>
+              <div style={{color:"#F0F4FF",fontSize:"22px",fontWeight:800,lineHeight:1}}>{data.hours.toFixed(1)}<span style={{fontSize:"12px",color:"#4A5A7A",fontWeight:400,marginLeft:"3px"}}>hrs</span></div>
+              <div style={{marginTop:"7px",display:"flex",flexDirection:"column",gap:"2px"}}>{Object.entries(data.employees).map(([emp,hrs])=>(<div key={emp} style={{display:"flex",justifyContent:"space-between",fontSize:"12px",color:"#4A5A7A"}}><span>{emp}</span><span style={{color:"#8B96B0"}}>{hrs.toFixed(1)}h</span></div>))}</div>
+            </div>
+          ))}
+        </div>
+      </div>}
+      {filtered.length===0
+        ?<div style={{textAlign:"center",padding:"36px 20px",color:"#4A5A7A",fontSize:"14px",border:"1px dashed #1E2845",borderRadius:"10px"}}>No field logs found for the selected filters.</div>
+        :<div style={{display:"flex",flexDirection:"column",gap:"9px"}}>
+          {filtered.map(log=>(
+            <div key={log.id} style={{background:"#131929",border:"1px solid #1E2845",borderRadius:"10px",padding:"13px 14px"}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"10px",flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"9px"}}>
+                  <div style={{width:"30px",height:"30px",background:"rgba(79,127,255,0.14)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#4F7FFF",fontWeight:800,fontSize:"13px",flexShrink:0}}>{log.employee?log.employee[0]:"?"}</div>
+                  <div><div style={{color:"#F0F4FF",fontWeight:700,fontSize:"14px"}}>{log.employee}</div><div style={{color:"#4A5A7A",fontSize:"12px"}}>{log.jobName}</div></div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{color:"#F59E0B",fontWeight:800,fontSize:"18px",lineHeight:1}}>{parseFloat(log.hours).toFixed(1)}<span style={{fontSize:"12px",color:"#4A5A7A",fontWeight:400}}>h</span></div>
+                  <div style={{color:"#4A5A7A",fontSize:"11px",marginTop:"2px"}}>{fmtDate(log.date)}</div>
+                </div>
+              </div>
+              <div style={{marginTop:"9px",paddingTop:"9px",borderTop:"1px solid #1E2845",color:"#ccc",fontSize:"13px",lineHeight:"1.5"}}>{log.description}</div>
+              {log.materials&&<div style={{marginTop:"7px",display:"flex",gap:"5px",alignItems:"flex-start"}}><span style={{color:"#4A5A7A",fontSize:"11px",fontWeight:700,letterSpacing:"0.5px",textTransform:"uppercase",marginTop:"1px",flexShrink:0}}>Materials:</span><span style={{color:"#4A5A7A",fontSize:"12px",lineHeight:"1.5"}}>{log.materials}</span></div>}
+            </div>
+          ))}
+        </div>}
+    </div>
+  );
+}
+
 function AppInner(){
   const[mode,setMode]=useState(null);
   const[deepLinkCode]=useState(()=>{
@@ -1537,6 +1706,10 @@ function AppInner(){
   const[paintListMode,setPaintListMode]=useState("view"); // view | edit | delete
   const[editingPaintId,setEditingPaintId]=useState(null);
   const[robPinPurpose,setRobPinPurpose]=useState(null); // {type:"unlock"|"delete-enter", entryId?}
+  // ── FIELD LOG STATE ──────────────────────────────────────────────────────
+  const[fieldLogs,setFieldLogs]=useState([]);
+  const[fieldLogReminderDismissed,setFieldLogReminderDismissed]=useState(false);
+  const[selectedFieldEmployee,setSelectedFieldEmployee]=useState(()=>{try{return localStorage.getItem("irg_field_employee")||"";}catch{return"";}});
   const fileRef=useRef(null);const fieldFileRef=useRef(null);const noteFileRef=useRef(null);const cameraRef=useRef(null);const filesUploadRef=useRef(null);
 
   // Subscribe to job paint colors
@@ -1569,7 +1742,13 @@ function AppInner(){
     const u4=onValue(ref(db,"materialsRequests"),s=>setMaterialsRequests(s.val()||{}));
     const u5=onValue(ref(db,"settings/ai"),s=>{const v=s.val();if(v&&typeof v==="object")setAiSettings(prev=>({...prev,...v}));});
     const u6=onValue(ref(db,"settings/aiMaterials"),s=>{const v=s.val();if(v!==null&&v!==undefined)setAiSettings(prev=>({...prev,aiMaterials:v}));});
-    return()=>{u1();u2();u3();u4();u5();u6();};
+    // ── Field Logs listener ──────────────────────────────────────────────
+    const u7=onValue(ref(db,"fieldLogs"),s=>{
+      const data=s.val();
+      if(data){const arr=Object.entries(data).map(([id,val])=>({id,...val}));arr.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));setFieldLogs(arr);}
+      else{setFieldLogs([]);}
+    });
+    return()=>{u1();u2();u3();u4();u5();u6();u7();};
   },[]);
 
   const loading=!ordersL||!crewsL||!fieldL||!fieldNotesL||!standaloneFilesL||!lockboxL||!activeJobsL||!jobDocsL;
@@ -2851,9 +3030,11 @@ function AppInner(){
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}>
         <button onClick={()=>setMode("fieldnotes")} style={{...baseBtn,background:"rgba(34,211,238,.1)",border:`1px solid rgba(34,211,238,.3)`,color:t.cyan,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>📝 Notes</button>
+        <button onClick={()=>setMode("fieldlog")} style={{...baseBtn,background:"rgba(79,127,255,.12)",border:`1px solid rgba(79,127,255,.3)`,color:t.blue,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>📋 Field Log</button>
         <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"rgba(245,158,11,.12)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>🔧 Materials</button>
       </Header>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
+        {!fieldLogReminderDismissed&&<FieldLogReminderBanner employee={selectedFieldEmployee} fieldLogs={fieldLogs} onDismiss={()=>setFieldLogReminderDismissed(true)} onGoToLog={()=>setMode("fieldlog")}/>}
         <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{"Today's Work Orders"}</div>
         {allActive.length===0
           ?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No active work orders for today</div>
@@ -2878,6 +3059,22 @@ function AppInner(){
               </button>
             ))}
           </div>}
+      </div>
+    </div>);
+  }
+
+  // ── FIELD LOG (crew submission) ──────────────────────────────────────────
+  if(mode==="fieldlog"){
+    return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
+      <Header title="Daily Field Log" subtitle={today} onBack={()=>setMode("crew")} onHome={goHome}/>
+      <div style={{padding:"20px",paddingBottom:"100px"}}>
+        {!fieldLogReminderDismissed&&<FieldLogReminderBanner employee={selectedFieldEmployee} fieldLogs={fieldLogs} onDismiss={()=>setFieldLogReminderDismissed(true)} onGoToLog={()=>{}}/>}
+        <FieldLogForm
+          activeJobs={activeJobs||[]}
+          fieldLogs={fieldLogs}
+          selectedEmployee={selectedFieldEmployee}
+          onEmployeeChange={(val)=>{setSelectedFieldEmployee(val);try{localStorage.setItem("irg_field_employee",val);}catch(e){}}}
+        />
       </div>
     </div>);
   }
@@ -3311,6 +3508,7 @@ function AppInner(){
               {k:"today",label:"Today"},
               {k:"recurring",label:"🔁 Recurring"},
               {k:"materials",label:"🔧 Materials",badge:Object.values(materialsRequests||{}).filter(r=>r.status==="pending").length},
+              {k:"fieldlog",label:"📋 Field Log"},
               {k:"history",label:"📜 History",badge:unreadActivity}
             ].map(tab=>(
               <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:mgrTab:wo-seen]', error);}}}} style={{padding:"10px 14px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
@@ -3451,6 +3649,10 @@ function AppInner(){
               ))}</div>}
             </div>);
           })()}
+
+          {mgrTab==="fieldlog"&&(
+            <FieldLogManager fieldLogs={fieldLogs} activeJobs={activeJobs||[]}/>
+          )}
 
           {mgrTab==="history"&&(()=>{
             const yesterday=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
