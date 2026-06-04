@@ -89,27 +89,27 @@ const AUTH_KEY = "wo-auth-granted";
 // Cyan:         #22D3EE  highlights, codes
 // Gold:         #F59E0B  manager/admin accent
 const t={
-  bg:"#0D0F1A",
-  card:"#131929",
-  nav:"#161D2E",
-  line:"#1E2845",
-  text:"#F0F4FF",
-  muted:"#4A5A7A",
-  blue:"#4F7FFF",
-  green:"#4ADE80",
+  bg:"#f6f8fb",
+  card:"#ffffff",
+  nav:"#0f1923",
+  line:"#D6D9DE",
+  text:"#1F2329",
+  muted:"#5F6670",
+  blue:"#0077C8",
+  green:"#00875A",
   amber:"#F59E0B",
-  danger:"#F43F5E",
-  purple:"#A78BFA",
-  cyan:"#22D3EE",
-  inputBg:"#0A0D18",
-  tag:"#161D2E",
+  danger:"#E8192C",
+  purple:"#5B4FCF",
+  cyan:"#0284C7",
+  inputBg:"#ffffff",
+  tag:"#EFF1F4",
   red:"#E8192C",
 };
 
 const ff = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 const baseBtn={border:"none",borderRadius:"10px",cursor:"pointer",fontFamily:ff,fontWeight:600,transition:"all 0.15s ease",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"};
-const primaryBtn={...baseBtn,background:`linear-gradient(135deg,#3B6FEF 0%,#5B9BFF 100%)`,color:"#fff",padding:"14px 24px",fontSize:"15px",boxShadow:"0 0 20px rgba(79,127,255,.3)"};
-const ghostBtn={...baseBtn,background:"transparent",color:t.muted,padding:"10px 16px",fontSize:"14px"};
+const primaryBtn={...baseBtn,background:"#0077C8",color:"#fff",padding:"14px 24px",fontSize:"15px",boxShadow:"0 0 20px rgba(0,119,200,.25)"};
+const ghostBtn={...baseBtn,background:"transparent",border:"1.5px solid #D6D9DE",color:t.muted,padding:"10px 16px",fontSize:"14px"};
 const inputStyle={width:"100%",padding:"14px 16px",background:t.inputBg,border:`1.5px solid ${t.line}`,borderRadius:"10px",color:t.text,fontSize:"16px",fontFamily:ff,outline:"none",boxSizing:"border-box",transition:"border-color 0.15s"};
 const labelStyle={display:"block",fontSize:"11px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"8px"};
 
@@ -151,8 +151,7 @@ function AppGate({children}){
     // iOS cross-origin iframe storage partitioning can make the first
     // anonymous sign-in fail silently. Retry once after a short delay.
     const attemptSignIn=()=>{
-      signInAnonymously(auth).catch(e=>{
-        console.error("Anon sign in:",e);
+      signInAnonymously(auth).catch(()=>{
         if(!retried){retried=true;setTimeout(attemptSignIn,2000);}
       });
     };
@@ -195,7 +194,7 @@ function AppGate({children}){
         <p style={{color:"#ffffff",fontSize:"11px",letterSpacing:"4px",textTransform:"uppercase",margin:"0 0 32px",opacity:.8}}>Work Orders</p>
         <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"28px",boxShadow:"0 8px 32px rgba(0,0,0,.5)"}}>
           <div style={{fontSize:"12px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"16px"}}>Enter Access PIN</div>
-          <input type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="••••" autoFocus
+          <input type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="••••" autoFocus
             style={{width:"100%",padding:"16px",background:t.inputBg,border:`2px solid ${err?t.danger:t.line}`,borderRadius:"12px",color:t.text,fontSize:"28px",outline:"none",boxSizing:"border-box",textAlign:"center",letterSpacing:"10px",marginBottom:"12px",animation:shake?"shake 0.4s ease":"none",transition:"border-color 0.2s",fontFamily:ff}}
           />
           {err&&<div style={{color:t.danger,fontSize:"13px",fontWeight:600,marginBottom:"12px"}}>Incorrect PIN — try again</div>}
@@ -215,9 +214,9 @@ const emptyCrewOrder={crewName:"",members:[],date:new Date().toISOString().split
 function getJobsForOrder(order){if(order.jobs&&order.jobs.length>0)return order.jobs;return[{customerName:order.customerName||"",customerPhone:order.customerPhone||"",jobTreadName:order.jobTreadName||"",jobAddress:order.jobAddress||"",jobDescription:order.jobDescription||"",materials:order.materials||"",specialNotes:order.specialNotes||"",attachments:order.attachments||[]}];}
 const emptyFieldOrder={staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
 
-function saveToFB(path,data){set(ref(db,path),data).catch(e=>console.error("FB save:",e));}
+function saveToFB(path,data){set(ref(db,path),data).catch(()=>{});}
 function pushToFB(path,data){return push(ref(db,path),data);}
-function removeFB(path){return remove(ref(db,path)).catch(e=>console.error("FB remove:",e));}
+function removeFB(path){return remove(ref(db,path)).catch(()=>{});}
 // Stable jobId derived from a job's name — survives reorder/delete of the activeJobs array
 const jobIdFor=(job)=>(job?.name||"").toString().toUpperCase().replace(/[^A-Z0-9]+/g,"_").replace(/^_+|_+$/g,"")||"UNNAMED";
 function useFB(path,fb){const[d,setD]=useState(fb);const[l,setL]=useState(false);useEffect(()=>{const u=onValue(ref(db,path),s=>{const v=s.val();setD(v!==null?v:fb);setL(true);},()=>setL(true));return()=>u();},[path]);return[d,l];}
@@ -297,7 +296,7 @@ function FileViewer({file,onClose}){
           pages.push(canvas.toDataURL("image/jpeg",0.92));
         }
         setPdfPages(pages);
-      }catch(e){console.error("PDF render error:",e);setPdfError(true);}
+      }catch{setPdfError(true);}
       finally{setPdfLoading(false);}
     };
     load();
@@ -453,8 +452,7 @@ async function processFileForUpload(file,showToastFn){
         const imgFiles=blobs.map((b,i)=>new File([b],file.name.replace(/\.pdf$/i,`_page${i+1}.jpg`),{type:"image/jpeg"}));
         return{files:imgFiles,warn:null,wasConverted:true,multiPage:true};
       }
-    }catch(err){
-      console.error("PDF conversion failed:",err);
+    }catch{
       // Fall through — upload original PDF
       return{file,warn:null};
     }
@@ -641,11 +639,11 @@ function BulletTextarea({value,onChange,placeholder,style:s}){
 function AddressInput({value,onChange,style:s}){
   const[sug,setSug]=useState([]);const[show,setShow]=useState(false);const[tok,setTok]=useState(null);const[loaded,setLoaded]=useState(false);const debRef=useRef(null);const wRef=useRef(null);
   useEffect(()=>{if(window.google?.maps?.places){setLoaded(true);return;}const ex=document.querySelector(`script[src*="maps.googleapis.com"]`);if(ex){ex.addEventListener("load",()=>setLoaded(true));return;}const sc=document.createElement("script");sc.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places&loading=async`;sc.async=true;sc.defer=true;sc.onload=()=>setLoaded(true);document.head.appendChild(sc);},[]);
-  useEffect(()=>{if(loaded&&window.google?.maps?.places)try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch(error){console.error('[App:AddressInput:setTok]', error);}},[loaded]);
+  useEffect(()=>{if(loaded&&window.google?.maps?.places)try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch{}},[loaded]);
   useEffect(()=>{const h=e=>{if(wRef.current&&!wRef.current.contains(e.target))setShow(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
-  const fetch=useCallback(input=>{if(!loaded||!input||input.length<3){setSug([]);return;}try{new window.google.maps.places.AutocompleteService().getPlacePredictions({input,types:["address"],componentRestrictions:{country:"us"},sessionToken:tok},(p,st)=>{if(st===window.google.maps.places.PlacesServiceStatus.OK&&p){setSug(p.map(x=>({description:x.description})));setShow(true);}else setSug([]);});}catch(error){console.error('[App:AddressInput:fetch]', error);}},[loaded,tok]);
+  const fetch=useCallback(input=>{if(!loaded||!input||input.length<3){setSug([]);return;}try{new window.google.maps.places.AutocompleteService().getPlacePredictions({input,types:["address"],componentRestrictions:{country:"us"},sessionToken:tok},(p,st)=>{if(st===window.google.maps.places.PlacesServiceStatus.OK&&p){setSug(p.map(x=>({description:x.description})));setShow(true);}else setSug([]);});}catch{}},[loaded,tok]);
   const hc=e=>{onChange(e);if(debRef.current)clearTimeout(debRef.current);debRef.current=setTimeout(()=>fetch(e.target.value),300);};
-  const hs=d=>{onChange({target:{value:d}});setShow(false);setSug([]);try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch(error){console.error('[App:AddressInput:hs]', error);}};
+  const hs=d=>{onChange({target:{value:d}});setShow(false);setSug([]);try{setTok(new window.google.maps.places.AutocompleteSessionToken());}catch{}};
   return(<div ref={wRef} style={{position:"relative"}}><input type="text" value={value} onChange={hc} onFocus={()=>{if(sug.length>0)setShow(true);}} placeholder="Start typing an address..." style={s}/>
     {show&&sug.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:t.nav,border:`1.5px solid ${t.line}`,borderRadius:"0 0 10px 10px",boxShadow:"0 4px 16px rgba(0,0,0,.5)",zIndex:100,maxHeight:"200px",overflowY:"auto"}}>
       {sug.map((x,i)=><div key={i} onClick={()=>hs(x.description)} style={{padding:"12px 16px",cursor:"pointer",fontSize:"14px",color:t.text,borderBottom:i<sug.length-1?`1px solid ${t.line}`:"none",display:"flex",alignItems:"center",gap:"8px"}} onMouseEnter={e=>e.currentTarget.style.background=t.tag} onMouseLeave={e=>e.currentTarget.style.background=t.nav}><SearchIcon/>{x.description}</div>)}</div>}</div>);
@@ -662,7 +660,7 @@ function PinDialog({onSuccess,onCancel,title}){
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Enter Manager PIN"}</h3>
       <p style={{fontSize:"13px",color:t.muted,marginBottom:"20px"}}>This area is protected</p>
-      <input type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
+      <input type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
       {err&&<div style={{color:t.danger,fontSize:"13px",marginBottom:"8px"}}>Incorrect PIN</div>}
       <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px",justifyContent:"center"}}>Enter</button></div>
     </div>
@@ -679,7 +677,7 @@ function RobPinDialog({onSuccess,onCancel,title,subtitle}){
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
       <p style={{fontSize:"13px",color:t.muted,marginBottom:"20px"}}>{subtitle||"Admin-only action"}</p>
-      <input autoFocus type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter Rob's PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
+      <input autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter Rob's PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
       {err&&<div style={{color:t.danger,fontSize:"13px",marginBottom:"8px"}}>Incorrect PIN</div>}
       <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px",justifyContent:"center"}}>Enter</button></div>
     </div>
@@ -716,7 +714,7 @@ function Header({title,subtitle,onBack,onHome,children}){
         </div>
         <div style={{display:"flex",gap:"4px",alignItems:"center",flexShrink:0,justifyContent:"flex-end"}}>
           {children}
-          {onHome&&<button onClick={onHome} style={{...ghostBtn,padding:"6px",color:t.muted}} title="Home"><HomeIcon/></button>}
+          {onHome&&<button onClick={onHome} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.muted}} title="Home"><HomeIcon/></button>}
         </div>
       </div>
     </div>);
@@ -741,7 +739,7 @@ function OverflowMenu({items,color}){
   },[open]);
   return(
     <div ref={wrapRef} style={{position:"relative"}}>
-      <button onClick={()=>setOpen(o=>!o)} style={{...ghostBtn,padding:"6px 8px",color:color||t.text,borderRadius:"8px",background:open?t.tag:"transparent",border:`1px solid ${open?t.line:"transparent"}`}} title="More options" aria-label="More options" aria-expanded={open}>
+      <button onClick={()=>setOpen(o=>!o)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:color||t.text,borderRadius:"8px",background:open?t.tag:"transparent",border:`1px solid ${open?t.line:"transparent"}`}} title="More options" aria-label="More options" aria-expanded={open}>
         <DotsIcon/>
       </button>
       {open&&<div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#161b22",border:"1px solid #30363d",borderRadius:"12px",boxShadow:"0 8px 28px rgba(0,0,0,.7)",zIndex:1500,minWidth:"220px",overflow:"hidden"}}>
@@ -860,7 +858,7 @@ function SubAttachmentInline({attachment}){
           pages.push(canvas.toDataURL("image/jpeg",0.92));
         }
         if(!cancelled)setPdfPages(pages);
-      }catch(e){console.error("Sub PDF render error:",e);if(!cancelled)setPdfError(true);}
+      }catch{if(!cancelled)setPdfError(true);}
       finally{if(!cancelled)setPdfLoading(false);}
     };
     load();
@@ -922,7 +920,7 @@ function SubOrderPublicView({orderId}){
     };
     const u=onAuthStateChanged(auth,user=>{
       if(user){startListen();}
-      else{signInAnonymously(auth).catch(e=>console.error("Anon sign in:",e));}
+      else{signInAnonymously(auth).catch(()=>{});}
     });
     return()=>{u();if(off)off();};
   },[orderId]);
@@ -995,7 +993,7 @@ function SubOrderPublicView({orderId}){
       ${imgPages}
     </div></body></html>`);
     w.document.close();
-    setTimeout(()=>{try{w.focus();w.print();}catch(error){console.error('[App:print]', error);}},600);
+    setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
   };
   const mailHref=`mailto:?subject=${encodeURIComponent(`Icon Remodeling Group — Subcontractor Work Order ${order?.jobName||order?.id||""}`.trim())}&body=${encodeURIComponent(`Please find your work order details at the following link: ${url}\n\nIf there are attachments included, you will be notified at the top of the work order page.`)}`;
 
@@ -1126,7 +1124,7 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
         await uploadBytes(fr,f);
         const url=await getDownloadURL(fr);
         atts.push({name:f.name,url,uploadedAt:new Date().toISOString()});
-      }catch(err){console.error(err);showToast("Upload failed");}
+      }catch{showToast("Upload failed");}
     }
     setForm(f=>({...f,attachments:atts}));setUploading(false);
     showToast(`${files.length} file(s) uploaded`);e.target.value="";
@@ -1183,7 +1181,7 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
   };
   const deleteOrder=id=>{
     if(!window.confirm("Delete this order? The public link will stop working."))return;
-    set(ref(db,`subOrders/${id}`),null).catch(e=>console.error(e));
+    set(ref(db,`subOrders/${id}`),null).catch(()=>{});
     showToast("Deleted");
   };
 
@@ -1199,7 +1197,7 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
         </div>
         <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
           {!showForm&&<button onClick={()=>{setForm(empty);setShowForm(true);}} style={{...baseBtn,background:subT.red,color:"#fff",padding:"8px 14px",fontSize:"13px"}}><PlusIcon/> New</button>}
-          <button onClick={onHome} style={{...ghostBtn,padding:"6px",color:subT.muted}} title="Home"><HomeIcon/></button>
+          <button onClick={onHome} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:subT.muted}} title="Home"><HomeIcon/></button>
         </div>
       </div>
 
@@ -1321,7 +1319,7 @@ function JobDocPublicView({jobName}){
     };
     const u=onAuthStateChanged(auth,user=>{
       if(user){startListen();}
-      else{signInAnonymously(auth).catch(e=>console.error("Anon sign in:",e));}
+      else{signInAnonymously(auth).catch(()=>{});}
     });
     return()=>{u();if(off)off();};
   },[jobName]);
@@ -1411,7 +1409,7 @@ function JobDocManager({job,jobDoc,docViewerUrl,onSave,onBack,onHome,showToast})
       <div class="footer">Icon Remodeling Group Inc.</div>
     </div></body></html>`);
     w.document.close();
-    setTimeout(()=>{try{w.focus();w.print();}catch(error){console.error('[JobDocManager:print]',error);}},600);
+    setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
   };
   return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff,color:t.text}}>
@@ -1532,7 +1530,7 @@ function FieldLogForm({activeJobs,fieldLogs,selectedEmployee,onEmployeeChange}){
       setSuccessMsg(`Log submitted! ${hours}h on ${logData.jobName} — great work, ${employee}.`);
       setJobId("");setHours("");setDescription("");setMaterials("");
       setTimeout(()=>setSuccessMsg(""),5000);
-    }catch(err){console.error("FieldLog save:",err);setErrorMsg("Error saving log. Please try again.");}
+    }catch{setErrorMsg("Error saving log. Please try again.");}
     finally{setSubmitting(false);}
   };
   const fInput={width:"100%",padding:"11px 13px",background:"#0A0D18",border:"1.5px solid #1E2845",borderRadius:"10px",color:"#F0F4FF",fontSize:"14px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",outline:"none",boxSizing:"border-box"};
@@ -1887,7 +1885,7 @@ function AppInner(){
   },[mode,managerAuth,ordersL,recurringTemplates]);
   const goHome=()=>{setMode(null);setShowForm(false);setShowFieldForm(false);setEditingOrder(null);setEditingFieldOrder(null);setManageCrews(false);setShowArchive(false);setShowPinSettings(false);setSelectedLockbox(null);setShowLockboxForm(false);setEditingLockbox(null);setEditingActiveJob(null);setShowAddJob(false);setJobMenu(null);setDeleteJobConfirm(null);setNewJobName("");setNewJobAddress("");setNewJobWifiName("");setNewJobWifiPass("");setNewJobGarageCode("");setNewJobDoorType("");setNewJobDoorLocation("");setNewJobDoorCode("");setNewJobCustomerName("");setNewJobTreadName("");setFileViewer(null);setDocView(null);setShowMaterialsForm(false);setMaterialsDetail(null);setSelectedActiveJobIdx(null);setActiveJobTab("paint");setShowPaintForm(false);setPaintForm(PAINT_FORM_BLANK);setDeletePaintEntry(null);setIsRobAuth(false);setPaintListMode("view");setEditingPaintId(null);setRobPinPurpose(null);setSelectedJobForDocs(null);setSelectedPunchlistJob(null);setNewPunchItemText("");};
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
-  const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:markSeen]', error);}};
+  const markSeen=(section)=>{const n={...lastSeen,[section]:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}};
   useEffect(()=>{if(mode)markSeen(mode);},[mode]);
 
   // Deep-link: ?code=XXXXXX → land directly on the matching order in the Field Crews view.
@@ -1903,7 +1901,7 @@ function AppInner(){
       const u=new URL(window.location.href);
       u.searchParams.delete("code");
       window.history.replaceState({},"",u.toString());
-    }catch(error){console.error('[App:deepLink:cleanUrl]', error);}
+    }catch{}
   },[deepLinkCode,ordersL,orders]);
   const hasUpdate=(section,items)=>{const ls=lastSeen[section]||"";return(items||[]).some(o=>o.lastModified&&o.lastModified>ls);};
   const crewUpdates=hasUpdate("crew",orders);
@@ -2223,11 +2221,14 @@ function AppInner(){
   if(mode===null)return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff,display:"flex",flexDirection:"column",alignItems:"center"}}>
       <style>{`
-        .nav-btn{display:flex;flex-direction:column;align-items:center;gap:6px;background:${t.card};border:1px solid ${t.line};border-radius:14px;padding:14px 4px 10px;cursor:pointer;transition:all 0.18s;font-family:${ff};}
+        .nav-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:100%;max-width:100%;margin:0 auto;}
+        @media (min-width:560px){.nav-grid{grid-template-columns:repeat(5,1fr);max-width:560px;}}
+        .nav-btn{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;min-width:0;background:${t.card};border:1px solid ${t.line};border-radius:14px;padding:14px 6px 10px;cursor:pointer;transition:all 0.18s;font-family:${ff};}
         .nav-btn:hover{border-color:${t.blue};background:${t.nav};transform:translateY(-2px);}
         .icon-wrap{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;}
-        .nav-label{font-size:9px;font-weight:700;color:${t.muted};text-align:center;line-height:1.3;text-transform:uppercase;letter-spacing:.4px;}
+        .nav-label{font-size:11px;font-weight:700;color:${t.muted};text-align:center;line-height:1.3;text-transform:uppercase;letter-spacing:.4px;overflow-wrap:break-word;word-break:break-word;}
         .job-row:hover{background:${t.nav};}
+        @media (max-width:400px){.col-customer{display:none;}}
         .edit-btn{font-size:12px;color:${t.muted};background:${t.card};border:1px solid ${t.line};border-radius:8px;padding:5px 14px;cursor:pointer;font-family:${ff};font-weight:600;}
         .edit-btn:hover{color:${t.blue};border-color:${t.blue};}
         .job-ctx-menu button:hover{background:${t.tag} !important;}
@@ -2263,12 +2264,12 @@ function AppInner(){
         <div style={{width:"100%",background:t.nav,borderBottom:`1px solid ${t.line}`,padding:"18px 20px 14px",textAlign:"center",position:"relative",boxShadow:"0 2px 20px rgba(0,0,0,.4)"}}>
           <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:`linear-gradient(90deg,${t.red},${t.blue},${t.green})`}}/>
           <div style={{fontSize:"19px",fontWeight:800,color:t.red,letterSpacing:"1px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
-          <div style={{fontSize:"10px",fontWeight:600,color:"rgba(255,255,255,.65)",letterSpacing:"3px",textTransform:"uppercase",marginTop:"3px"}}>Work Orders / Field Operations</div>
+          <div style={{fontSize:"11px",fontWeight:600,color:"rgba(255,255,255,.65)",letterSpacing:"3px",textTransform:"uppercase",marginTop:"3px"}}>Work Orders / Field Operations</div>
         </div>
 
         {/* NAV — amber=manager, green=crews, purple=ops, cyan=access */}
         <div style={{background:t.bg,width:"100%",padding:"16px 14px 14px",borderBottom:`1px solid ${t.line}`}}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"7px",maxWidth:"560px",margin:"0 auto"}}>
+          <div className="nav-grid">
             <button className="nav-btn" onClick={()=>setPinDialog("manager")} style={{position:"relative"}}>
               <div className="icon-wrap" style={{background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.25)"}}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" fill="#F59E0B"/></svg>
@@ -2323,9 +2324,9 @@ function AppInner(){
           <div style={{height:"1px",background:`linear-gradient(90deg,transparent,${t.line},transparent)`,marginBottom:"10px"}}/>
           <table style={{width:"100%",maxWidth:"100%",tableLayout:"fixed",borderCollapse:"collapse",fontSize:"13px"}}>
             <thead><tr>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"24%"}}>Job ID</th>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"22%"}}>Customer</th>
-              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase"}}>Address</th>
+              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"11px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"24%"}}>Job ID</th>
+              <th className="col-customer" style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"11px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"22%"}}>Customer</th>
+              <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"11px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase"}}>Address</th>
               <th style={{width:"36px",borderBottom:`1px solid ${t.line}`}}/>
             </tr></thead>
             <tbody>
@@ -2335,17 +2336,17 @@ function AppInner(){
                 return(
                   <tr key={idx} className="job-row" style={{cursor:"pointer"}}>
                     <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase",verticalAlign:"top",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.name}</td>
-                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text,verticalAlign:"top",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
+                    <td className="col-customer" onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text,verticalAlign:"top",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
                     <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
                       <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
                         <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.address}</span>
                         <div style={{display:"flex",alignItems:"center",gap:"5px",flexWrap:"wrap"}}>
-                          {linked&&<button onClick={e=>{e.stopPropagation();setKeyModal(linked);}} style={{...baseBtn,padding:"2px 7px",background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.28)",borderRadius:"7px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
-                          {hasWifi&&<button onClick={e=>{e.stopPropagation();setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
-                          {hasGarage&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:"garage",code:job.garageCode});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(167,139,250,.1)",border:"1.5px solid rgba(167,139,250,.22)",borderRadius:"7px",color:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}><GarageIcon/> Garage</button>}
-                          {hasDoor&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(34,211,238,.08)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"7px",color:t.cyan,gap:"3px",fontSize:"11px",fontWeight:700}}><DoorIcon/> Door</button>}
+                          {linked&&<button onClick={e=>{e.stopPropagation();setKeyModal(linked);}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.28)",borderRadius:"7px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
+                          {hasWifi&&<button onClick={e=>{e.stopPropagation();setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword});}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
+                          {hasGarage&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:"garage",code:job.garageCode});}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:"rgba(167,139,250,.1)",border:"1.5px solid rgba(167,139,250,.22)",borderRadius:"7px",color:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}><GarageIcon/> Garage</button>}
+                          {hasDoor&&<button onClick={e=>{e.stopPropagation();setDoorModal({type:job.doorType,code:job.doorCode,doorLocation:job.doorLocation});}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:"rgba(34,211,238,.08)",border:"1.5px solid rgba(34,211,238,.2)",borderRadius:"7px",color:t.cyan,gap:"3px",fontSize:"11px",fontWeight:700}}><DoorIcon/> Door</button>}
                           {(()=>{const hasDoc=!!((jobDocs||{})[job.name]);return(
-                            <button onClick={e=>{e.stopPropagation();setSelectedJobForDocs(idx);setMode("jobDocs");}} style={{...baseBtn,padding:"2px 7px",background:hasDoc?"rgba(79,127,255,.12)":"rgba(74,90,122,.12)",border:hasDoc?"1.5px solid rgba(79,127,255,.32)":"1.5px solid rgba(74,90,122,.28)",borderRadius:"7px",color:hasDoc?t.blue:t.muted,gap:"3px",fontSize:"11px",fontWeight:700}}>📄 {hasDoc?"Docs":"Doc"}</button>
+                            <button onClick={e=>{e.stopPropagation();setSelectedJobForDocs(idx);setMode("jobDocs");}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:hasDoc?"rgba(79,127,255,.12)":"rgba(74,90,122,.12)",border:hasDoc?"1.5px solid rgba(79,127,255,.32)":"1.5px solid rgba(74,90,122,.28)",borderRadius:"7px",color:hasDoc?t.blue:t.muted,gap:"3px",fontSize:"11px",fontWeight:700}}>📄 {hasDoc?"Docs":"Doc"}</button>
                           );})()}
                           {(()=>{
                             const pl=(punchLists||{})[job.name]||{};
@@ -2353,7 +2354,7 @@ function AppInner(){
                             const openCount=Object.values(items).filter(it=>it&&!it.completed).length;
                             const has=openCount>0;
                             return(
-                              <button onClick={e=>{e.stopPropagation();setSelectedPunchlistJob(idx);setNewPunchItemText("");setMode("punchlist");}} style={{...baseBtn,padding:"2px 7px",background:has?"rgba(167,139,250,.14)":"rgba(167,139,250,.08)",border:has?"1.5px solid rgba(245,158,11,.45)":"1.5px solid rgba(167,139,250,.28)",borderRadius:"7px",color:has?t.amber:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}>📋 {has?`${openCount} open`:"Punch List"}</button>
+                              <button onClick={e=>{e.stopPropagation();setSelectedPunchlistJob(idx);setNewPunchItemText("");setMode("punchlist");}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:has?"rgba(167,139,250,.14)":"rgba(167,139,250,.08)",border:has?"1.5px solid rgba(245,158,11,.45)":"1.5px solid rgba(167,139,250,.28)",borderRadius:"7px",color:has?t.amber:t.purple,gap:"3px",fontSize:"11px",fontWeight:700}}>📋 {has?`${openCount} open`:"Punch List"}</button>
                             );
                           })()}
                         </div>
@@ -2361,7 +2362,7 @@ function AppInner(){
                     </td>
                     <td style={{padding:"8px 4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
                       <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
-                        <button onClick={()=>setJobMenu(jobMenu===idx?null:idx)} style={{...ghostBtn,padding:"5px",color:t.muted,borderRadius:"8px"}}><DotsIcon/></button>
+                        <button onClick={()=>setJobMenu(jobMenu===idx?null:idx)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.muted,borderRadius:"8px"}}><DotsIcon/></button>
                         {jobMenu===idx&&<>
                           <div onClick={()=>setJobMenu(null)} style={{position:"fixed",inset:0,zIndex:998}}/>
                           <div style={{position:"absolute",right:0,top:"100%",background:t.nav,border:`1px solid ${t.line}`,borderRadius:"10px",boxShadow:"0 4px 20px rgba(0,0,0,.6)",zIndex:999,minWidth:"130px",overflow:"hidden"}}>
@@ -2581,12 +2582,12 @@ function AppInner(){
         };
         set(ref(db,`jobs/${jobId}/paintColors/${editingPaintId}`),merged).then(()=>{
           closeForm();showToast("Paint color updated");
-        }).catch(e=>{console.error("[App:savePaint]",e);showToast("Save failed");});
+        }).catch(()=>{showToast("Save failed");});
       } else {
         const entry={...baseEntry,robCommentDismissed:false,createdAt:new Date().toISOString()};
         pushToFB(`jobs/${jobId}/paintColors`,entry).then(()=>{
           closeForm();showToast("Paint color added");
-        }).catch(e=>{console.error("[App:savePaint]",e);showToast("Save failed");});
+        }).catch(()=>{showToast("Save failed");});
       }
     };
     const removePaint=(entryId)=>{
@@ -2731,8 +2732,8 @@ function AppInner(){
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.appliedTo||"—"}</td>
                       <td style={{padding:"10px 12px",borderBottom:`1px solid ${t.line}`,color:t.text}}>{e.gallons?`${e.gallons} gal`:"—"}</td>
                       <td className="paint-no-print" style={{padding:"6px",borderBottom:`1px solid ${t.line}`,textAlign:"right",width:"40px"}}>
-                        {paintListMode==="delete"&&<button onClick={ev=>{ev.stopPropagation();setDeletePaintEntry(e.id);}} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px"}}><TrashIcon/></button>}
-                        {paintListMode==="edit"&&<button onClick={ev=>{ev.stopPropagation();openEdit(e);}} title="Edit" style={{...ghostBtn,padding:"6px",color:t.blue,borderRadius:"8px"}}><EditIcon/></button>}
+                        {paintListMode==="delete"&&<button onClick={ev=>{ev.stopPropagation();setDeletePaintEntry(e.id);}} title="Delete" style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.danger,borderRadius:"8px"}}><TrashIcon/></button>}
+                        {paintListMode==="edit"&&<button onClick={ev=>{ev.stopPropagation();openEdit(e);}} title="Edit" style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue,borderRadius:"8px"}}><EditIcon/></button>}
                       </td>
                     </tr>
                   ))}
@@ -2749,8 +2750,8 @@ function AppInner(){
                       <div style={{fontSize:"15px",fontWeight:700,color:t.text}}>{e.colorName||e.area||"Paint Entry"}</div>
                       {e.colorCode&&<div style={{fontSize:"12px",fontFamily:"monospace",color:t.cyan,marginTop:"2px"}}>{e.colorCode}</div>}
                     </div>
-                    {paintListMode==="delete"&&<button onClick={ev=>{ev.stopPropagation();setDeletePaintEntry(e.id);}} title="Delete" style={{...ghostBtn,padding:"6px",color:t.danger,borderRadius:"8px",flexShrink:0}}><TrashIcon/></button>}
-                    {paintListMode==="edit"&&<button onClick={ev=>{ev.stopPropagation();openEdit(e);}} title="Edit" style={{...ghostBtn,padding:"6px",color:t.blue,borderRadius:"8px",flexShrink:0}}><EditIcon/></button>}
+                    {paintListMode==="delete"&&<button onClick={ev=>{ev.stopPropagation();setDeletePaintEntry(e.id);}} title="Delete" style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.danger,borderRadius:"8px",flexShrink:0}}><TrashIcon/></button>}
+                    {paintListMode==="edit"&&<button onClick={ev=>{ev.stopPropagation();openEdit(e);}} title="Edit" style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue,borderRadius:"8px",flexShrink:0}}><EditIcon/></button>}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 14px",fontSize:"12px"}}>
                     {e.area&&<div><div style={{color:t.muted,textTransform:"uppercase",fontSize:"10px",letterSpacing:"1px",fontWeight:700}}>Area</div><div style={{color:t.text}}>{e.area}</div></div>}
@@ -2956,7 +2957,7 @@ function AppInner(){
           <>{codes.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No lock box codes yet.</div>:
           <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{codes.map((code,idx)=>(<div key={idx} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px",padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div><div style={{fontSize:"14px",fontWeight:700,color:t.text,marginBottom:"2px"}}>{code.jobName||code.jobLocation}</div><div style={{fontSize:"12px",color:t.muted}}>Code: <span style={{color:t.amber,fontWeight:700}}>{code.keyBoxCode}</span></div></div>
-            <div style={{display:"flex",gap:"4px"}}><button onClick={()=>{setLockboxForm({jobName:code.jobName||"",jobLocation:code.jobLocation,keyBoxLocation:code.keyBoxLocation,keyBoxCode:code.keyBoxCode,linkedJobIndex:code.linkedJobIndex!==undefined?String(code.linkedJobIndex):""});setEditingLockbox(idx);setShowLockboxForm(true);}} style={{...ghostBtn,padding:"6px",color:t.blue}}><EditIcon/></button><button onClick={()=>deleteLockbox(idx)} style={{...ghostBtn,padding:"6px",color:t.danger}}><TrashIcon/></button></div>
+            <div style={{display:"flex",gap:"4px"}}><button onClick={()=>{setLockboxForm({jobName:code.jobName||"",jobLocation:code.jobLocation,keyBoxLocation:code.keyBoxLocation,keyBoxCode:code.keyBoxCode,linkedJobIndex:code.linkedJobIndex!==undefined?String(code.linkedJobIndex):""});setEditingLockbox(idx);setShowLockboxForm(true);}} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue}}><EditIcon/></button><button onClick={()=>deleteLockbox(idx)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.danger}}><TrashIcon/></button></div>
           </div>))}</div>}</>
         )}
       </div>
@@ -3065,7 +3066,7 @@ function AppInner(){
         {allAtts.length===0?<div style={{textAlign:"center",padding:"48px",color:t.muted}}>No files yet.</div>:
         <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>{allAtts.map((att,i)=>(<div key={i} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"10px",padding:"13px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{flex:1,minWidth:0}}><a href={att.url} onClick={e=>{e.preventDefault();setFileViewer(att);}} style={{fontSize:"13px",fontWeight:600,color:t.blue,textDecoration:"none",display:"flex",alignItems:"center",gap:"5px",marginBottom:"3px"}}><PaperclipIcon/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</span></a><div style={{fontSize:"11px",color:t.muted}}>{att.source}{att.members?" - "+att.members:""} - {att.date}</div></div>
-          <div style={{display:"flex",gap:"2px",flexShrink:0}}><button onClick={()=>handleRenameFile(att)} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button><button onClick={()=>handleDeleteFile(att)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button></div>
+          <div style={{display:"flex",gap:"2px",flexShrink:0}}><button onClick={()=>handleRenameFile(att)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue}}><EditIcon/></button><button onClick={()=>handleDeleteFile(att)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.danger}}><TrashIcon/></button></div>
         </div>))}</div>}
       </div>
     </div>);
@@ -3153,9 +3154,9 @@ function AppInner(){
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}}>
               <div style={{fontSize:"14px",fontWeight:700,color:t.purple}}>{(order.staffMember||[]).join(", ")||"Unassigned"}</div>
               <div style={{display:"flex",gap:"4px"}} className="no-print">
-                <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
-                <button onClick={()=>setPinDialog({type:"editField",index:ri})} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
-                <button onClick={()=>setPinDialog({type:"deleteField",index:ri})} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button>
+                <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.muted}}><PrintIcon/></button>
+                <button onClick={()=>setPinDialog({type:"editField",index:ri})} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue}}><EditIcon/></button>
+                <button onClick={()=>setPinDialog({type:"deleteField",index:ri})} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.danger}}><TrashIcon/></button>
               </div>
             </div>
             <div style={{fontSize:"11px",color:t.muted,marginBottom:"6px",fontWeight:600,letterSpacing:".5px"}}>{order.date}</div>
@@ -3558,7 +3559,7 @@ function AppInner(){
               {k:"fieldlog",label:"📋 Field Log"},
               {k:"history",label:"📜 History",badge:unreadActivity}
             ].map(tab=>(
-              <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch(error){console.error('[App:mgrTab:wo-seen]', error);}}}} style={{padding:"10px 14px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
+              <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}}}} style={{padding:"10px 14px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
             ))}
           </div>
 
@@ -3608,11 +3609,11 @@ function AppInner(){
                     {getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700}}>{getJobsForOrder(order).length} Jobs</span>}
                   </div>
                   <div style={{display:"flex",gap:"3px"}}>
-                    <button onClick={()=>{const c=triggerCrewSms(order,ri);showToast(c===0?"No phone numbers stored for crew":`Notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"5px",color:t.green}} title={IS_MOBILE?"📱 Notify Crew via SMS":"📋 Copy Message for Crew"}><PhoneIcon/></button>
-                    <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"5px",color:t.muted}}><PrintIcon/></button>
-                    <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"5px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
-                    <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"5px",color:t.blue}}><EditIcon/></button>
-                    <button onClick={()=>setDeleteConfirm(ri)} style={{...ghostBtn,padding:"5px",color:t.danger}}><TrashIcon/></button>
+                    <button onClick={()=>{const c=triggerCrewSms(order,ri);showToast(c===0?"No phone numbers stored for crew":`Notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.green}} title={IS_MOBILE?"📱 Notify Crew via SMS":"📋 Copy Message for Crew"}><PhoneIcon/></button>
+                    <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.muted}}><PrintIcon/></button>
+                    <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
+                    <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue}}><EditIcon/></button>
+                    <button onClick={()=>setDeleteConfirm(ri)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.danger}}><TrashIcon/></button>
                   </div>
                 </div>
                 {order.members?.length>0&&<div style={{fontSize:"13px",fontWeight:700,color:t.text,marginBottom:"3px"}}>{order.members.join(", ")}</div>}
