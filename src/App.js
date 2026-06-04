@@ -33,6 +33,23 @@ const DEFAULT_CREW_PIN = "5678";
 const IS_MOBILE = typeof navigator!=="undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const APP_PUBLIC_URL = "https://icon-work-orders.vercel.app";
+const OPS_CENTER_URL = "https://icon-operations-center.vercel.app";
+
+// Return to the Operations Center hub. When running inside the Ops Center
+// iframe, navigating window.location would only reload the iframe — so signal
+// the parent shell to slide back to its home screen instead. Falls back to a
+// full navigation when we are the top-level window (opened standalone).
+function goToOpsCenter(){
+  try{
+    if(window.parent && window.parent!==window){
+      window.parent.postMessage({type:"GO_HOME"},"*");
+      return;
+    }
+  }catch(e){/* cross-origin access — treat as in-iframe and post anyway */
+    try{window.parent.postMessage({type:"GO_HOME"},"*");return;}catch(e2){}
+  }
+  window.location.href=OPS_CENTER_URL;
+}
 
 // 6-char alphanumeric — omits ambiguous chars (0/O, 1/I/L)
 const generateAccessCode = () => {
@@ -96,6 +113,26 @@ const ghostBtn={...baseBtn,background:"transparent",color:t.muted,padding:"10px 
 const inputStyle={width:"100%",padding:"14px 16px",background:t.inputBg,border:`1.5px solid ${t.line}`,borderRadius:"10px",color:t.text,fontSize:"16px",fontFamily:ff,outline:"none",boxSizing:"border-box",transition:"border-color 0.15s"};
 const labelStyle={display:"block",fontSize:"11px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"8px"};
 
+// ── LOADING SCREEN WITH RETRY ───────────────────────────────────────────────
+// Shows the skeleton immediately. If Firebase (anon auth / data) takes longer
+// than expected — common inside the iOS Ops Center iframe where storage is
+// partitioned — surface a "Tap to reload" button so the user is never stuck.
+function LoadingWithRetry({rows=5}){
+  const[showRetry,setShowRetry]=useState(false);
+  useEffect(()=>{const tm=setTimeout(()=>setShowRetry(true),6000);return()=>clearTimeout(tm);},[]);
+  return(
+    <div style={{position:"relative",minHeight:"100vh",background:t.bg}}>
+      <SkeletonScreen rows={rows}/>
+      {showRetry&&(
+        <div style={{position:"fixed",left:0,right:0,bottom:0,padding:"18px 16px calc(18px + env(safe-area-inset-bottom))",display:"flex",flexDirection:"column",alignItems:"center",gap:"10px",background:`linear-gradient(transparent, ${t.bg} 45%)`,boxSizing:"border-box"}}>
+          <div style={{color:t.muted,fontSize:"13px",textAlign:"center",fontFamily:ff}}>Still loading… check your connection.</div>
+          <button onClick={()=>window.location.reload()} style={{...primaryBtn,padding:"13px 30px"}}>Tap to reload</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── APP GATE ────────────────────────────────────────────────────────────────
 function AppGate({children}){
   // Global gate removed - app is open, manager actions protected by individual PinDialogs
@@ -110,9 +147,18 @@ function AppGate({children}){
   const[pinsLoaded,setPinsLoaded]=useState(false);
 
   useEffect(()=>{
+    let retried=false;
+    // iOS cross-origin iframe storage partitioning can make the first
+    // anonymous sign-in fail silently. Retry once after a short delay.
+    const attemptSignIn=()=>{
+      signInAnonymously(auth).catch(e=>{
+        console.error("Anon sign in:",e);
+        if(!retried){retried=true;setTimeout(attemptSignIn,2000);}
+      });
+    };
     const unsub=onAuthStateChanged(auth,user=>{
       setFirebaseUser(user);setAuthLoading(false);
-      if(!user){signInAnonymously(auth).catch(e=>console.error("Anon sign in:",e));}
+      if(!user)attemptSignIn();
     });
     return()=>unsub();
   },[]);
@@ -134,7 +180,7 @@ function AppGate({children}){
     }
   };
 
-  if(authLoading)return(<SkeletonScreen rows={4}/>);
+  if(authLoading)return(<LoadingWithRetry rows={4}/>);
 
   if(authed)return children;
 
@@ -721,8 +767,9 @@ function OpsTopBar(){
   const [hov,setHov]=useState(false);
   return(
     <a
-      href="https://icon-operations-center.vercel.app"
+      href={OPS_CENTER_URL}
       aria-label="Return to Operations Center"
+      onClick={(e)=>{e.preventDefault();goToOpsCenter();}}
       onMouseEnter={()=>setHov(true)}
       onMouseLeave={()=>setHov(false)}
       style={{
@@ -2100,7 +2147,7 @@ function AppInner(){
   if(showMaterialsForm)return(<MaterialsRequestForm activeJobs={activeJobs||[]} members={[...ALL_MEMBERS,...FIELD_OPS_MEMBERS]} onClose={()=>setShowMaterialsForm(false)} onSubmitted={()=>setShowMaterialsForm(false)} showToast={showToast}/>);
   if(materialsDetail&&materialsRequests[materialsDetail])return(<MaterialsManagerPanel request={materialsRequests[materialsDetail]} aiEnabled={aiSettings.aiMaterials!==false} onSetAiEnabled={v=>{setAiSettings(p=>({...p,aiMaterials:v}));saveToFB("settings/aiMaterials",v);}} onClose={()=>setMaterialsDetail(null)} showToast={showToast}/>);
 
-  if(loading)return(<SkeletonScreen rows={5}/>);
+  if(loading)return(<LoadingWithRetry rows={5}/>);
 
   const Toast=()=>toast?<div style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg,#0891B2,#22D3EE)",color:"#fff",padding:"12px 24px",borderRadius:"10px",fontSize:"14px",fontWeight:600,zIndex:1001,boxShadow:"0 4px 20px rgba(34,211,238,.4)"}}>{toast}</div>:null;
   const getLinkedLockbox=(jobIdx)=>(lockboxCodes||[]).find(c=>String(c.linkedJobIndex)===String(jobIdx));
@@ -2261,7 +2308,7 @@ function AppInner(){
 
         {/* OPS CENTER LINK */}
         <div style={{width:"100%",padding:"0 14px 10px",background:t.bg}}>
-          <a href="https://icon-operations-center.vercel.app" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",width:"100%",maxWidth:"480px",margin:"0 auto",padding:"10px 14px",background:"rgba(79,127,255,0.08)",border:"1px solid rgba(79,127,255,0.25)",borderRadius:"10px",color:"#7AAEFF",fontSize:"12px",fontWeight:700,letterSpacing:".5px",textTransform:"uppercase",textDecoration:"none",boxSizing:"border-box",fontFamily:ff}}>
+          <a href={OPS_CENTER_URL} onClick={(e)=>{e.preventDefault();goToOpsCenter();}} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",width:"100%",maxWidth:"480px",margin:"0 auto",padding:"10px 14px",background:"rgba(79,127,255,0.08)",border:"1px solid rgba(79,127,255,0.25)",borderRadius:"10px",color:"#7AAEFF",fontSize:"12px",fontWeight:700,letterSpacing:".5px",textTransform:"uppercase",textDecoration:"none",boxSizing:"border-box",fontFamily:ff}}>
             <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             Operations Center
           </a>
@@ -2274,7 +2321,7 @@ function AppInner(){
             <button className="edit-btn" onClick={()=>setPinDialog("addJob")}>+ Add New Job</button>
           </div>
           <div style={{height:"1px",background:`linear-gradient(90deg,transparent,${t.line},transparent)`,marginBottom:"10px"}}/>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+          <table style={{width:"100%",maxWidth:"100%",tableLayout:"fixed",borderCollapse:"collapse",fontSize:"13px"}}>
             <thead><tr>
               <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"24%"}}>Job ID</th>
               <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"10px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"22%"}}>Customer</th>
@@ -2287,11 +2334,11 @@ function AppInner(){
                 const openDetail=()=>{setSelectedActiveJobIdx(idx);setActiveJobTab("paint");setMode("activeJobDetail");};
                 return(
                   <tr key={idx} className="job-row" style={{cursor:"pointer"}}>
-                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase",verticalAlign:"top"}}>{job.name}</td>
-                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text,verticalAlign:"top"}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
+                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontWeight:700,color:t.text,fontSize:"12px",textTransform:"uppercase",verticalAlign:"top",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.name}</td>
+                    <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text,verticalAlign:"top",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
                     <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
                       <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
-                        <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px"}}>{job.address}</span>
+                        <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.address}</span>
                         <div style={{display:"flex",alignItems:"center",gap:"5px",flexWrap:"wrap"}}>
                           {linked&&<button onClick={e=>{e.stopPropagation();setKeyModal(linked);}} style={{...baseBtn,padding:"2px 7px",background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.28)",borderRadius:"7px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
                           {hasWifi&&<button onClick={e=>{e.stopPropagation();setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword});}} style={{...baseBtn,padding:"2px 7px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
