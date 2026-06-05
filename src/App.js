@@ -89,27 +89,27 @@ const AUTH_KEY = "wo-auth-granted";
 // Cyan:         #22D3EE  highlights, codes
 // Gold:         #F59E0B  manager/admin accent
 const t={
-  bg:"#f6f8fb",
-  card:"#ffffff",
-  nav:"#0f1923",
-  line:"#D6D9DE",
-  text:"#1F2329",
-  muted:"#5F6670",
+  bg:"#0a0a0f",
+  card:"#1a1f2e",
+  nav:"#0a0a0f",
+  line:"#3d4557",
+  text:"#ffffff",
+  muted:"#a0aec0",
   blue:"#0077C8",
-  green:"#00875A",
+  green:"#4ADE80",
   amber:"#F59E0B",
   danger:"#E8192C",
-  purple:"#5B4FCF",
-  cyan:"#0284C7",
-  inputBg:"#ffffff",
-  tag:"#EFF1F4",
+  purple:"#A78BFA",
+  cyan:"#22D3EE",
+  inputBg:"#0a0a0f",
+  tag:"#3d4557",
   red:"#E8192C",
 };
 
 const ff = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 const baseBtn={border:"none",borderRadius:"10px",cursor:"pointer",fontFamily:ff,fontWeight:600,transition:"all 0.15s ease",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"};
 const primaryBtn={...baseBtn,background:"#0077C8",color:"#fff",padding:"14px 24px",fontSize:"15px",boxShadow:"0 0 20px rgba(0,119,200,.25)"};
-const ghostBtn={...baseBtn,background:"transparent",border:"1.5px solid #D6D9DE",color:t.muted,padding:"10px 16px",fontSize:"14px"};
+const ghostBtn={...baseBtn,background:"transparent",border:`1.5px solid ${t.line}`,color:t.muted,padding:"10px 16px",fontSize:"14px"};
 const inputStyle={width:"100%",padding:"14px 16px",background:t.inputBg,border:`1.5px solid ${t.line}`,borderRadius:"10px",color:t.text,fontSize:"16px",fontFamily:ff,outline:"none",boxSizing:"border-box",transition:"border-color 0.15s"};
 const labelStyle={display:"block",fontSize:"11px",fontWeight:700,color:t.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"8px"};
 
@@ -1082,7 +1082,7 @@ function SubOrderPublicView({orderId}){
 }
 
 // ── SUBCONTRACTOR ORDERS (manager side, dark palette) ───────────────────────
-const subT={bg:"#0d1117",card:"#161b22",line:"#30363d",red:"#E8192C",text:"#e6edf3",muted:"#8b949e"};
+const subT={bg:"#0a0a0f",card:"#1a1f2e",line:"#3d4557",red:"#E8192C",text:"#ffffff",muted:"#a0aec0"};
 const subInputStyle={width:"100%",padding:"13px 15px",background:"#0d1117",border:`1.5px solid ${subT.line}`,borderRadius:"10px",color:subT.text,fontSize:"16px",fontFamily:ff,outline:"none",boxSizing:"border-box"};
 const subLabelStyle={display:"block",fontSize:"11px",fontWeight:700,color:subT.muted,textTransform:"uppercase",letterSpacing:"1.4px",marginBottom:"8px"};
 
@@ -2232,6 +2232,17 @@ function AppInner(){
         .edit-btn{font-size:12px;color:${t.muted};background:${t.card};border:1px solid ${t.line};border-radius:8px;padding:5px 14px;cursor:pointer;font-family:${ff};font-weight:600;}
         .edit-btn:hover{color:${t.blue};border-color:${t.blue};}
         .job-ctx-menu button:hover{background:${t.tag} !important;}
+        /* ── Active Jobs: card layout on phones (<600px), table on desktop (600px+) ── */
+        @media (max-width:599px){
+          .jobs-table,.jobs-table tbody,.jobs-table tr,.jobs-table td{display:block;width:100%;}
+          .jobs-table thead{display:none;}
+          .jobs-table tr.job-row{background:${t.card};border:1px solid ${t.line};border-radius:12px;margin-bottom:12px;padding:12px 14px;position:relative;}
+          .jobs-table tr.job-row:hover{background:${t.card};}
+          .jobs-table tr.job-row td{border-bottom:none !important;padding:3px 0 !important;vertical-align:top;}
+          .jobs-table tr.job-row td:first-child{font-size:14px !important;padding-bottom:5px !important;padding-right:44px !important;}
+          .jobs-table tr.job-row td.col-customer{display:block !important;color:${t.muted} !important;}
+          .jobs-table tr.job-row td.job-menu-cell{position:absolute;top:8px;right:8px;width:auto;padding:0 !important;}
+        }
       `}</style>
       <Toast/>
 
@@ -2263,8 +2274,8 @@ function AppInner(){
         {/* HEADER */}
         <div style={{width:"100%",background:t.nav,borderBottom:`1px solid ${t.line}`,padding:"18px 20px 14px",textAlign:"center",position:"relative",boxShadow:"0 2px 20px rgba(0,0,0,.4)"}}>
           <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:`linear-gradient(90deg,${t.red},${t.blue},${t.green})`}}/>
-          <div style={{fontSize:"19px",fontWeight:800,color:t.red,letterSpacing:"1px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
-          <div style={{fontSize:"11px",fontWeight:600,color:"rgba(255,255,255,.65)",letterSpacing:"3px",textTransform:"uppercase",marginTop:"3px"}}>Work Orders / Field Operations</div>
+          <div style={{fontSize:"19px",fontWeight:800,color:t.text,letterSpacing:"1px",textTransform:"uppercase"}}>Icon Remodeling Group Inc.</div>
+          <div style={{fontSize:"11px",fontWeight:600,color:t.muted,letterSpacing:"3px",textTransform:"uppercase",marginTop:"3px"}}>Work Orders / Field Operations</div>
         </div>
 
         {/* NAV — amber=manager, green=crews, purple=ops, cyan=access */}
@@ -2322,7 +2333,7 @@ function AppInner(){
             <button className="edit-btn" onClick={()=>setPinDialog("addJob")}>+ Add New Job</button>
           </div>
           <div style={{height:"1px",background:`linear-gradient(90deg,transparent,${t.line},transparent)`,marginBottom:"10px"}}/>
-          <table style={{width:"100%",maxWidth:"100%",tableLayout:"fixed",borderCollapse:"collapse",fontSize:"13px"}}>
+          <table className="jobs-table" style={{width:"100%",maxWidth:"100%",tableLayout:"fixed",borderCollapse:"collapse",fontSize:"13px"}}>
             <thead><tr>
               <th style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"11px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"24%"}}>Job ID</th>
               <th className="col-customer" style={{textAlign:"left",padding:"5px 10px 7px",borderBottom:`1px solid ${t.line}`,fontSize:"11px",fontWeight:700,color:t.muted,letterSpacing:"1.2px",textTransform:"uppercase",width:"22%"}}>Customer</th>
@@ -2339,7 +2350,7 @@ function AppInner(){
                     <td className="col-customer" onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,fontSize:"12px",color:t.text,verticalAlign:"top",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.customerName||<span style={{color:t.muted,fontStyle:"italic"}}>—</span>}</td>
                     <td onClick={openDetail} style={{padding:"11px 10px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
                       <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
-                        <span style={{color:"rgba(240,244,255,.7)",fontSize:"12px",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.address}</span>
+                        <span className="job-address" style={{color:t.text,fontSize:"12px",wordBreak:"break-word",overflowWrap:"anywhere"}}>{job.address}</span>
                         <div style={{display:"flex",alignItems:"center",gap:"5px",flexWrap:"wrap"}}>
                           {linked&&<button onClick={e=>{e.stopPropagation();setKeyModal(linked);}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.28)",borderRadius:"7px",color:t.amber,gap:"3px",fontSize:"11px",fontWeight:700}}><KeyIcon/> Code</button>}
                           {hasWifi&&<button onClick={e=>{e.stopPropagation();setWifiModal({wifiName:job.wifiName,wifiPassword:job.wifiPassword});}} style={{...baseBtn,padding:"6px 10px",minHeight:"32px",background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)",borderRadius:"7px",color:t.green,gap:"3px",fontSize:"11px",fontWeight:700}}><WifiIcon/> WiFi</button>}
@@ -2360,7 +2371,7 @@ function AppInner(){
                         </div>
                       </div>
                     </td>
-                    <td style={{padding:"8px 4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
+                    <td className="job-menu-cell" style={{padding:"8px 4px",borderBottom:`1px solid ${t.line}`,verticalAlign:"top"}}>
                       <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>setJobMenu(jobMenu===idx?null:idx)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.muted,borderRadius:"8px"}}><DotsIcon/></button>
                         {jobMenu===idx&&<>
