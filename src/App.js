@@ -219,7 +219,53 @@ function pushToFB(path,data){return push(ref(db,path),data);}
 function removeFB(path){return remove(ref(db,path)).catch(()=>{});}
 // Stable jobId derived from a job's name — survives reorder/delete of the activeJobs array
 const jobIdFor=(job)=>(job?.name||"").toString().toUpperCase().replace(/[^A-Z0-9]+/g,"_").replace(/^_+|_+$/g,"")||"UNNAMED";
-function useFB(path,fb){const[d,setD]=useState(fb);const[l,setL]=useState(false);useEffect(()=>{const u=onValue(ref(db,path),s=>{const v=s.val();setD(v!==null?v:fb);setL(true);},()=>setL(true));return()=>u();},[path]);return[d,l];}
+function useFB(path,fb){
+  const[d,setD]=useState(fb);
+  const[l,setL]=useState(false);
+  const[refreshTick,setRefreshTick]=useState(0);
+  // Re-attach the listener when the document becomes visible (handles iframe first-load)
+  useEffect(()=>{
+    if(typeof document==="undefined")return;
+    const onVis=()=>{if(document.visibilityState==="visible")setRefreshTick(t=>t+1);};
+    document.addEventListener("visibilitychange",onVis);
+    return()=>document.removeEventListener("visibilitychange",onVis);
+  },[]);
+  useEffect(()=>{
+    let off=null;let retryTimer=null;let cancelled=false;
+    const attach=()=>{
+      if(cancelled)return;
+      off=onValue(ref(db,path),s=>{
+        const v=s.val();
+        setD(v!==null?v:fb);
+        setL(true);
+        // First load came back empty — retry once after 2s in case auth wasn't ready
+        if(v===null&&!retryTimer){
+          retryTimer=setTimeout(()=>{
+            retryTimer=null;
+            if(off){try{off();}catch{}}
+            attach();
+          },2000);
+        }
+      },()=>{
+        setL(true);
+        if(!retryTimer){
+          retryTimer=setTimeout(()=>{retryTimer=null;if(off){try{off();}catch{}}attach();},2000);
+        }
+      });
+    };
+    const unsubAuth=onAuthStateChanged(auth,user=>{
+      if(user){attach();}
+      else{signInAnonymously(auth).catch(e=>console.error("useFB anon:",e));}
+    });
+    return()=>{
+      cancelled=true;
+      if(retryTimer)clearTimeout(retryTimer);
+      if(off){try{off();}catch{}}
+      unsubAuth();
+    };
+  },[path,refreshTick]);
+  return[d,l];
+}
 function isExpired(order){const now=new Date();const od=new Date(order.date+"T06:00:00");const ex=new Date(od);ex.setDate(ex.getDate()+1);return now>=ex;}
 function getActive(orders){return(orders||[]).filter(o=>!isExpired(o));}
 function getArchived(orders){return(orders||[]).filter(o=>isExpired(o));}
@@ -597,13 +643,13 @@ function WorkOrderDoc({order,onClose,onFileOpen}){
         <div style={{height:"3px",background:brand.blue}}/>
 
         {/* ── JOB TABS (multi-job only) ── */}
-        {jobs.length>1&&<div style={{display:"flex",borderBottom:`2px solid ${brand.borderGray}`,background:brand.lightGray,overflowX:"auto"}}>
+        {jobs.length>1&&<div className="tabs-scroll" data-scroll="x" style={{display:"flex",borderBottom:`2px solid ${brand.borderGray}`,background:brand.lightGray,overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",overscrollBehaviorX:"contain",overscrollBehaviorY:"none",touchAction:"pan-x",WebkitOverflowScrolling:"touch"}}>
           {jobs.map((job,i)=>(
-            <button key={i} onClick={()=>setActiveTab(i)} style={{padding:"11px 20px",border:"none",borderBottom:activeTab===i?`3px solid ${brand.blue}`:"3px solid transparent",background:"transparent",fontSize:"13px",fontWeight:700,color:activeTab===i?brand.blue:brand.labelText,cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-2px",transition:"all 0.15s"}}>
+            <button key={i} onClick={()=>setActiveTab(i)} style={{padding:"11px 20px",minHeight:"44px",flexShrink:0,border:"none",borderBottom:activeTab===i?`3px solid ${brand.blue}`:"3px solid transparent",background:"transparent",fontSize:"13px",fontWeight:700,color:activeTab===i?brand.blue:brand.labelText,cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-2px",transition:"all 0.15s"}}>
               Job {i+1}{job.customerName?` — ${job.customerName}`:""}
             </button>
           ))}
-          <button onClick={()=>setActiveTab(-1)} style={{padding:"11px 16px",border:"none",borderBottom:activeTab===-1?`3px solid ${brand.charcoal}`:"3px solid transparent",background:"transparent",fontSize:"12px",fontWeight:700,color:activeTab===-1?brand.charcoal:brand.labelText,cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-2px"}}>
+          <button onClick={()=>setActiveTab(-1)} style={{padding:"11px 16px",minHeight:"44px",flexShrink:0,border:"none",borderBottom:activeTab===-1?`3px solid ${brand.charcoal}`:"3px solid transparent",background:"transparent",fontSize:"12px",fontWeight:700,color:activeTab===-1?brand.charcoal:brand.labelText,cursor:"pointer",fontFamily:ff,whiteSpace:"nowrap",marginBottom:"-2px"}}>
             View All
           </button>
         </div>}
@@ -655,7 +701,7 @@ function PinDialog({onSuccess,onCancel,title}){
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[storedPin,setStoredPin]=useState(DEFAULT_PIN);
   useEffect(()=>{const u=onValue(ref(db,"settings/managerPin"),s=>{const v=s.val();if(v)setStoredPin(v);});return()=>u();},[]);
   const check=()=>{if(pin===storedPin){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",background:"rgba(10,13,24,0.97)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Enter Manager PIN"}</h3>
@@ -672,7 +718,7 @@ const ROB_PIN="2433";
 function RobPinDialog({onSuccess,onCancel,title,subtitle}){
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);
   const check=()=>{if(pin===ROB_PIN){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",background:"rgba(10,13,24,0.97)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
@@ -2671,8 +2717,8 @@ function AppInner(){
         </div>
 
         {/* Tab bar */}
-        <div className="paint-no-print" style={{display:"flex",borderBottom:`1px solid ${t.line}`,marginBottom:"18px",overflowX:"auto",alignItems:"center",justifyContent:"space-between"}}>
-          <button onClick={()=>setActiveJobTab("paint")} style={{padding:"11px 16px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:activeJobTab==="paint"?t.blue:t.muted,borderBottom:activeJobTab==="paint"?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",whiteSpace:"nowrap"}}>🎨 Paint Colors</button>
+        <div className="paint-no-print tabs-scroll" data-scroll="x" style={{display:"flex",borderBottom:`1px solid ${t.line}`,marginBottom:"18px",overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",overscrollBehaviorX:"contain",overscrollBehaviorY:"none",touchAction:"pan-x",WebkitOverflowScrolling:"touch",alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={()=>setActiveJobTab("paint")} style={{padding:"11px 16px",minHeight:"44px",flexShrink:0,border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:activeJobTab==="paint"?t.blue:t.muted,borderBottom:activeJobTab==="paint"?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",whiteSpace:"nowrap"}}>🎨 Paint Colors</button>
           {/* Rob auth indicator */}
           <div style={{paddingRight:"4px",paddingBottom:"6px"}}>
             {isRobAuth
@@ -2723,7 +2769,7 @@ function AppInner(){
             </div>
           ):(<>
             {/* Desktop table */}
-            <div className="paint-table-wrap" style={{overflowX:"auto",background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px"}}>
+            <div className="paint-table-wrap horizontal-scroll" data-scroll="x" style={{overflowX:"auto",overscrollBehaviorX:"contain",overscrollBehaviorY:"none",touchAction:"pan-x",WebkitOverflowScrolling:"touch",background:t.card,border:`1px solid ${t.line}`,borderRadius:"12px"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
                 <thead><tr>
                   {["Room/Area","Brand","Line","Int/Ext","Finish","Color Name","Color Code","Applied To","Qty",paintListMode==="delete"?"":""].map((h,i)=>(
@@ -3562,7 +3608,8 @@ function AppInner(){
             <div style={{display:"flex",gap:"10px"}}><button onClick={()=>{setShowForm(false);setEditingOrder(null);}} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"14px"}}>Cancel</button><button onClick={saveCrew} style={{...primaryBtn,flex:2,justifyContent:"center"}}>{editingOrder!==null?"Update":"Create Order"}</button></div>
           </div></div>):(<>
           {/* TABS: Today / Recurring / History */}
-          <div style={{display:"flex",gap:"6px",marginBottom:"14px",borderBottom:`1px solid ${t.line}`,overflowX:"auto"}}>
+          <div className="tabs-scroll" data-scroll="x" style={{position:"relative",marginBottom:"14px",borderBottom:`1px solid ${t.line}`}}>
+            <div className="tabs-scroll" data-scroll="x" style={{display:"flex",gap:"6px",overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",overscrollBehaviorX:"contain",overscrollBehaviorY:"none",touchAction:"pan-x",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
             {[
               {k:"today",label:"Today"},
               {k:"recurring",label:"🔁 Recurring"},
@@ -3570,8 +3617,10 @@ function AppInner(){
               {k:"fieldlog",label:"📋 Field Log"},
               {k:"history",label:"📜 History",badge:unreadActivity}
             ].map(tab=>(
-              <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}}}} style={{padding:"10px 14px",border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
+              <button key={tab.k} onClick={()=>{setMgrTab(tab.k);if(tab.k==="history"){const n={...lastSeen,managerHistory:new Date().toISOString()};setLastSeen(n);try{localStorage.setItem("wo-seen",JSON.stringify(n));}catch{}}}} style={{padding:"10px 14px",minHeight:"44px",flexShrink:0,border:"none",background:"transparent",fontSize:"13px",fontWeight:700,color:mgrTab===tab.k?t.blue:t.muted,borderBottom:mgrTab===tab.k?`2px solid ${t.blue}`:"2px solid transparent",cursor:"pointer",fontFamily:ff,marginBottom:"-1px",position:"relative",whiteSpace:"nowrap"}}>{tab.label}{tab.badge>0&&<span style={{marginLeft:"6px",fontSize:"10px",background:t.danger,color:"#fff",padding:"1px 6px",borderRadius:"10px",fontWeight:800}}>{tab.badge}</span>}</button>
             ))}
+            </div>
+            <div aria-hidden="true" className="tabs-fade" style={{position:"absolute",top:0,right:0,bottom:0,width:"24px",pointerEvents:"none",background:"linear-gradient(to right, rgba(10,10,15,0) 0%, #0a0a0f 100%)"}}/>
           </div>
 
           {mgrTab==="today"&&(()=>{
