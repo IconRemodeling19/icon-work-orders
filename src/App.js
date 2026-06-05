@@ -699,33 +699,37 @@ const renderBullet=text=>{if(!text)return"\u2014";return text.split("\n").map((l
 
 function PinDialog({onSuccess,onCancel,title}){
 
-  const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[storedPin,setStoredPin]=useState(DEFAULT_PIN);
+  const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[storedPin,setStoredPin]=useState(DEFAULT_PIN);const[dialogTop,setDialogTop]=useState("max(80px,15vh)");
 
   useEffect(()=>{const u=onValue(ref(db,"settings/managerPin"),s=>{const v=s.val();if(v)setStoredPin(v);});return()=>u();},[]);
 
   useEffect(()=>{
-
     const prevHtml=document.documentElement.style.overflow;
-
     const prevBody=document.body.style.overflow;
-
     document.documentElement.style.overflow="hidden";
-
     document.body.style.overflow="hidden";
-
     return()=>{
-
       document.documentElement.style.overflow=prevHtml;
-
       document.body.style.overflow=prevBody;
-
     };
+  },[]);
 
+  useEffect(()=>{
+    const vv=window.visualViewport;
+    if(!vv)return;
+    const update=()=>{
+      const top=vv.offsetTop+Math.max(80,vv.height*0.15);
+      setDialogTop(top+"px");
+    };
+    update();
+    vv.addEventListener("resize",update);
+    vv.addEventListener("scroll",update);
+    return()=>{vv.removeEventListener("resize",update);vv.removeEventListener("scroll",update);};
   },[]);
 
   const check=()=>{if(pin===storedPin){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
 
-  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",paddingTop:"max(80px,15vh)",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",paddingTop:dialogTop,overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
 
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
 
@@ -751,31 +755,35 @@ function PinDialog({onSuccess,onCancel,title}){
 const ROB_PIN="2433";
 function RobPinDialog({onSuccess,onCancel,title,subtitle}){
 
-  const[pin,setPin]=useState("");const[err,setErr]=useState(false);
+  const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[dialogTop,setDialogTop]=useState("max(80px,15vh)");
 
   useEffect(()=>{
-
     const prevHtml=document.documentElement.style.overflow;
-
     const prevBody=document.body.style.overflow;
-
     document.documentElement.style.overflow="hidden";
-
     document.body.style.overflow="hidden";
-
     return()=>{
-
       document.documentElement.style.overflow=prevHtml;
-
       document.body.style.overflow=prevBody;
-
     };
+  },[]);
 
+  useEffect(()=>{
+    const vv=window.visualViewport;
+    if(!vv)return;
+    const update=()=>{
+      const top=vv.offsetTop+Math.max(80,vv.height*0.15);
+      setDialogTop(top+"px");
+    };
+    update();
+    vv.addEventListener("resize",update);
+    vv.addEventListener("scroll",update);
+    return()=>{vv.removeEventListener("resize",update);vv.removeEventListener("scroll",update);};
   },[]);
 
   const check=()=>{if(pin===ROB_PIN){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
 
-  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",paddingTop:"max(80px,15vh)",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",paddingTop:dialogTop,overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
 
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
 
