@@ -701,14 +701,28 @@ function PinDialog({onSuccess,onCancel,title}){
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[storedPin,setStoredPin]=useState(DEFAULT_PIN);
   useEffect(()=>{const u=onValue(ref(db,"settings/managerPin"),s=>{const v=s.val();if(v)setStoredPin(v);});return()=>u();},[]);
   useEffect(()=>{
-    const prevHtml=document.documentElement.style.overflow;
-    const prevBody=document.body.style.overflow;
+    const prevHtmlOverflow=document.documentElement.style.overflow;
+    const prevBodyOverflow=document.body.style.overflow;
+    const prevBodyPosition=document.body.style.position;
+    const prevBodyTop=document.body.style.top;
+    const prevBodyWidth=document.body.style.width;
+    const scrollY=window.scrollY||window.pageYOffset||0;
     document.documentElement.style.overflow="hidden";
     document.body.style.overflow="hidden";
-    return()=>{document.documentElement.style.overflow=prevHtml;document.body.style.overflow=prevBody;};
+    document.body.style.position="fixed";
+    document.body.style.top=`-${scrollY}px`;
+    document.body.style.width="100%";
+    return()=>{
+      document.documentElement.style.overflow=prevHtmlOverflow;
+      document.body.style.overflow=prevBodyOverflow;
+      document.body.style.position=prevBodyPosition;
+      document.body.style.top=prevBodyTop;
+      document.body.style.width=prevBodyWidth;
+      window.scrollTo(0,scrollY);
+    };
   },[]);
   const check=()=>{if(pin===storedPin){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100%",height:"100%",minHeight:"100vh",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
+  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Enter Manager PIN"}</h3>
@@ -725,14 +739,28 @@ const ROB_PIN="2433";
 function RobPinDialog({onSuccess,onCancel,title,subtitle}){
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);
   useEffect(()=>{
-    const prevHtml=document.documentElement.style.overflow;
-    const prevBody=document.body.style.overflow;
+    const prevHtmlOverflow=document.documentElement.style.overflow;
+    const prevBodyOverflow=document.body.style.overflow;
+    const prevBodyPosition=document.body.style.position;
+    const prevBodyTop=document.body.style.top;
+    const prevBodyWidth=document.body.style.width;
+    const scrollY=window.scrollY||window.pageYOffset||0;
     document.documentElement.style.overflow="hidden";
     document.body.style.overflow="hidden";
-    return()=>{document.documentElement.style.overflow=prevHtml;document.body.style.overflow=prevBody;};
+    document.body.style.position="fixed";
+    document.body.style.top=`-${scrollY}px`;
+    document.body.style.width="100%";
+    return()=>{
+      document.documentElement.style.overflow=prevHtmlOverflow;
+      document.body.style.overflow=prevBodyOverflow;
+      document.body.style.position=prevBodyPosition;
+      document.body.style.top=prevBodyTop;
+      document.body.style.width=prevBodyWidth;
+      window.scrollTo(0,scrollY);
+    };
   },[]);
   const check=()=>{if(pin===ROB_PIN){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100%",height:"100%",minHeight:"100vh",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
+  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
@@ -759,17 +787,21 @@ function InfoModal({title,icon,children,onClose}){
 }
 
 function Header({title,subtitle,onBack,onHome,children}){
+  const shortTitle=(title||"").length<=12;
   return(
     <div className="no-print">
       <style>{`
-        @media (max-width:359px){.header-back-text{display:none;}.header-back-btn{padding:6px 8px !important;}}
+        @media (max-width:479px){.header-back-text{display:none;}.header-back-btn{padding:6px 8px !important;}}
+        @media (max-width:599px){.header-subtitle-text{display:none !important;}}
+        .header-title-text{max-width:160px;}
+        @media (max-width:419px){.header-title-text.long{display:none !important;}}
       `}</style>
       <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.line}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.nav,gap:"8px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:0,flex:"0 1 auto"}}>
           {onBack&&<button className="header-back-btn" onClick={onBack} style={{...ghostBtn,padding:"6px 10px",flexShrink:0,color:t.blue,display:"inline-flex",alignItems:"center",gap:"4px",fontSize:"13px",fontWeight:600}}><BackIcon/><span className="header-back-text">Previous Page</span></button>}
           <div style={{minWidth:0}}>
-            <div style={{fontSize:"15px",fontWeight:700,color:t.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</div>
-            {subtitle&&<div style={{fontSize:"11px",color:t.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subtitle}</div>}
+            <div className={`header-title-text${shortTitle?"":" long"}`} style={{fontSize:"15px",fontWeight:700,color:t.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</div>
+            {subtitle&&<div className="header-subtitle-text" style={{fontSize:"11px",color:t.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subtitle}</div>}
           </div>
         </div>
         <div style={{display:"flex",gap:"4px",alignItems:"center",flexShrink:0,justifyContent:"flex-end"}}>
@@ -3150,7 +3182,7 @@ function AppInner(){
   if(mode==="crew"){
     const allActive=activeCrew;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}/>
+      <Header title="Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}/>
       <div className="tabs-scroll" data-scroll="x" style={{position:"relative",borderBottom:`1px solid ${t.line}`,background:t.nav}}>
         <div className="tabs-scroll" data-scroll="x" style={{display:"flex",gap:"6px",padding:"0 12px",overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",overscrollBehaviorX:"contain",overscrollBehaviorY:"none",touchAction:"pan-x",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
           <button onClick={()=>setMode("fieldnotes")} style={{...baseBtn,background:"transparent",border:"none",color:t.cyan,padding:"10px 14px",fontSize:"13px",fontWeight:700,minHeight:"44px",flexShrink:0,whiteSpace:"nowrap",borderRadius:0}}>📝 Notes</button>
@@ -3208,7 +3240,7 @@ function AppInner(){
   // ── FIELD OPS ─────────────────────────────────────────────────────────────
   if(mode==="fieldops")return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <Header title="Icon Operations" subtitle={today} onBack={()=>{setShowFieldForm(false);setEditingFieldOrder(null);goHome();}} onHome={goHome}>
+      <Header title="Operations" subtitle={today} onBack={()=>{setShowFieldForm(false);setEditingFieldOrder(null);goHome();}} onHome={goHome}>
         {!showFieldForm&&<button onClick={()=>{setFieldFormData({...emptyFieldOrder});setEditingFieldOrder(null);setShowFieldForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> New</button>}
       </Header>
       {!showFieldForm&&<div className="tabs-scroll" data-scroll="x" style={{position:"relative",borderBottom:`1px solid ${t.line}`,background:t.nav}}>

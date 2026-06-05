@@ -43,6 +43,16 @@ body {
 .tabs-scroll::-webkit-scrollbar { height: 0; display: none; }
 .tabs-scroll { scrollbar-width: none; }
 
+/* Snap horizontal tab scrollers so tabs land cleanly and the first tab is reachable */
+.tabs-scroll[data-scroll="x"] {
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 0;
+}
+.tabs-scroll[data-scroll="x"] > button,
+.tabs-scroll[data-scroll="x"] > a {
+  scroll-snap-align: start;
+}
+
 /* Hide manager tab-bar fade gradient on desktop where all tabs fit */
 @media (min-width: 600px) {
   .tabs-fade { display: none !important; }
