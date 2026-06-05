@@ -742,9 +742,9 @@ function PinDialog({onSuccess,onCancel,title}){
 
   return ReactDOM.createPortal(
 
-    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
 
-      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"20px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflowY:"auto",maxHeight:"100%"}}>
 
         <div style={{color:t.amber}}><LockIcon/></div>
 
@@ -812,9 +812,9 @@ function RobPinDialog({onSuccess,onCancel,title,subtitle}){
 
   return ReactDOM.createPortal(
 
-    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
 
-      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"20px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflowY:"auto",maxHeight:"100%"}}>
 
         <div style={{color:t.amber}}><LockIcon/></div>
 
