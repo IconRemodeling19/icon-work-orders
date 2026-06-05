@@ -700,8 +700,15 @@ const renderBullet=text=>{if(!text)return"\u2014";return text.split("\n").map((l
 function PinDialog({onSuccess,onCancel,title}){
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[storedPin,setStoredPin]=useState(DEFAULT_PIN);
   useEffect(()=>{const u=onValue(ref(db,"settings/managerPin"),s=>{const v=s.val();if(v)setStoredPin(v);});return()=>u();},[]);
+  useEffect(()=>{
+    const prevHtml=document.documentElement.style.overflow;
+    const prevBody=document.body.style.overflow;
+    document.documentElement.style.overflow="hidden";
+    document.body.style.overflow="hidden";
+    return()=>{document.documentElement.style.overflow=prevHtml;document.body.style.overflow=prevBody;};
+  },[]);
   const check=()=>{if(pin===storedPin){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",background:"rgba(10,13,24,0.97)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
+  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100%",height:"100%",minHeight:"100vh",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Enter Manager PIN"}</h3>
@@ -717,8 +724,15 @@ function PinDialog({onSuccess,onCancel,title}){
 const ROB_PIN="2433";
 function RobPinDialog({onSuccess,onCancel,title,subtitle}){
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);
+  useEffect(()=>{
+    const prevHtml=document.documentElement.style.overflow;
+    const prevBody=document.body.style.overflow;
+    document.documentElement.style.overflow="hidden";
+    document.body.style.overflow="hidden";
+    return()=>{document.documentElement.style.overflow=prevHtml;document.body.style.overflow=prevBody;};
+  },[]);
   const check=()=>{if(pin===ROB_PIN){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",background:"rgba(10,13,24,0.97)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
+  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100%",height:"100%",minHeight:"100vh",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto"}}>
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
       <div style={{color:t.amber}}><LockIcon/></div>
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
@@ -2267,8 +2281,11 @@ function AppInner(){
   if(mode===null)return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff,display:"flex",flexDirection:"column",alignItems:"center"}}>
       <style>{`
-        .nav-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:100%;max-width:100%;margin:0 auto;}
-        @media (min-width:560px){.nav-grid{grid-template-columns:repeat(5,1fr);max-width:560px;}}
+        .nav-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:100%;margin:0 auto;}
+        .nav-grid .nav-manager{grid-column:1 / -1;height:80px;padding:14px 16px;flex-direction:row;justify-content:center;gap:14px;}
+        .nav-grid .nav-manager .nav-label{font-size:14px;letter-spacing:1px;}
+        .nav-grid .nav-cell{height:90px;}
+        @media (min-width:560px){.nav-grid{grid-template-columns:repeat(5,1fr);max-width:560px;}.nav-grid .nav-manager{grid-column:auto;height:auto;padding:14px 6px 10px;flex-direction:column;gap:6px;}.nav-grid .nav-manager .nav-label{font-size:11px;letter-spacing:.4px;}.nav-grid .nav-cell{height:auto;}}
         .nav-btn{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;min-width:0;background:${t.card};border:1px solid ${t.line};border-radius:14px;padding:14px 6px 10px;cursor:pointer;transition:all 0.18s;font-family:${ff};}
         .nav-btn:hover{border-color:${t.blue};background:${t.nav};transform:translateY(-2px);}
         .icon-wrap{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;}
@@ -2327,35 +2344,35 @@ function AppInner(){
         {/* NAV — amber=manager, green=crews, purple=ops, cyan=access */}
         <div style={{background:t.bg,width:"100%",padding:"16px 14px 14px",borderBottom:`1px solid ${t.line}`}}>
           <div className="nav-grid">
-            <button className="nav-btn" onClick={()=>setPinDialog("manager")} style={{position:"relative"}}>
+            <button className="nav-btn nav-manager" onClick={()=>setPinDialog("manager")} style={{position:"relative"}}>
               <div className="icon-wrap" style={{background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.25)"}}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" fill="#F59E0B"/></svg>
               </div>
               <span className="nav-label">Manager</span>
               {unreadActivity>0?<span style={{position:"absolute",top:"6px",right:"6px",minWidth:"18px",height:"18px",padding:"0 5px",background:t.danger,borderRadius:"9px",fontSize:"10px",fontWeight:800,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(244,63,94,.6)"}}>{unreadActivity>99?"99+":unreadActivity}</span>:managerUpdates&&<span style={{position:"absolute",top:"8px",right:"8px",width:"7px",height:"7px",background:t.danger,borderRadius:"50%"}}/>}
             </button>
-            <button className="nav-btn" onClick={()=>setMode("crew")} style={{position:"relative"}}>
+            <button className="nav-btn nav-cell" onClick={()=>setMode("crew")} style={{position:"relative"}}>
               <div className="icon-wrap" style={{background:"rgba(74,222,128,.1)",border:"1.5px solid rgba(74,222,128,.22)"}}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="5" y="6" width="14" height="15" rx="1.5" stroke="#4ADE80" strokeWidth="1.4" fill="none"/><path d="M9 9l2 2 4-4" stroke="#4ADE80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 14h6M9 17h4" stroke="#4ADE80" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/></svg>
               </div>
               <span className="nav-label">Field Crews</span>
               {crewUpdates&&<span style={{position:"absolute",top:"8px",right:"8px",width:"7px",height:"7px",background:t.danger,borderRadius:"50%"}}/>}
             </button>
-            <button className="nav-btn" onClick={()=>setMode("fieldops")} style={{position:"relative"}}>
+            <button className="nav-btn nav-cell" onClick={()=>setMode("fieldops")} style={{position:"relative"}}>
               <div className="icon-wrap" style={{background:"rgba(167,139,250,.1)",border:"1.5px solid rgba(167,139,250,.22)"}}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#A78BFA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               <span className="nav-label">Operations</span>
               {fieldUpdates&&<span style={{position:"absolute",top:"8px",right:"8px",width:"7px",height:"7px",background:t.danger,borderRadius:"50%"}}/>}
             </button>
-            <button className="nav-btn" onClick={()=>setMode("lockbox")} style={{position:"relative"}}>
+            <button className="nav-btn nav-cell" onClick={()=>setMode("lockbox")} style={{position:"relative"}}>
               <div className="icon-wrap" style={{background:"rgba(34,211,238,.08)",border:"1.5px solid rgba(34,211,238,.2)"}}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="#22D3EE" strokeWidth="1.4"/><path d="M8 11V7a4 4 0 018 0v4" stroke="#22D3EE" strokeWidth="1.4" strokeLinecap="round"/><circle cx="12" cy="16" r="1.8" fill="#22D3EE"/></svg>
               </div>
               <span className="nav-label">Access Codes</span>
               {lockboxUpdates&&<span style={{position:"absolute",top:"8px",right:"8px",width:"7px",height:"7px",background:t.danger,borderRadius:"50%"}}/>}
             </button>
-            <button className="nav-btn" onClick={()=>setMode("files")} style={{position:"relative"}}>
+            <button className="nav-btn nav-cell" onClick={()=>setMode("files")} style={{position:"relative"}}>
               <div className="icon-wrap" style={{background:"rgba(244,63,94,.08)",border:"1.5px solid rgba(244,63,94,.22)"}}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
               </div>
@@ -3133,11 +3150,15 @@ function AppInner(){
   if(mode==="crew"){
     const allActive=activeCrew;
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}>
-        <button onClick={()=>setMode("fieldnotes")} style={{...baseBtn,background:"rgba(34,211,238,.1)",border:`1px solid rgba(34,211,238,.3)`,color:t.cyan,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>📝 Notes</button>
-        <button onClick={()=>setMode("fieldlog")} style={{...baseBtn,background:"rgba(79,127,255,.12)",border:`1px solid rgba(79,127,255,.3)`,color:t.blue,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>📋 Field Log</button>
-        <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"rgba(245,158,11,.12)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>🔧 Materials</button>
-      </Header>
+      <Header title="Icon Field Crews" subtitle={today} onBack={()=>goHome()} onHome={goHome}/>
+      <div className="tabs-scroll" data-scroll="x" style={{position:"relative",borderBottom:`1px solid ${t.line}`,background:t.nav}}>
+        <div className="tabs-scroll" data-scroll="x" style={{display:"flex",gap:"6px",padding:"0 12px",overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",overscrollBehaviorX:"contain",overscrollBehaviorY:"none",touchAction:"pan-x",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
+          <button onClick={()=>setMode("fieldnotes")} style={{...baseBtn,background:"transparent",border:"none",color:t.cyan,padding:"10px 14px",fontSize:"13px",fontWeight:700,minHeight:"44px",flexShrink:0,whiteSpace:"nowrap",borderRadius:0}}>📝 Notes</button>
+          <button onClick={()=>setMode("fieldlog")} style={{...baseBtn,background:"transparent",border:"none",color:t.blue,padding:"10px 14px",fontSize:"13px",fontWeight:700,minHeight:"44px",flexShrink:0,whiteSpace:"nowrap",borderRadius:0}}>📋 Field Log</button>
+          <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"transparent",border:"none",color:t.amber,padding:"10px 14px",fontSize:"13px",fontWeight:700,minHeight:"44px",flexShrink:0,whiteSpace:"nowrap",borderRadius:0}}>🔧 Materials</button>
+        </div>
+        <div aria-hidden="true" className="tabs-fade" style={{position:"absolute",top:0,right:0,bottom:0,width:"24px",pointerEvents:"none",background:`linear-gradient(to right, rgba(22,29,46,0) 0%, ${t.nav} 100%)`}}/>
+      </div>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         {!fieldLogReminderDismissed&&<FieldLogReminderBanner employee={selectedFieldEmployee} fieldLogs={fieldLogs} onDismiss={()=>setFieldLogReminderDismissed(true)} onGoToLog={()=>setMode("fieldlog")}/>}
         <div style={{fontSize:"16px",fontWeight:700,color:t.text,marginBottom:"14px"}}>{"Today's Work Orders"}</div>
@@ -3188,9 +3209,15 @@ function AppInner(){
   if(mode==="fieldops")return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <Header title="Icon Operations" subtitle={today} onBack={()=>{setShowFieldForm(false);setEditingFieldOrder(null);goHome();}} onHome={goHome}>
-        <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"rgba(245,158,11,.12)",border:`1px solid rgba(245,158,11,.3)`,color:t.amber,padding:"7px 12px",fontSize:"12px",fontWeight:700}}>🔧 Materials</button>
         {!showFieldForm&&<button onClick={()=>{setFieldFormData({...emptyFieldOrder});setEditingFieldOrder(null);setShowFieldForm(true);}} style={{...primaryBtn,padding:"10px 16px",fontSize:"14px"}}><PlusIcon/> New</button>}
       </Header>
+      {!showFieldForm&&<div className="tabs-scroll" data-scroll="x" style={{position:"relative",borderBottom:`1px solid ${t.line}`,background:t.nav}}>
+        <div className="tabs-scroll" data-scroll="x" style={{display:"flex",gap:"6px",padding:"0 12px",overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",overscrollBehaviorX:"contain",overscrollBehaviorY:"none",touchAction:"pan-x",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
+          <button disabled style={{...baseBtn,background:"transparent",border:"none",color:t.blue,padding:"10px 14px",fontSize:"13px",fontWeight:700,minHeight:"44px",flexShrink:0,whiteSpace:"nowrap",borderRadius:0,borderBottom:`2px solid ${t.blue}`,cursor:"default",opacity:1}}>Active Orders</button>
+          <button onClick={()=>setShowMaterialsForm(true)} style={{...baseBtn,background:"transparent",border:"none",color:t.amber,padding:"10px 14px",fontSize:"13px",fontWeight:700,minHeight:"44px",flexShrink:0,whiteSpace:"nowrap",borderRadius:0}}>🔧 Materials</button>
+        </div>
+        <div aria-hidden="true" className="tabs-fade" style={{position:"absolute",top:0,right:0,bottom:0,width:"24px",pointerEvents:"none",background:`linear-gradient(to right, rgba(22,29,46,0) 0%, ${t.nav} 100%)`}}/>
+      </div>}
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         {showFieldForm?(<div>
           <h2 style={{fontSize:"19px",color:t.text,margin:"0 0 18px",fontWeight:700}}>{editingFieldOrder!==null?"Edit":"New"} Field Order</h2>
@@ -3490,9 +3517,9 @@ function AppInner(){
         showToast={showToast}
       />}
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
-        <button onClick={()=>setMode("subOrders")} style={{...baseBtn,background:t.tag,border:`1px solid ${t.line}`,color:t.text,padding:"7px 10px",fontSize:"12px",fontWeight:700}} title="Subcontractor Orders">👷 Subs</button>
         {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"7px 12px",fontSize:"13px"}}><PlusIcon/> New</button>}
         <OverflowMenu items={[
+          {icon:<span style={{fontSize:"15px"}}>👷</span>,label:"Subs",onClick:()=>setMode("subOrders")},
           {icon:<ArchiveIcon/>,label:"Archive",onClick:()=>setShowArchive(true)},
           {icon:<LockIcon/>,label:"Change PIN",color:t.amber,onClick:()=>setShowPinSettings(true)},
           {icon:<KeyIcon/>,label:"Lock Box Codes",color:t.amber,onClick:()=>setMode("manageLockbox")},
