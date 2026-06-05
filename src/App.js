@@ -716,6 +716,8 @@ function PinDialog({onSuccess,onCancel,title}){
 
     document.body.style.overflow="hidden";
 
+    try{window.parent.postMessage({type:"PIN_LOCK",active:true},"*");}catch(e){}
+
     const vv=window.visualViewport;
 
     const update=()=>{if(vv){setVvTop(vv.offsetTop);setVvHeight(vv.height);}};
@@ -727,6 +729,8 @@ function PinDialog({onSuccess,onCancel,title}){
       document.documentElement.style.overflow=prevHtml;
 
       document.body.style.overflow=prevBody;
+
+      try{window.parent.postMessage({type:"PIN_LOCK",active:false},"*");}catch(e){}
 
       if(vv){vv.removeEventListener("resize",update);vv.removeEventListener("scroll",update);}
 
@@ -782,6 +786,8 @@ function RobPinDialog({onSuccess,onCancel,title,subtitle}){
 
     document.body.style.overflow="hidden";
 
+    try{window.parent.postMessage({type:"PIN_LOCK",active:true},"*");}catch(e){}
+
     const vv=window.visualViewport;
 
     const update=()=>{if(vv){setVvTop(vv.offsetTop);setVvHeight(vv.height);}};
@@ -793,6 +799,8 @@ function RobPinDialog({onSuccess,onCancel,title,subtitle}){
       document.documentElement.style.overflow=prevHtml;
 
       document.body.style.overflow=prevBody;
+
+      try{window.parent.postMessage({type:"PIN_LOCK",active:false},"*");}catch(e){}
 
       if(vv){vv.removeEventListener("resize",update);vv.removeEventListener("scroll",update);}
 
