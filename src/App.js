@@ -698,78 +698,103 @@ function AddressInput({value,onChange,style:s}){
 const renderBullet=text=>{if(!text)return"\u2014";return text.split("\n").map((l,i)=><div key={i} style={{marginBottom:"2px"}}>{l}</div>);};
 
 function PinDialog({onSuccess,onCancel,title}){
+
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[storedPin,setStoredPin]=useState(DEFAULT_PIN);
+
   useEffect(()=>{const u=onValue(ref(db,"settings/managerPin"),s=>{const v=s.val();if(v)setStoredPin(v);});return()=>u();},[]);
+
   useEffect(()=>{
-    const prevHtmlOverflow=document.documentElement.style.overflow;
-    const prevBodyOverflow=document.body.style.overflow;
-    const prevBodyPosition=document.body.style.position;
-    const prevBodyTop=document.body.style.top;
-    const prevBodyWidth=document.body.style.width;
-    const scrollY=window.scrollY||window.pageYOffset||0;
+
+    const prevHtml=document.documentElement.style.overflow;
+
+    const prevBody=document.body.style.overflow;
+
     document.documentElement.style.overflow="hidden";
+
     document.body.style.overflow="hidden";
-    document.body.style.position="fixed";
-    document.body.style.top=`-${scrollY}px`;
-    document.body.style.width="100%";
+
     return()=>{
-      document.documentElement.style.overflow=prevHtmlOverflow;
-      document.body.style.overflow=prevBodyOverflow;
-      document.body.style.position=prevBodyPosition;
-      document.body.style.top=prevBodyTop;
-      document.body.style.width=prevBodyWidth;
-      window.scrollTo(0,scrollY);
+
+      document.documentElement.style.overflow=prevHtml;
+
+      document.body.style.overflow=prevBody;
+
     };
+
   },[]);
+
   const check=()=>{if(pin===storedPin){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+
+  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",paddingTop:"max(80px,15vh)",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+
       <div style={{color:t.amber}}><LockIcon/></div>
+
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Enter Manager PIN"}</h3>
+
       <p style={{fontSize:"13px",color:t.muted,marginBottom:"20px"}}>This area is protected</p>
+
       <input type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
+
       {err&&<div style={{color:t.danger,fontSize:"13px",marginBottom:"8px"}}>Incorrect PIN</div>}
+
       <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px",justifyContent:"center"}}>Enter</button></div>
+
     </div>
+
   </div>);
+
 }
 
 // Paint Colors admin gate — hardcoded to Rob's PIN
 const ROB_PIN="2433";
 function RobPinDialog({onSuccess,onCancel,title,subtitle}){
+
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);
+
   useEffect(()=>{
-    const prevHtmlOverflow=document.documentElement.style.overflow;
-    const prevBodyOverflow=document.body.style.overflow;
-    const prevBodyPosition=document.body.style.position;
-    const prevBodyTop=document.body.style.top;
-    const prevBodyWidth=document.body.style.width;
-    const scrollY=window.scrollY||window.pageYOffset||0;
+
+    const prevHtml=document.documentElement.style.overflow;
+
+    const prevBody=document.body.style.overflow;
+
     document.documentElement.style.overflow="hidden";
+
     document.body.style.overflow="hidden";
-    document.body.style.position="fixed";
-    document.body.style.top=`-${scrollY}px`;
-    document.body.style.width="100%";
+
     return()=>{
-      document.documentElement.style.overflow=prevHtmlOverflow;
-      document.body.style.overflow=prevBodyOverflow;
-      document.body.style.position=prevBodyPosition;
-      document.body.style.top=prevBodyTop;
-      document.body.style.width=prevBodyWidth;
-      window.scrollTo(0,scrollY);
+
+      document.documentElement.style.overflow=prevHtml;
+
+      document.body.style.overflow=prevBody;
+
     };
+
   },[]);
+
   const check=()=>{if(pin===ROB_PIN){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+
+  return(<div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:0,left:0,right:0,bottom:0,inset:0,width:"100vw",height:"100vh",minHeight:"-webkit-fill-available",background:"rgba(10,10,15,0.98)",zIndex:99999,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",paddingTop:"max(80px,15vh)",overscrollBehavior:"contain",touchAction:"none",WebkitOverflowScrolling:"auto",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
+
     <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"32px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
+
       <div style={{color:t.amber}}><LockIcon/></div>
+
       <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
+
       <p style={{fontSize:"13px",color:t.muted,marginBottom:"20px"}}>{subtitle||"Admin-only action"}</p>
+
       <input autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter Rob's PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
+
       {err&&<div style={{color:t.danger,fontSize:"13px",marginBottom:"8px"}}>Incorrect PIN</div>}
+
       <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px",justifyContent:"center"}}>Enter</button></div>
+
     </div>
+
   </div>);
+
 }
 
 function InfoModal({title,icon,children,onClose}){
