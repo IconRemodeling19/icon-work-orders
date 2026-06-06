@@ -3590,7 +3590,7 @@ function AppInner(){
             {/* CREW + DATE (shared) */}
             <div><label style={labelStyle}>Crew</label><select value={formData.crewName} onChange={e=>setFormData({...formData,crewName:e.target.value,members:[]})} style={{...inputStyle,appearance:"none",cursor:"pointer"}}><option value="">Select a crew...</option>{crewNames.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
             {formData.crewName&&(crews[formData.crewName]||[]).length>0&&<div><label style={labelStyle}>Assign Members</label><div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>{(crews[formData.crewName]||[]).map(n=>{const s=(formData.members||[]).includes(n);return<button key={n} onClick={()=>toggleMember(n)} style={{...baseBtn,padding:"8px 14px",borderRadius:"20px",fontSize:"13px",background:s?t.blue:t.tag,color:s?"#fff":t.text,border:`1px solid ${s?t.blue:t.line}`,gap:"4px"}}>{s&&<CheckIcon/>}{n}</button>;})}</div></div>}
-            <div><label style={labelStyle}>Date</label><input type="date" value={formData.date} onChange={e=>setFormData({...formData,date:e.target.value})} style={inputStyle}/></div>
+            <div style={{width:"100%",boxSizing:"border-box"}}><label style={labelStyle}>Date</label><input type="date" value={formData.date} onChange={e=>setFormData({...formData,date:e.target.value})} style={{...inputStyle,width:"100%",maxWidth:"100%",boxSizing:"border-box",display:"block"}}/></div>
 
             {/* PER-JOB SECTIONS */}
             {(formData.jobs||[{...emptyJob}]).map((job,ji)=>{
