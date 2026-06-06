@@ -699,143 +699,98 @@ function AddressInput({value,onChange,style:s}){
 const renderBullet=text=>{if(!text)return"\u2014";return text.split("\n").map((l,i)=><div key={i} style={{marginBottom:"2px"}}>{l}</div>);};
 
 function PinDialog({onSuccess,onCancel,title}){
-
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);const[storedPin,setStoredPin]=useState(DEFAULT_PIN);
-
   const[vvTop,setVvTop]=useState(0);const[vvHeight,setVvHeight]=useState(window.innerHeight);
-
   useEffect(()=>{const u=onValue(ref(db,"settings/managerPin"),s=>{const v=s.val();if(v)setStoredPin(v);});return()=>u();},[]);
-
   useEffect(()=>{
-
     const prevHtml=document.documentElement.style.overflow;
-
     const prevBody=document.body.style.overflow;
-
     document.documentElement.style.overflow="hidden";
-
     document.body.style.overflow="hidden";
-
     try{window.parent.postMessage({type:"PIN_LOCK",active:true},"*");}catch(e){}
-
     const vv=window.visualViewport;
-
     const update=()=>{if(vv){setVvTop(vv.offsetTop);setVvHeight(vv.height);}};
-
     if(vv){vv.addEventListener("resize",update);vv.addEventListener("scroll",update);update();}
-
     return()=>{
-
       document.documentElement.style.overflow=prevHtml;
-
       document.body.style.overflow=prevBody;
-
       try{window.parent.postMessage({type:"PIN_LOCK",active:false},"*");}catch(e){}
-
       if(vv){vv.removeEventListener("resize",update);vv.removeEventListener("scroll",update);}
-
     };
-
   },[]);
-
   const check=()=>{if(pin===storedPin){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-
+  const tap=d=>{if(pin.length<8)setPin(p=>p+d);};
+  const del=()=>setPin(p=>p.slice(0,-1));
+  const onKey=e=>{if(e.key>="0"&&e.key<="9"){tap(e.key);}else if(e.key==="Backspace"){del();}else if(e.key==="Enter"){check();}};
+  const dots=Array.from({length:4},(_,i)=>i<pin.length?"●":"○");
+  const btnStyle={width:"72px",height:"72px",borderRadius:"50%",border:`1.5px solid ${t.line}`,background:t.tag,color:t.text,fontSize:"22px",fontWeight:700,cursor:"pointer",fontFamily:ff,display:"flex",alignItems:"center",justifyContent:"center",userSelect:"none",WebkitUserSelect:"none",touchAction:"manipulation"};
   return ReactDOM.createPortal(
-
-    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
-
-      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"20px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflowY:"auto",maxHeight:"100%"}}>
-
+    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}} onKeyDown={onKey} tabIndex={-1}>
+      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"24px 20px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
         <div style={{color:t.amber}}><LockIcon/></div>
-
-        <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Enter Manager PIN"}</h3>
-
-        <p style={{fontSize:"13px",color:t.muted,marginBottom:"20px"}}>This area is protected</p>
-
-        <input type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
-
+        <h3 style={{margin:"10px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Enter Manager PIN"}</h3>
+        <p style={{fontSize:"13px",color:t.muted,marginBottom:"16px"}}>This area is protected</p>
+        <div style={{display:"flex",justifyContent:"center",gap:"16px",marginBottom:"16px",fontSize:"28px",letterSpacing:"4px",color:t.text}}>{dots.join(" ")}</div>
         {err&&<div style={{color:t.danger,fontSize:"13px",marginBottom:"8px"}}>Incorrect PIN</div>}
-
-        <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px",justifyContent:"center"}}>Enter</button></div>
-
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",justifyItems:"center",marginBottom:"14px"}}>
+          {["1","2","3","4","5","6","7","8","9"].map(d=><button key={d} onClick={()=>tap(d)} style={btnStyle}>{d}</button>)}
+          <button onClick={del} style={{...btnStyle,fontSize:"16px",color:t.muted}}>⌫</button>
+          <button onClick={()=>tap("0")} style={btnStyle}>0</button>
+          <button onClick={check} style={{...btnStyle,background:t.blue,border:"none",color:"#fff",fontSize:"14px",fontWeight:800}}>✓</button>
+        </div>
+        <button onClick={onCancel} style={{...baseBtn,width:"100%",background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`,borderRadius:"10px",justifyContent:"center"}}>Cancel</button>
       </div>
-
     </div>,
-
     document.body
-
   );
-
 }
 
 // Paint Colors admin gate — hardcoded to Rob's PIN
 const ROB_PIN="2433";
 function RobPinDialog({onSuccess,onCancel,title,subtitle}){
-
   const[pin,setPin]=useState("");const[err,setErr]=useState(false);
-
   const[vvTop,setVvTop]=useState(0);const[vvHeight,setVvHeight]=useState(window.innerHeight);
-
   useEffect(()=>{
-
     const prevHtml=document.documentElement.style.overflow;
-
     const prevBody=document.body.style.overflow;
-
     document.documentElement.style.overflow="hidden";
-
     document.body.style.overflow="hidden";
-
     try{window.parent.postMessage({type:"PIN_LOCK",active:true},"*");}catch(e){}
-
     const vv=window.visualViewport;
-
     const update=()=>{if(vv){setVvTop(vv.offsetTop);setVvHeight(vv.height);}};
-
     if(vv){vv.addEventListener("resize",update);vv.addEventListener("scroll",update);update();}
-
     return()=>{
-
       document.documentElement.style.overflow=prevHtml;
-
       document.body.style.overflow=prevBody;
-
       try{window.parent.postMessage({type:"PIN_LOCK",active:false},"*");}catch(e){}
-
       if(vv){vv.removeEventListener("resize",update);vv.removeEventListener("scroll",update);}
-
     };
-
   },[]);
-
   const check=()=>{if(pin===ROB_PIN){onSuccess();}else{setErr(true);setPin("");setTimeout(()=>setErr(false),2000);}};
-
+  const tap=d=>{if(pin.length<8)setPin(p=>p+d);};
+  const del=()=>setPin(p=>p.slice(0,-1));
+  const onKey=e=>{if(e.key>="0"&&e.key<="9"){tap(e.key);}else if(e.key==="Backspace"){del();}else if(e.key==="Enter"){check();}};
+  const dots=Array.from({length:4},(_,i)=>i<pin.length?"●":"○");
+  const btnStyle={width:"72px",height:"72px",borderRadius:"50%",border:`1.5px solid ${t.line}`,background:t.tag,color:t.text,fontSize:"22px",fontWeight:700,cursor:"pointer",fontFamily:ff,display:"flex",alignItems:"center",justifyContent:"center",userSelect:"none",WebkitUserSelect:"none",touchAction:"manipulation"};
   return ReactDOM.createPortal(
-
-    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}}>
-
-      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"20px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflowY:"auto",maxHeight:"100%"}}>
-
+    <div onTouchMove={e=>e.stopPropagation()} style={{position:"fixed",top:vvTop,left:0,width:"100vw",height:vvHeight,background:"rgba(10,10,15,0.98)",zIndex:2147483647,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box",overscrollBehavior:"contain",touchAction:"none",transform:"translateZ(0)",WebkitTransform:"translateZ(0)",willChange:"transform"}} onKeyDown={onKey} tabIndex={-1}>
+      <div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"24px 20px",maxWidth:"320px",width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.6)"}}>
         <div style={{color:t.amber}}><LockIcon/></div>
-
-        <h3 style={{margin:"12px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
-
-        <p style={{fontSize:"13px",color:t.muted,marginBottom:"20px"}}>{subtitle||"Admin-only action"}</p>
-
-        <input autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")check();}} placeholder="Enter Rob's PIN" style={{...inputStyle,textAlign:"center",fontSize:"24px",letterSpacing:"8px",marginBottom:"12px"}}/>
-
+        <h3 style={{margin:"10px 0 4px",fontSize:"18px",color:t.text,fontFamily:ff}}>{title||"Rob's PIN Required"}</h3>
+        <p style={{fontSize:"13px",color:t.muted,marginBottom:"16px"}}>{subtitle||"Admin-only action"}</p>
+        <div style={{display:"flex",justifyContent:"center",gap:"16px",marginBottom:"16px",fontSize:"28px",letterSpacing:"4px",color:t.text}}>{dots.join(" ")}</div>
         {err&&<div style={{color:t.danger,fontSize:"13px",marginBottom:"8px"}}>Incorrect PIN</div>}
-
-        <div style={{display:"flex",gap:"10px"}}><button onClick={onCancel} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={check} style={{...primaryBtn,flex:1,padding:"12px",justifyContent:"center"}}>Enter</button></div>
-
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",justifyItems:"center",marginBottom:"14px"}}>
+          {["1","2","3","4","5","6","7","8","9"].map(d=><button key={d} onClick={()=>tap(d)} style={btnStyle}>{d}</button>)}
+          <button onClick={del} style={{...btnStyle,fontSize:"16px",color:t.muted}}>⌫</button>
+          <button onClick={()=>tap("0")} style={btnStyle}>0</button>
+          <button onClick={check} style={{...btnStyle,background:t.blue,border:"none",color:"#fff",fontSize:"14px",fontWeight:800}}>✓</button>
+        </div>
+        <button onClick={onCancel} style={{...baseBtn,width:"100%",background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`,borderRadius:"10px",justifyContent:"center"}}>Cancel</button>
       </div>
-
     </div>,
-
     document.body
-
   );
-
 }
 
 function InfoModal({title,icon,children,onClose}){
