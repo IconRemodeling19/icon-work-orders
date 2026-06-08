@@ -1824,7 +1824,9 @@ function AppInner(){
   const[newJobDoorLocation,setNewJobDoorLocation]=useState("");
   const[newJobDoorCode,setNewJobDoorCode]=useState("");
   const[recurringTemplates,setRecurringTemplates]=useState({});
-  const[mgrTab,setMgrTab]=useState("today"); // today | recurring | history
+  const[emailModal,setEmailModal]=useState(null);
+const[emailSending,setEmailSending]=useState(false);
+const[mgrTab,setMgrTab]=useState("today"); // today | recurring | history
   const[mgrSearch,setMgrSearch]=useState("");
   const[mgrFilter,setMgrFilter]=useState("today"); // today | week | all | crew:<name>
   const[archiveSearch,setArchiveSearch]=useState("");
@@ -2245,7 +2247,17 @@ function AppInner(){
     setTimeout(()=>w.print(),600);
   }
 
-  const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");showToast("Manager PIN updated");}else showToast("PIN must be at least 4 digits");};
+  const sendCustomerEmail=async(to,subject,message)=>{
+  setEmailSending(true);
+  try{
+    const res=await fetch("/api/send-email",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to,subject,message})});
+    const data=await res.json();
+    if(data.success){showToast("Email sent to customer");setEmailModal(null);}
+    else{showToast("Failed to send email: "+(data.error||"Unknown error"));}
+  }catch(err){showToast("Failed to send email");}
+  finally{setEmailSending(false);}
+};
+const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin);setNewPin("");showToast("Manager PIN updated");}else showToast("PIN must be at least 4 digits");};
   const saveNewCrewPin=()=>{if(newCrewPin.length>=4){saveToFB("settings/crewPin",newCrewPin);setNewCrewPin("");showToast("Crew PIN updated");}else showToast("PIN must be at least 4 digits");};
 
   const todayStr=new Date().toISOString().split("T")[0];
@@ -3522,7 +3534,33 @@ function AppInner(){
   // ── MANAGER ───────────────────────────────────────────────────────────────
   return(
     <div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
-      {deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"26px",maxWidth:"300px",width:"100%",textAlign:"center"}}><div style={{fontSize:"16px",fontWeight:700,marginBottom:"8px",color:t.text}}>Delete Order?</div><div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>{"This can't be undone."}</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px",fontWeight:700,borderRadius:"10px"}}>Delete</button></div></div></div>}
+      {emailModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setEmailModal(null)}>
+  <div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"18px",padding:"24px",maxWidth:"480px",width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,.6)",maxHeight:"90vh",overflowY:"auto"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
+      <div style={{fontSize:"17px",fontWeight:700,color:t.text}}>📧 Email Customer</div>
+      <button onClick={()=>setEmailModal(null)} style={{...ghostBtn,padding:"4px",color:t.muted}}><XIcon/></button>
+    </div>
+    <div style={{marginBottom:"12px"}}>
+      <label style={labelStyle}>To</label>
+      <input value={emailModal.to} onChange={e=>setEmailModal({...emailModal,to:e.target.value})} placeholder="customer@email.com" style={inputStyle}/>
+    </div>
+    <div style={{marginBottom:"12px"}}>
+      <label style={labelStyle}>Subject</label>
+      <input value={emailModal.subject} onChange={e=>setEmailModal({...emailModal,subject:e.target.value})} style={inputStyle}/>
+    </div>
+    <div style={{marginBottom:"16px"}}>
+      <label style={labelStyle}>Message</label>
+      <textarea value={emailModal.message} onChange={e=>setEmailModal({...emailModal,message:e.target.value})} rows={10} style={{...inputStyle,resize:"vertical",minHeight:"200px",fontFamily:ff,lineHeight:1.6}}/>
+    </div>
+    <div style={{display:"flex",gap:"10px"}}>
+      <button onClick={()=>setEmailModal(null)} style={{...baseBtn,flex:1,background:t.tag,border:`1px solid ${t.line}`,color:t.muted,padding:"13px",borderRadius:"10px"}}>Cancel</button>
+      <button onClick={()=>sendCustomerEmail(emailModal.to,emailModal.subject,emailModal.message)} disabled={emailSending||!emailModal.to} style={{...primaryBtn,flex:2,padding:"13px",justifyContent:"center",opacity:(emailSending||!emailModal.to)?0.5:1}}>
+        {emailSending?"Sending...":"Send Email"}
+      </button>
+    </div>
+  </div>
+</div>}
+{deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"26px",maxWidth:"300px",width:"100%",textAlign:"center"}}><div style={{fontSize:"16px",fontWeight:700,marginBottom:"8px",color:t.text}}>Delete Order?</div><div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>{"This can't be undone."}</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px",fontWeight:700,borderRadius:"10px"}}>Delete</button></div></div></div>}
       {smsModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setSmsModal(null)}><div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"22px",maxWidth:"420px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{fontSize:"16px",fontWeight:700,marginBottom:"4px",color:t.text}}>{IS_MOBILE?"📱 Send SMS to Crew":"📋 Copy Message for Crew"}</div>
         <div style={{fontSize:"12px",color:t.muted,marginBottom:"16px",lineHeight:1.5}}>{IS_MOBILE?"Tap each crew member to open their SMS draft. Browsers block sending all at once, so send them one by one.":"Click each crew member to copy their message individually."}</div>
@@ -3749,7 +3787,7 @@ function AppInner(){
                     {getJobsForOrder(order).length>1&&<span style={{fontSize:"11px",background:"rgba(232,25,44,0.15)",color:t.danger,border:`1px solid ${t.danger}`,padding:"2px 8px",borderRadius:"20px",fontWeight:700}}>{getJobsForOrder(order).length} Jobs</span>}
                   </div>
                   <div style={{display:"flex",gap:"3px"}}>
-                    <button onClick={()=>{const c=triggerCrewSms(order,ri);showToast(c===0?"No phone numbers stored for crew":`Notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.green}} title={IS_MOBILE?"📱 Notify Crew via SMS":"📋 Copy Message for Crew"}><PhoneIcon/></button>
+                    <button onClick={()=>{const job=getJobsForOrder(order)[0]||{};const customerName=job.customerName||order.customerName||"Customer";const date=order.date||"";const jobDesc=job.jobDescription||"";const defaultMsg=`Dear ${customerName},\n\nPlease be advised that our crew is scheduled to arrive at your property on ${date} to perform work.\n\nPlease don't hesitate to reach out if you have any questions or need to make any changes prior to your appointment.\n\nWe look forward to seeing you soon!\n\nThank you,\nIcon Remodeling Group Inc.\n19 Washington Avenue\nPleasantville, NY 10570\n(914) 305-3534`;setEmailModal({to:job.customerPhone||"",subject:"Upcoming Service Visit — Icon Remodeling Group Inc.",message:defaultMsg});}} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue}} title="Email Customer">📧</button><button onClick={()=>{const c=triggerCrewSms(order,ri);showToast(c===0?"No phone numbers stored for crew":`Notifying ${c} crew member${c===1?"":"s"}`);}} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.green}} title={IS_MOBILE?"📱 Notify Crew via SMS":"📋 Copy Message for Crew"}><PhoneIcon/></button>
                     <button onClick={()=>handlePrint(order)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.muted}}><PrintIcon/></button>
                     <button onClick={()=>setDocView(order)} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.cyan}} title="View as Document"><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
                     <button onClick={()=>{setFormData({...emptyCrewOrder,...order,members:order.members||[],jobs:getJobsForOrder(order),recurring:order.recurring||{enabled:false,frequency:"Weekly",until:""}});setEditingOrder(ri);setShowForm(true);}} style={{...ghostBtn,padding:"8px",minWidth:"36px",minHeight:"36px",color:t.blue}}><EditIcon/></button>
