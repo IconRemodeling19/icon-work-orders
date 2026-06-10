@@ -95,7 +95,7 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
         extra: { materialsId: id }
       });
       localNotify("New materials request", `${requestedBy} requested ${valid.length} item(s)`);
-      showToast?.("Materials request sent");
+      try{var NL=String.fromCharCode(10);var __itemsTxt=valid.map(function(l){return "- "+l.quantity+" "+l.unit+" - "+l.description;}).join(NL);fetch("/api/send-email",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:"rross@iconremodelinggroup.com,bryan@iconremodelinggroup.com,admin@iconremodelinggroup.com",subject:"Materials Request - "+requestedBy+(record.jobName?" - "+record.jobName:""),message:requestedBy+" submitted a materials request."+NL+NL+"Job: "+(record.jobName||"(none)")+NL+"Address: "+(record.jobAddress||"(none)")+NL+"Customer: "+(record.customerName||"(none)")+NL+NL+"Items:"+NL+__itemsTxt+(record.overallNotes?NL+NL+"Notes:"+NL+record.overallNotes:"")+NL+NL+"Open Work Orders -> Manager -> Materials to review."})}).catch(function(){});}catch(e){} showToast?.("Materials request sent");
       onSubmitted?.(record);
     } catch (e) {
       console.error(e);
