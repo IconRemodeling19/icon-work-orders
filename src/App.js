@@ -3078,7 +3078,7 @@ const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin
       <Header title="Field Notes & Photos" subtitle={today} onBack={goHome} onHome={goHome}/>
       <div style={{padding:"20px",paddingBottom:"100px"}}>
         <div style={{display:"flex",flexDirection:"column",gap:"14px",marginBottom:"24px"}}>
-          <div><label style={labelStyle}>Link to Work Order</label><select value={selectedJob} onChange={e=>setSelectedJob(e.target.value)} style={{...inputStyle,appearance:"none"}}><option value="">General</option>{allJobs.map((j,i)=><option key={i} value={j.label}>{j.label} ({j.date})</option>)}</select></div>
+          <div><label style={labelStyle}>Link to Job / Work Order</label><select value={selectedJob} onChange={e=>setSelectedJob(e.target.value)} style={{...inputStyle,appearance:"none"}}><option value="">General</option>{(activeJobs||[]).length>0&&<optgroup label="Active Jobs">{(activeJobs||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map((j,i)=><option key={"job"+i} value={j.name}>{j.name}</option>)}</optgroup>}{allJobs.length>0&&<optgroup label="Today's Work Orders">{allJobs.map((j,i)=><option key={i} value={j.label}>{j.label} ({j.date})</option>)}</optgroup>}</select></div>
           <div><label style={labelStyle}>Notes</label><BulletTextarea value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Type field notes..." style={inputStyle}/></div>
           <div style={{display:"flex",gap:"8px"}}>
             <input ref={noteFileRef} type="file" multiple onChange={handleNoteUpload} style={{display:"none"}}/>
