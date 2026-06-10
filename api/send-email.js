@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
         message: {
           subject,
           body: { contentType: 'HTML', content: html },
-          toRecipients: [{ emailAddress: { address: to } }],
+          toRecipients: String(to).split(',').map(s => s.trim()).filter(Boolean).map(address => ({ emailAddress: { address } })),
         },
         saveToSentItems: true,
       }),
