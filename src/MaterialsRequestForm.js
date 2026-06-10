@@ -175,21 +175,21 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {lineItems.map((line, idx) => (
                 <div key={line.id} style={{ background: t.card, border: `1px solid ${t.line}`, borderRadius: "12px", padding: "12px" }}>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
+                    <div style={{ width: "80px", flexShrink: 0 }}>
+                      <select value={line.quantity} onChange={e => updateLine(idx, { quantity: e.target.value })} style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}>
+                        {Array.from({ length: 151 }, (_, i) => <option key={i} value={i}>{i}</option>)}
+                      </select>
+                    </div>
                     <div style={{ flex: 1 }}>
                       <input value={line.description} onChange={e => updateLine(idx, { description: e.target.value })} placeholder={`Item #${idx + 1} description`} style={inputStyle} />
                     </div>
-                    <button onClick={() => removeLine(idx)} title="Remove" style={{ background: "transparent", border: "none", color: t.danger, cursor: "pointer", padding: "12px 12px", minWidth: "44px", minHeight: "44px", fontSize: "16px", fontWeight: 800 }}>✕</button>
-                  </div>
-                  <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-                    <div style={{ flex: 1 }}>
-                      <input type="number" min="0" step="1" value={line.quantity} onChange={e => updateLine(idx, { quantity: e.target.value })} placeholder="Qty" style={inputStyle} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <select value={line.unit} onChange={e => updateLine(idx, { unit: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
+                    <div style={{ width: "100px", flexShrink: 0 }}>
+                      <select value={line.unit} onChange={e => updateLine(idx, { unit: e.target.value })} style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}>
                         {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </div>
+                    <button onClick={() => removeLine(idx)} title="Remove" style={{ background: "transparent", border: "none", color: t.danger, cursor: "pointer", padding: "12px 12px", minWidth: "44px", minHeight: "44px", fontSize: "16px", fontWeight: 800 }}>✕</button>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <input type="file" accept="image/*" capture="environment" id={`photo-${line.id}`} style={{ display: "none" }} onChange={e => handlePhoto(idx, e)} />
