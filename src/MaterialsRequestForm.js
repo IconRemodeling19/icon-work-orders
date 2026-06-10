@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { db, ref, set, push, storage, storageRef, uploadBytes, getDownloadURL } from "./firebase";
 import { logActivity } from "./historyLog";
 import { localNotify } from "./notifications";
+import AddressInput from "./AddressInput";
 
 const ff = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 const t = {
@@ -31,6 +32,8 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
   const [overallNotes, setOverallNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [uploadingIdx, setUploadingIdx] = useState(null);
+  const [manualAddress, setManualAddress] = useState("");
+  const [manualCustomer, setManualCustomer] = useState("");
 
   const updateLine = (idx, patch) => setLineItems(items => items.map((l, i) => i === idx ? { ...l, ...patch } : l));
   const addLine = () => setLineItems(items => [...items, emptyLine()]);
@@ -58,9 +61,10 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
     const valid = lineItems.filter(l => l.description.trim());
     if (valid.length === 0) { showToast?.("Add at least one item"); return; }
     if (!requestedBy) { showToast?.("Select who is requesting"); return; }
+    const job = jobIndex !== "" ? activeJobs[Number(jobIndex)] : null;
+    if (!jobIndex && !manualAddress.trim()) { showToast?.("Enter a job address or select a linked job"); return; }
     setSubmitting(true);
     try {
-      const job = activeJobs[Number(jobIndex)];
       const node = push(ref(db, "materialsRequests"));
       const id = node.key;
       const now = new Date().toISOString();
@@ -70,8 +74,8 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
         requestedBy,
         jobIndex: jobIndex !== "" ? Number(jobIndex) : null,
         jobName: job?.name || "",
-        jobAddress: job?.address || "",
-        customerName: job?.customerName || "",
+        jobAddress: job?.address || manualAddress.trim(),
+        customerName: job?.customerName || manualCustomer.trim(),
         lineItems: valid.map(l => ({
           id: l.id, description: l.description.trim(),
           quantity: Number(l.quantity) || 1, unit: l.unit || "each",
@@ -127,6 +131,33 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
               {(activeJobs || []).map((j, i) => <option key={i} value={i}>{j.name}{j.customerName ? ` · ${j.customerName}` : ""}</option>)}
             </select>
           </div>
+
+          {jobIndex === "" && (
+            <>
+              <div style={{ textAlign: "center", color: t.muted, fontSize: "12px", fontWeight: 700,
+                letterSpacing: "1px", padding: "4px 0" }}>— or —</div>
+
+              <div>
+                <label style={labelStyle}>Job Address</label>
+                <AddressInput
+                  value={manualAddress}
+                  onChange={e => setManualAddress(e.target.value)}
+                  placeholder="Enter job address"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Customer Name <span style={{ color: t.muted, fontWeight: 400 }}>(optional)</span></label>
+                <input
+                  value={manualCustomer}
+                  onChange={e => setManualCustomer(e.target.value)}
+                  placeholder="Customer name"
+                  style={inputStyle}
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label style={labelStyle}>Requested By</label>
