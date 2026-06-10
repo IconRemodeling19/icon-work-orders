@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import { db, ref, set, onValue, push, remove, storage, storageRef, uploadBytes, getDownloadURL, auth, signInAnonymously, onAuthStateChanged } from "./firebase";
+import { processFileForUpload, uploadProcessed } from "./fileUpload";
 import { SkeletonScreen, SkeletonOrderList, SkeletonStyles, OfflineBanner } from "./Skeletons";
 import { generateReferenceId, ensureReferenceId } from "./refId";
 import { FREQUENCIES, nextDate, todayStr as recurringTodayStr, dueTemplates, orderFromTemplate } from "./recurring";
@@ -455,64 +456,6 @@ function AttachmentCard({attachment,onOpen,theme="dark"}){
       </div>
     </div>
   );
-}
-
-// ── Smart file processor: images pass through, PDFs convert to image, Office files warn ──
-async function processFileForUpload(file,showToastFn){
-  const ext=file.name.split(".").pop().toLowerCase();
-  const imageTypes=["jpg","jpeg","png","gif","webp","svg","heic","heif"];
-  const officeTypes=["doc","docx","xls","xlsx","ppt","pptx"];
-
-  // Images — pass straight through
-  if(imageTypes.includes(ext)||file.type.startsWith("image/"))return{file,warn:null};
-
-  // PDFs — convert first page to image using PDF.js
-  if(ext==="pdf"||file.type==="application/pdf"){
-    try{
-      // Load PDF.js if not already loaded
-      if(!window.pdfjsLib){
-        await new Promise((res,rej)=>{
-          const s=document.createElement("script");
-          s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-          s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res();}
-          s.onerror=rej;document.head.appendChild(s);
-        });
-      }
-      const arrayBuffer=await file.arrayBuffer();
-      const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
-      const numPages=pdf.numPages;
-      const blobs=[];
-      for(let p=1;p<=numPages;p++){
-        const page=await pdf.getPage(p);
-        const vp=page.getViewport({scale:2.0});
-        const canvas=document.createElement("canvas");
-        canvas.width=vp.width;canvas.height=vp.height;
-        const ctx=canvas.getContext("2d");
-        await page.render({canvasContext:ctx,viewport:vp}).promise;
-        const blob=await new Promise(res=>canvas.toBlob(res,"image/jpeg",0.92));
-        blobs.push(blob);
-      }
-      if(blobs.length===1){
-        const imgFile=new File([blobs[0]],file.name.replace(/\.pdf$/i,".jpg"),{type:"image/jpeg"});
-        return{file:imgFile,warn:null,wasConverted:true};
-      } else {
-        // Multi-page: return array of files
-        const imgFiles=blobs.map((b,i)=>new File([b],file.name.replace(/\.pdf$/i,`_page${i+1}.jpg`),{type:"image/jpeg"}));
-        return{files:imgFiles,warn:null,wasConverted:true,multiPage:true};
-      }
-    }catch{
-      // Fall through — upload original PDF
-      return{file,warn:null};
-    }
-  }
-
-  // Office files — warn and upload original
-  if(officeTypes.includes(ext)){
-    return{file,warn:`"${file.name}" is a ${ext.toUpperCase()} file. For best mobile viewing, save as PDF before uploading. Uploading original.`};
-  }
-
-  // Everything else — pass through
-  return{file,warn:null};
 }
 
 // ── PROFESSIONAL WORK ORDER DOCUMENT COMPONENT ───────────────────────────────
@@ -1221,11 +1164,20 @@ function SubOrderManager({onBack,onHome,activeJobs,showToast}){
     const atts=[...(form.attachments||[])];
     for(const f of files){
       try{
-        const fn=`${Date.now()}_${f.name}`;
-        const fr=storageRef(storage,`suborders/${fn}`);
-        await uploadBytes(fr,f);
-        const url=await getDownloadURL(fr);
-        atts.push({name:f.name,url,uploadedAt:new Date().toISOString()});
+        const result=await processFileForUpload(f);
+        if(result.warn)showToast(result.warn);
+        if(result.multiPage&&result.files){
+          for(let pi=0;pi<result.files.length;pi++){
+            const pf=result.files[pi];
+            const label=result.files.length>1?`${f.name.replace(/\.pdf$/i,"")} — Page ${pi+1}`:f.name;
+            const {url}=await uploadProcessed("suborders",pf);
+            atts.push({name:label,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:true});
+          }
+        } else {
+          const uf=result.file;
+          const {url}=await uploadProcessed("suborders",uf);
+          atts.push({name:uf.name,originalName:f.name,url,uploadedAt:new Date().toISOString(),converted:!!result.wasConverted});
+        }
       }catch{showToast("Upload failed");}
     }
     setForm(f=>({...f,attachments:atts}));setUploading(false);
@@ -3122,7 +3074,7 @@ const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin
     }
     setNoteAtts(atts);setUploading(false);showToast("Uploaded");e.target.value="";
   };
-    const handleCamera=async(e)=>{const file=e.target.files[0];if(!file)return;setUploading(true);const dn=window.prompt("Name photo:",`Photo`)||file.name;try{const fn=`${Date.now()}_${file.name}`;const fr=storageRef(storage,`fieldnotes/${fn}`);await uploadBytes(fr,file);const url=await getDownloadURL(fr);setNoteAtts([...noteAtts,{name:dn,url,uploadedAt:new Date().toISOString()}]);}catch(err){showToast("Failed");}setUploading(false);e.target.value="";};
+    const handleCamera=async(e)=>{const file=e.target.files[0];if(!file)return;setUploading(true);const dn=window.prompt("Name photo:",`Photo`)||file.name;try{const result=await processFileForUpload(file);if(result.warn)showToast(result.warn);const uf=result.file||file;const {url}=await uploadProcessed("fieldnotes",uf);setNoteAtts([...noteAtts,{name:dn,url,uploadedAt:new Date().toISOString(),converted:!!result.wasConverted}]);}catch(err){showToast("Failed");}setUploading(false);e.target.value="";};
     return(<div style={{minHeight:"100vh",background:t.bg,fontFamily:ff}}><Toast/>
       <Header title="Field Notes & Photos" subtitle={today} onBack={goHome} onHome={goHome}/>
       <div style={{padding:"20px",paddingBottom:"100px"}}>

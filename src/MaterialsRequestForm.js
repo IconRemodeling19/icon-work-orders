@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { db, ref, set, push, storage, storageRef, uploadBytes, getDownloadURL } from "./firebase";
+import { db, ref, set, push } from "./firebase";
+import { processFileForUpload, uploadProcessed } from "./fileUpload";
 import { logActivity } from "./historyLog";
 import { localNotify } from "./notifications";
 import AddressInput from "./AddressInput";
@@ -44,11 +45,11 @@ export default function MaterialsRequestForm({ activeJobs, members, onClose, onS
     if (!file) return;
     setUploadingIdx(idx);
     try {
-      const fn = `${Date.now()}_${file.name}`;
-      const fr = storageRef(storage, `materials/${fn}`);
-      await uploadBytes(fr, file);
-      const url = await getDownloadURL(fr);
-      updateLine(idx, { photoUrl: url, photoName: file.name });
+      const result = await processFileForUpload(file);
+      if (result.warn) showToast?.(result.warn);
+      const uf = (result.multiPage && result.files) ? result.files[0] : (result.file || file);
+      const { url } = await uploadProcessed("materials", uf);
+      updateLine(idx, { photoUrl: url, photoName: uf.name });
     } catch (err) {
       showToast?.("Photo upload failed");
     } finally {
