@@ -75,6 +75,9 @@ const sendSMS = (phoneNumber, message) => {
     });
   }
 };
+const sendGroupSMS = (phones, message) => {
+  window.open(`sms:${phones.join(",")}?body=${encodeURIComponent(message)}`);
+};
 const AUTH_KEY = "wo-auth-granted";
 
 // ── COPILOT-INSPIRED THEME ──────────────────────────────────────────────────
@@ -211,11 +214,12 @@ function AppGate({children}){
   );
 }
 
+const localToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
 const emptyJob={customerName:"",customerPhone:"",jobTreadName:"",jobAddress:"",jobDescription:"",materials:"",specialNotes:"",attachments:[]};
-const emptyCrewOrder={crewName:"",members:[],date:new Date().toISOString().split("T")[0],jobs:[{...emptyJob}],recurring:{enabled:false,frequency:"Weekly",until:""}};
+const emptyCrewOrder={crewName:"",members:[],date:localToday(),jobs:[{...emptyJob}],recurring:{enabled:false,frequency:"Weekly",until:""}};
 // Backward compat: convert old flat order to jobs array
 function getJobsForOrder(order){if(order.jobs&&order.jobs.length>0)return order.jobs;return[{customerName:order.customerName||"",customerPhone:order.customerPhone||"",jobTreadName:order.jobTreadName||"",jobAddress:order.jobAddress||"",jobDescription:order.jobDescription||"",materials:order.materials||"",specialNotes:order.specialNotes||"",attachments:order.attachments||[]}];}
-const emptyFieldOrder={staffMember:[],todaysTasks:"",jobRequests:"",date:new Date().toISOString().split("T")[0],attachments:[],fieldNotes:[]};
+const emptyFieldOrder={staffMember:[],todaysTasks:"",jobRequests:"",date:localToday(),attachments:[],fieldNotes:[]};
 
 function saveToFB(path,data){set(ref(db,path),data).catch(()=>{});}
 function pushToFB(path,data){return push(ref(db,path),data);}
@@ -2035,7 +2039,7 @@ const[mgrTab,setMgrTab]=useState("today"); // today | recurring | history
       return 1;
     }
     if(IS_MOBILE){
-      setSmsModal({recipients});
+      setSmsModal({recipients,group:{phones:recipients.map(r=>r.phone),message:buildMessage("team")}});
     } else {
       const combined=recipients.map(r=>`— ${r.name} (${r.phone}) —\n${r.message}`).join("\n\n");
       if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -3503,7 +3507,8 @@ const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin
 {deleteConfirm!==null&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}><div style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"26px",maxWidth:"300px",width:"100%",textAlign:"center"}}><div style={{fontSize:"16px",fontWeight:700,marginBottom:"8px",color:t.text}}>Delete Order?</div><div style={{fontSize:"13px",color:t.muted,marginBottom:"22px"}}>{"This can't be undone."}</div><div style={{display:"flex",gap:"10px"}}><button onClick={()=>setDeleteConfirm(null)} style={{...baseBtn,flex:1,background:t.tag,color:t.muted,padding:"12px",border:`1px solid ${t.line}`}}>Cancel</button><button onClick={()=>deleteCrew(deleteConfirm)} style={{...baseBtn,flex:1,background:t.danger,color:"#fff",padding:"12px",fontWeight:700,borderRadius:"10px"}}>Delete</button></div></div></div>}
       {smsModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setSmsModal(null)}><div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.line}`,borderRadius:"16px",padding:"22px",maxWidth:"420px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{fontSize:"16px",fontWeight:700,marginBottom:"4px",color:t.text}}>{IS_MOBILE?"📱 Send SMS to Crew":"📋 Copy Message for Crew"}</div>
-        <div style={{fontSize:"12px",color:t.muted,marginBottom:"16px",lineHeight:1.5}}>{IS_MOBILE?"Tap each crew member to open their SMS draft. Browsers block sending all at once, so send them one by one.":"Click each crew member to copy their message individually."}</div>
+        <div style={{fontSize:"12px",color:t.muted,marginBottom:"16px",lineHeight:1.5}}>{IS_MOBILE?"Send one group text to the whole crew, or tap a member for an individual text.":"Click each crew member to copy their message individually."}</div>
+        {IS_MOBILE&&smsModal.group&&<button onClick={()=>sendGroupSMS(smsModal.group.phones,smsModal.group.message)} style={{...baseBtn,width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",padding:"13px 14px",background:t.blue,color:"#fff",border:`1px solid ${t.blue}`,borderRadius:"10px",fontWeight:700,fontSize:"14px",marginBottom:"12px"}}>👥 Text everyone at once (group)</button>}
         <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"16px"}}>
           {smsModal.recipients.map((r,i)=>(
             <button key={i} onClick={()=>sendSMS(r.phone,r.message)} style={{...baseBtn,display:"flex",alignItems:"center",justifyContent:"space-between",gap:"10px",padding:"12px 14px",background:t.tag,color:t.text,border:`1px solid ${t.line}`,borderRadius:"10px",textAlign:"left"}}>
@@ -3548,7 +3553,7 @@ const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin
         showToast={showToast}
       />}
       <Header title="Manager" subtitle={today} onBack={()=>{setManagerAuth(false);goHome();}} onHome={goHome}>
-        {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"7px 12px",fontSize:"13px"}}><PlusIcon/> New</button>}
+        {!showForm&&<button onClick={()=>{setFormData({...emptyCrewOrder,date:localToday()});setEditingOrder(null);setShowForm(true);}} style={{...primaryBtn,padding:"7px 12px",fontSize:"13px"}}><PlusIcon/> New</button>}
         <OverflowMenu items={[
           {icon:<span style={{fontSize:"15px"}}>👷</span>,label:"Subs",onClick:()=>setMode("subOrders")},
           {icon:<ArchiveIcon/>,label:"Archive",onClick:()=>setShowArchive(true)},
@@ -3568,7 +3573,7 @@ const saveNewPin=()=>{if(newPin.length>=4){saveToFB("settings/managerPin",newPin
             {/* CREW + DATE (shared) */}
             <div><label style={labelStyle}>Crew</label><select value={formData.crewName} onChange={e=>setFormData({...formData,crewName:e.target.value,members:[]})} style={{...inputStyle,appearance:"none",cursor:"pointer"}}><option value="">Select a crew...</option>{crewNames.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
             {formData.crewName&&(crews[formData.crewName]||[]).length>0&&<div><label style={labelStyle}>Assign Members</label><div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>{(crews[formData.crewName]||[]).map(n=>{const s=(formData.members||[]).includes(n);return<button key={n} onClick={()=>toggleMember(n)} style={{...baseBtn,padding:"8px 14px",borderRadius:"20px",fontSize:"13px",background:s?t.blue:t.tag,color:s?"#fff":t.text,border:`1px solid ${s?t.blue:t.line}`,gap:"4px"}}>{s&&<CheckIcon/>}{n}</button>;})}</div></div>}
-            <div style={{width:"100%",boxSizing:"border-box"}}><label style={labelStyle}>Date</label><input type="date" value={formData.date} onChange={e=>setFormData({...formData,date:e.target.value})} style={{...inputStyle,width:"100%",maxWidth:"100%",boxSizing:"border-box",display:"block"}}/></div>
+            <div style={{width:"100%",boxSizing:"border-box"}}><label style={labelStyle}>Date</label><input type="date" value={formData.date} onChange={e=>setFormData({...formData,date:e.target.value})} style={{...inputStyle,WebkitAppearance:"none",appearance:"none",minWidth:0,minHeight:"52px",width:"100%",maxWidth:"100%",boxSizing:"border-box",display:"block",textAlign:"left"}}/></div>
 
             {/* PER-JOB SECTIONS */}
             {(formData.jobs||[{...emptyJob}]).map((job,ji)=>{
